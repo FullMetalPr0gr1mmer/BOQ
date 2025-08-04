@@ -1,0 +1,132 @@
+.project-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  color: #E0F7FA;
+  font-family: 'Segoe UI', sans-serif;
+  box-shadow: 0 0 10px #00ffff44;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.new-project-btn {
+  background-color: #00FFFF;
+  color: #000;
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.new-project-btn:hover {
+  background-color: #00dddd;
+}
+
+.project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.project-form input {
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #00FFFF;
+  background-color: #000;
+  color: #00FFFF;
+}
+
+.project-form button {
+  padding: 0.5rem;
+  background-color: #00FFFF;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.project-list {
+  margin-top: 1rem;
+}
+
+.project-item {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 0.6rem;
+  margin-bottom: 0.5rem;
+  border-left: 4px solid #00FFFF;
+  border-radius: 4px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.pagination button {
+  background: transparent;
+  color: #00FFFF;
+  border: 1px solid #00FFFF;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pagination .active-page {
+  background-color: #00FFFF;
+  color: #000;
+}
+.error {
+  color: red;
+  margin-top: 0.5rem;
+}
+.success {
+  color: limegreen;
+  margin-top: 0.5rem;
+}
+.project-table-container {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.project-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #E0F7FA;
+  font-size: 0.95rem;
+}
+
+.project-table th,
+.project-table td {
+  border: 1px solid #00FFFF55;
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+}
+
+.project-table th {
+  background-color: #00ffff22;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.project-table tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+.project-table tr:hover {
+  background-color: rgba(0, 255, 255, 0.1);
+}

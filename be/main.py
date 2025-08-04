@@ -1,0 +1,26 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from APIs import LevelsRoute
+from APIs.InventoryRoute import inventoryRoute
+from APIs.LevelsRoute import levelsRouter
+from APIs.ProjectRoute import projectRoute
+from APIs.UserRoute import userRoute
+from Database.session import engine, Base
+
+#from Models import Config, SessionProject, AuditLog
+
+app = FastAPI()
+Base.metadata.create_all(bind=engine)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(userRoute)
+app.include_router(inventoryRoute)
+app.include_router(projectRoute)
+app.include_router(levelsRouter)

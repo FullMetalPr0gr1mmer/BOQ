@@ -1,0 +1,62 @@
+.nokia-header {
+  display: flex;
+  align-items: center; /* key: center vertically */
+  justify-content: space-between;
+  padding: 0.4rem 1.2rem 0.2rem;
+  background-color: transparent;
+  backdrop-filter: blur(2px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid #007bff; /* full width underline */
+  height: 48px; /* optional: lock header height */
+}
+
+.logo {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #007bff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+}
+.img{
+  width: 3rem;
+  height: 3rem;
+}
+.tabs {
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  height: 100%;
+}
+
+.tab {
+  text-decoration: none;
+  color: #007bff;
+  font-size: 0.95rem;
+  position: relative;
+  padding: 0.2rem 0;
+  transition: color 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.tab:hover {
+  color: #005AFF;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0px; /* align underline to bottom of header */
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background-color: #005AFF;
+  border-radius: 1px;
+}
