@@ -9,14 +9,13 @@ import Inventory from './Components/Inventory';
 import Lvl1 from './Components/lvl1';
 import Lvl3 from './Components/lvl3';
 import Lvl3Items from './Components/Lvl3Items';
-// const Project = () => <div className="page-content">📁 Project Page</div>;
-// const Site = () => <div className="page-content">🏗️ Site Page</div>;
-// const Inventory = () => <div className="page-content">📦 Inventory Page</div>;
-// const Level1 = () => <div className="page-content">🧱 Level 1 Page</div>;
-// const Level3 = () => <div className="page-content">🏢 Level 3 Page</div>;
-
+import Sidebar from './RopComponents/Sidebar';
+import ROPProject from './RopComponents/RopProject';
+import RopLvl1 from './RopComponents/RopLvl1';
 function App() {
   const [token, setToken] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('boq'); // 'boq' or 'le-automation'
 
   const logout = () => {
     setToken('');
@@ -28,7 +27,7 @@ function App() {
         <AuthForm onLogin={setToken} />
       ) : (
         <>
-          <Header onLogout={logout} />
+          <Header onLogout={logout} activeSection={activeSection} />
           <div className="main-content">
             <Routes>
               <Route path="/project" element={<Project />} />
@@ -36,11 +35,31 @@ function App() {
               <Route path="/inventory" element={<Inventory />} />
               <Route path="/level1" element={<Lvl1 />} />
               <Route path="/level3" element={<Lvl3 />} />
-
-              <Route path="/level3 items" element={<Lvl3Items/>} />
+              <Route path="/level3-items" element={<Lvl3Items />} />
+              <Route path="/rop-project" element={<ROPProject />} />
+              <Route path="/rop-lvl1" element={<RopLvl1 />} />
               <Route path="*" element={<Project />} />
             </Routes>
           </div>
+
+          {/* ☰ Sidebar Toggle */}
+          <button className="hamburger" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            ☰
+          </button>
+
+          {/* Sidebar */}
+          <Sidebar
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            onSelect={(section) => {
+              if (section === 'logout') {
+                logout();
+              } else if (section === 'boq' || section === 'le-automation') {
+                setActiveSection(section);
+              }
+              setSidebarOpen(false);
+            }}
+          />
         </>
       )}
     </Router>

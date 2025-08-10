@@ -1,13 +1,16 @@
-from fastapi import Form
-from pydantic import BaseModel,EmailStr
-from sqlalchemy import Integer, DateTime
-
+# Schemas/ProjectSchema.py
+from pydantic import BaseModel
 
 class CreateProject(BaseModel):
-    pid:str
-    po:str
-    project_name:str
+    pid: str
+    po: str
+    project_name: str
+
+class UpdateProject(BaseModel):
+    project_name: str
+
 class Project(CreateProject):
-    pid_po:str
-class Config:
-    orm_mode = True
+    pid_po: str
+
+    class Config:
+        orm_mode = True

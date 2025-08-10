@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from APIs import LevelsRoute
+from APIs import LevelsRoute, LLDRoute
 from APIs.InventoryRoute import inventoryRoute
 from APIs.LevelsRoute import levelsRouter
 from APIs.ProjectRoute import projectRoute
+from APIs.ROPLvl1Route import ROPLvl1router
+from APIs.ROPProjectRoute import ROPProjectrouter
 from APIs.UserRoute import userRoute
 from Database.session import engine, Base
 
@@ -24,3 +26,7 @@ app.include_router(userRoute)
 app.include_router(inventoryRoute)
 app.include_router(projectRoute)
 app.include_router(levelsRouter)
+app.include_router(LLDRoute.router)
+
+app.include_router(ROPProjectrouter)
+app.include_router(ROPLvl1router)
