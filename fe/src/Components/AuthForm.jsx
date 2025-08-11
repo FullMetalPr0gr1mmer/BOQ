@@ -28,8 +28,9 @@ export default function AuthForm({ onLogin, onRegister }) {
       });
       const data = await res.json();
       if (data.access_token) {
-        onLogin(data.access_token);
-        navigate('/project'); // ✅ Now this works!
+        // Store role and username in user object
+        onLogin({ token: data.access_token, user: { role: data.role, username } });
+        navigate('/project');
       } else {
         setError(data.detail || 'Login failed');
       }

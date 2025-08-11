@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import '../css/Project.css';
 
-const SITES_PER_PAGE = 10;
+const SITES_PER_PAGE = 5;
 
 export default function Site() {
   const [sites, setSites] = useState([]);

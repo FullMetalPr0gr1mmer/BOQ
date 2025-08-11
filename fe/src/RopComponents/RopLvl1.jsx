@@ -46,16 +46,26 @@ export default function ROPLvl1() {
         const result = [];
         let current = new Date(start);
         const endDate = new Date(end);
-
+        // Calculate number of months
+        let months = 0;
+        let temp = new Date(start);
+        while (temp <= endDate) {
+            months++;
+            temp.setMonth(temp.getMonth() + 1);
+        }
+        // Calculate default value
+        let defaultValue = '';
+        if (formData.total_quantity && months > 0) {
+            defaultValue = Math.round(parseInt(formData.total_quantity) / months);
+        }
         while (current <= endDate) {
             result.push({
                 year: current.getFullYear(),
                 month: current.getMonth() + 1,
-                allocated_quantity: '',
+                allocated_quantity: defaultValue,
             });
             current.setMonth(current.getMonth() + 1);
         }
-
         setDistributions(result);
     };
 
@@ -684,21 +694,24 @@ export default function ROPLvl1() {
                             {distributions.length > 0 && (
                                 <div style={{ marginTop: '1rem' }}>
                                     <h4>Monthly Distributions</h4>
-                                    {distributions.map((dist, index) => (
-                                        <div
-                                            key={index}
-                                            style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.5rem' }}
-                                        >
-                                            <span>{`${dist.month}/${dist.year}`}</span>
-                                            <input
-                                                type="number"
-                                                placeholder="Allocated Quantity"
-                                                value={dist.allocated_quantity}
-                                                onChange={e => handleDistributionChange(index, e.target.value)}
-                                                required
-                                            />
-                                        </div>
-                                    ))}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                                        {distributions.map((dist, index) => (
+                                            <div
+                                                key={index}
+                                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '110px' }}
+                                            >
+                                                <label style={{ width: '100%', textAlign: 'center', fontWeight: 'bold', marginBottom: '0.3rem' }}>{`${dist.month}/${dist.year}`}</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Allocated Quantity"
+                                                    value={dist.allocated_quantity}
+                                                    onChange={e => handleDistributionChange(index, e.target.value)}
+                                                    required
+                                                    style={{ width: '90px', textAlign: 'center' }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 

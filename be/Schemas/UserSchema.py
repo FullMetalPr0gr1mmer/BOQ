@@ -8,9 +8,11 @@ class CreateUser(BaseModel):
     password: str
     username:  str
     code:str
+    role : str ='user'
 class User(CreateUser):
     id:int
     registered_at: str
+
 class Config:
     orm_mode = True
 

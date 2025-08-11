@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import '../css/Project.css';
 
-const INVENTORY_PER_PAGE = 10;
+const INVENTORY_PER_PAGE = 5;
 
 export default function Inventory() {
   const [inventory, setInventory] = useState([]);

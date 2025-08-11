@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import '../css/Project.css'; // Reuse shared styling
 
-const ENTRIES_PER_PAGE = 10;
+const ENTRIES_PER_PAGE = 5;
 
 const SERVICE_LABELS = {
     "1": "Software",
@@ -12,6 +12,7 @@ const SERVICE_LABELS = {
 export default function Lvl3Items() {
     const [entries, setEntries] = useState([]);
     const [showForm, setShowForm] = useState(false);
+    const [editingEntry, setEditingEntry] = useState(null);
     const [formData, setFormData] = useState({
         project_id: '',
         item_name: '',
@@ -66,30 +67,74 @@ export default function Lvl3Items() {
         };
 
         try {
-            const res = await fetch(`${VITE_API_URL}/create-lvl3-item`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            let res;
+            if (editingEntry) {
+                res = await fetch(`${VITE_API_URL}/update-lvl3-item/${editingEntry.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                res = await fetch(`${VITE_API_URL}/create-lvl3-item`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
 
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.detail || 'Failed to create entry');
+                throw new Error(err.detail || 'Failed to save entry');
             }
 
-            setSuccess('Lvl3 item created successfully!');
-            setFormData({
-                project_id: '',
-                item_name: '',
-                item_details: '',
-                vendor_part_number: '',
-                category: '',
-                uom: '',
-                quantity: '',
-                price: '',
-                service_type: []
+            setSuccess(editingEntry ? 'Lvl3 item updated!' : 'Lvl3 item created!');
+            clearForm();
+            fetchLvl3Items();
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const clearForm = () => {
+        setFormData({
+            project_id: '',
+            item_name: '',
+            item_details: '',
+            vendor_part_number: '',
+            category: '',
+            uom: '',
+            quantity: '',
+            price: '',
+            service_type: []
+        });
+        setEditingEntry(null);
+        setShowForm(false);
+    };
+
+    const handleEditClick = (entry) => {
+        setEditingEntry(entry);
+        setFormData({
+            project_id: entry.project_id,
+            item_name: entry.item_name,
+            item_details: entry.item_details,
+            vendor_part_number: entry.vendor_part_number,
+            category: entry.category,
+            uom: entry.uom,
+            quantity: entry.quantity,
+            price: entry.price,
+            service_type: entry.service_type || []
+        });
+        setShowForm(true);
+    };
+
+    const handleDelete = async (entry) => {
+        if (!window.confirm(`Delete item ${entry.project_id} - ${entry.item_name}?`)) return;
+        try {
+            const res = await fetch(`${VITE_API_URL}/delete-lvl3-item/${entry.id}`, {
+                method: 'DELETE'
             });
-            setShowForm(false);
+            if (!res.ok) throw new Error('Failed to delete item');
+            setSuccess('Item deleted!');
             fetchLvl3Items();
         } catch (err) {
             setError(err.message);
@@ -103,34 +148,68 @@ export default function Lvl3Items() {
 
     const totalPages = Math.ceil(entries.length / ENTRIES_PER_PAGE);
 
+
     return (
         <div className="project-container">
             <div className="header-row">
                 <h2>Lvl3 Items</h2>
-                <button className="new-project-btn" onClick={() => setShowForm(!showForm)}>
-                    + New Entry
+                <button className="new-project-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
+                    {showForm ? 'Cancel' : '+ New Entry'}
                 </button>
             </div>
 
             {showForm && (
-                <form className="project-form" onSubmit={handleSubmit}>
-                    <input type="text" name="project_id" placeholder="Project ID" value={formData.project_id} onChange={handleChange} required />
-                    <input type="text" name="item_name" placeholder="Item Name" value={formData.item_name} onChange={handleChange} required />
-                    <input type="text" name="item_details" placeholder="Item Details" value={formData.item_details} onChange={handleChange} />
-                    <input type="text" name="vendor_part_number" placeholder="Vendor Part Number" value={formData.vendor_part_number} onChange={handleChange} />
-                    <input type="text" name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
-                    <input type="number" name="uom" placeholder="UOM" value={formData.uom} onChange={handleChange} required />
-                    <input type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} required />
-                    <input type="number" name="price" placeholder="Price" value={formData.price} onChange={handleChange} required />
-                    
-                    <select multiple name="service_type" value={formData.service_type} onChange={handleMultiSelectChange}>
-                        <option value="1">Software</option>
-                        <option value="2">Hardware</option>
-                        <option value="3">Service</option>
-                    </select>
-
-                    <button type="submit">Save</button>
-                </form>
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'rgba(0,0,0,0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#fff',
+                        borderRadius: '12px',
+                        padding: '2rem',
+                        minWidth: '500px',
+                        boxShadow: '0 4px 32px #00bcd44a',
+                        maxHeight: '80vh',
+                        overflowY: 'auto'
+                    }}>
+                        <form className="project-form" onSubmit={handleSubmit}>
+                            <div>
+                                <button style={{
+                                    width: 'fit-content',
+                                    padding: '0.4rem',
+                                    float: 'right'
+                                }}
+                                    className="stylish-btn danger" onClick={() => setShowForm(false)} type="button">
+                                    X
+                                </button>
+                            </div>
+                            <input type="text" name="project_id" placeholder="Project ID" value={formData.project_id} onChange={handleChange} required disabled={!!editingEntry} />
+                            <input type="text" name="item_name" placeholder="Item Name" value={formData.item_name} onChange={handleChange} required />
+                            <input type="text" name="item_details" placeholder="Item Details" value={formData.item_details} onChange={handleChange} />
+                            <input type="text" name="vendor_part_number" placeholder="Vendor Part Number" value={formData.vendor_part_number} onChange={handleChange} />
+                            <input type="text" name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
+                            <input type="number" name="uom" placeholder="UOM" value={formData.uom} onChange={handleChange} required />
+                            <input type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} required />
+                            <input type="number" name="price" placeholder="Price" value={formData.price} onChange={handleChange} required />
+                            <select multiple name="service_type" value={formData.service_type} onChange={handleMultiSelectChange}>
+                                <option value="1">Software</option>
+                                <option value="2">Hardware</option>
+                                <option value="3">Service</option>
+                            </select>
+                            <button style={{ width: '100%' }} type="submit" className="stylish-btn">
+                                {editingEntry ? 'Update' : 'Save'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
             )}
 
             {error && <div className="error">{error}</div>}
@@ -149,6 +228,7 @@ export default function Lvl3Items() {
                             <th>Quantity</th>
                             <th>Price</th>
                             <th>Service Type</th>
+                            <th style={{ width: '160px' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -163,6 +243,24 @@ export default function Lvl3Items() {
                                 <td>{entry.quantity}</td>
                                 <td>{entry.price}</td>
                                 <td>{entry.service_type.map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
+                                <td style={{textAlign: 'center'}}>
+                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                        <button
+                                            className="stylish-btn"
+                                            style={{ width: '100%', margin: '0.5rem' }}
+                                            onClick={() => handleEditClick(entry)}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            className="stylish-btn danger"
+                                            style={{ width: '100%', margin: '0.5rem' }}
+                                            onClick={() => handleDelete(entry)}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                         ))}
                     </tbody>

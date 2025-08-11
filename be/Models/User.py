@@ -8,3 +8,4 @@ class User(Base):
     email = Column(String(100), unique=True, index=True)
     hashed_password = Column(String)
     registered_at = Column(DateTime, default=datetime.now())
+    role = Column(String(100), index=True,default='user')

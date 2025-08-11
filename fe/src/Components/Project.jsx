@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import '../css/Project.css';
 
-const PROJECTS_PER_PAGE = 10;
+const PROJECTS_PER_PAGE = 1;
 
 export default function Project() {
     const [projects, setProjects] = useState([]);

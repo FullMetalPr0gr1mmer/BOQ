@@ -1,22 +1,28 @@
-
 import { NavLink, useNavigate } from 'react-router-dom';
 import '../css/header.css';
 
 const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'Level3 Items', 'LogOut'];
 const leAutomationTabs = ['ROP Lvl1', 'ROP Project', 'LogOut'];
 
-export default function Header({ onLogout, activeSection }) {
+export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();
+
+  let tabs = activeSection === 'le-automation' ? leAutomationTabs : boqTabs;
+  // Add Logs tab for admin users in BOQ
+  if (activeSection === 'boq' && user?.role === 'admin' && !tabs.includes('Logs')) {
+    tabs = [...tabs.slice(0, -1), 'Logs', tabs[tabs.length - 1]]; // Insert before LogOut
+  }
 
   const handleTabClick = (tab, e) => {
     if (tab === 'LogOut') {
       e.preventDefault();
       onLogout();
       navigate('/');
+    } else if (tab === 'Logs') {
+      e.preventDefault();
+      navigate('/logs');
     }
   };
-
-  const tabs = activeSection === 'le-automation' ? leAutomationTabs : boqTabs;
 
   return (
     <header className="nokia-header">

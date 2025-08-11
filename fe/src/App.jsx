@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './Components/Header';
+import Logs from './Components/Logs';
 import './App.css';
 import AuthForm from './Components/AuthForm';
 import Project from './Components/Project';
@@ -13,21 +14,22 @@ import Sidebar from './RopComponents/Sidebar';
 import ROPProject from './RopComponents/RopProject';
 import RopLvl1 from './RopComponents/RopLvl1';
 function App() {
-  const [token, setToken] = useState('');
+  const [auth, setAuth] = useState(null); // { token, user }
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('boq'); // 'boq' or 'le-automation'
+  const [activeSection, setActiveSection] = useState('boq');
 
   const logout = () => {
-    setToken('');
+    setAuth(null);
   };
 
   return (
     <Router>
-      {!token ? (
-        <AuthForm onLogin={setToken} />
+      {!auth ? (
+        <AuthForm onLogin={setAuth} />
       ) : (
         <>
-          <Header onLogout={logout} activeSection={activeSection} />
+          <Header onLogout={logout} activeSection={activeSection} user={auth.user} />
+          {/* Logs is now only rendered via route, not fixed in header */}
           <div className="main-content">
             <Routes>
               <Route path="/project" element={<Project />} />
@@ -38,6 +40,7 @@ function App() {
               <Route path="/level3-items" element={<Lvl3Items />} />
               <Route path="/rop-project" element={<ROPProject />} />
               <Route path="/rop-lvl1" element={<RopLvl1 />} />
+              <Route path="/logs" element={<Logs user={auth.user} />} />
               <Route path="*" element={<Project />} />
             </Routes>
           </div>

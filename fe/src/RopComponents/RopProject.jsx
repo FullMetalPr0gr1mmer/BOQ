@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import '../css/Project.css';
 
-const PROJECTS_PER_PAGE = 10;
+const PROJECTS_PER_PAGE = 5;
 
 export default function ROPProject() {
   const [projects, setProjects] = useState([]);
