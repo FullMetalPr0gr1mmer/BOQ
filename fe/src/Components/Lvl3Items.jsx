@@ -250,7 +250,7 @@ export default function Lvl3Items() {
                                             style={{ width: '100%', margin: '0.5rem' }}
                                             onClick={() => handleEditClick(entry)}
                                         >
-                                            Edit
+                                            Details
                                         </button>
                                         <button
                                             className="stylish-btn danger"

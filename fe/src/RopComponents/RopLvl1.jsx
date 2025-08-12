@@ -291,6 +291,55 @@ export default function ROPLvl1() {
                     </button>
                 </div>
             </div>
+            {/* General Info Section */}
+            <div className="project-info-bar" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '1.5rem',
+                marginBottom: '2rem',
+                background: 'rgba(255,255,255,0.0)',
+                borderRadius: '32px',
+                boxShadow: 'none',
+                padding: '0',
+                border: 'none'
+            }}>
+                {/** Each info label in a rounded rectangle matching the attached image **/}
+                {[
+                    { label: 'Total Quantity', value: getGrandTotal() },
+                    { label: 'Total LE', value: Object.values(entries).reduce((sum, entry) => sum + (getItemTotal(entry) * (parseInt(entry.price) || 0)), 0).toLocaleString() },
+                    { label: 'Number of Items', value: entries.length },
+                    { label: 'Longest Item (Months)', value: (() => { let maxMonths = 0; let itemName = ''; entries.forEach(entry => { if (entry.distributions && entry.distributions.length > maxMonths) { maxMonths = entry.distributions.length; itemName = entry.item_name; } }); return itemName ? `${itemName} (${maxMonths} months)` : '-'; })() },
+                    { label: 'Highest LE Item', value: (() => { let maxLE = 0; let itemName = ''; entries.forEach(entry => { const le = getItemTotal(entry) * (parseInt(entry.price) || 0); if (le > maxLE) { maxLE = le; itemName = entry.item_name; } }); return itemName ? `${itemName} (${maxLE.toLocaleString()})` : '-'; })() },
+                    { label: 'Avg. Quantity/Item', value: entries.length > 0 ? Math.round(getGrandTotal() / entries.length) : '-' },
+                    { label: 'Avg. LE/Item', value: entries.length > 0 ? Math.round(Object.values(entries).reduce((sum, entry) => sum + (getItemTotal(entry) * (parseInt(entry.price) || 0)), 0) / entries.length).toLocaleString() : '-' },
+                    { label: 'Earliest Start Date', value: (() => { let earliest = null; entries.forEach(entry => { if (entry.start_date) { const d = new Date(entry.start_date); if (!earliest || d < earliest) earliest = d; } }); return earliest ? earliest.toLocaleDateString() : '-'; })() },
+                    { label: 'Latest End Date', value: (() => { let latest = null; entries.forEach(entry => { if (entry.end_date) { const d = new Date(entry.end_date); if (!latest || d > latest) latest = d; } }); return latest ? latest.toLocaleDateString() : '-'; })() }
+                ].map((info, idx) => (
+                    <div key={idx} className="project-info-label" style={{
+                        fontWeight: 'bold',
+                        color: '#fff',
+                        textAlign: 'center',
+                        background: 'linear-gradient(135deg, #8fa4e6 0%, #7b8fdc 100%)',
+                        borderRadius: '18px',
+                        boxShadow: '0 2px 12px #8fa4e633',
+                        padding: '1rem 0.3rem',
+                        border: '1px solid #bfc8f7',
+                        minWidth: '120px',
+                        maxWidth: '140px',
+                        margin: '0 auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        fontFamily: 'Segoe UI, Nokia Pure, Roboto, Arial, sans-serif',
+                        fontSize: '0.85em',
+                        letterSpacing: '0.01em',
+                    }}>
+                        <span style={{ fontSize: '1.2em', fontWeight: '700', marginBottom: '0.2em', color: '#fff', lineHeight: '1' }}>{info.value}</span>
+                        <span style={{ fontSize: '0.9em', fontWeight: '400', color: '#fff', opacity: 0.95 }}>{info.label}</span>
+                    </div>
+                ))}
+            </div>
             {/* Modal for LE Table (values multiplied by price) */}
             {showLE && (
                 <div style={{
