@@ -10,7 +10,7 @@ function Sidebar({ isOpen, onClose, onSelect }) {
         if (section === 'boq') {
             navigate('/project');
         } else if (section === 'le-automation') {
-            navigate('/rop-lvl1');
+            navigate('/rop-project');
         }
     };
 

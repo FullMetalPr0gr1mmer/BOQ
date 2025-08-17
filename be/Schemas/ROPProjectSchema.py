@@ -1,14 +1,14 @@
+# Schemas/ROPProjectSchema.py
 from pydantic import BaseModel, Field
 from typing import Optional
-
 from Models.ROPProject import CurrencyEnum
-
 
 class ROPProjectBase(BaseModel):
     pid: str
     po: str
     project_name: str
-    wps: str
+    product_number: Optional[str] = None
+    wbs: str                      # renamed here
     country: Optional[str] = None
     currency: CurrencyEnum = Field(default=CurrencyEnum.euros)
 

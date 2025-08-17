@@ -1,48 +1,24 @@
-# schemas/lvl1.py
-
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 from datetime import date
 
-
-class ROPLvl1DistributionCreate(BaseModel):
-    year: int
-    month: int
-    allocated_quantity: int
-
-
-class ROPLvl1Create(BaseModel):
+class ROPLvl1Base(BaseModel):
+    id:int
     project_id: str
     project_name: str
     item_name: str
-    region: str
-    total_quantity: int
-    price: int
-    start_date: date
-    end_date: date
-    distributions: List[ROPLvl1DistributionCreate]
+    region: Optional[str] = None
+    total_quantity: Optional[int] = None
+    price: Optional[float] = None
+    product_number: Optional[str] = None
+class ROPLvl1Create(ROPLvl1Base):
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
-
-class ROPLvl1DistributionOut(ROPLvl1DistributionCreate):
+class ROPLvl1Out(ROPLvl1Base):
     id: int
-    class Config:
-        orm_mode = True
-
-
-class ROPLvl1Out(BaseModel):
-    id: int
-    project_id: str
-    project_name: str
-    item_name: str
-    region: str
-    total_quantity: int
-    price: int
-
-    start_date: date
-    end_date: date
-    distributions: List[ROPLvl1DistributionOut]
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
     class Config:
-        orm_mode = True
-class ROPLvl1Update(ROPLvl1Create):
-    pass
+        from_attributes = True

@@ -66,3 +66,25 @@ async def get_current_user(token: str = Depends(oauth2_scheme),db:Session=Depend
     if user is None:
         raise credentials_exception
     return user
+
+
+
+def generate_distributions(start_date_str, end_date_str, total_quantity):
+    start_date = datetime.strptime(start_date_str, "%d.%m.%Y").date()
+    end_date = datetime.strptime(end_date_str, "%d.%m.%Y").date()
+
+    # count months
+    months = []
+    current = start_date
+    while current <= end_date:
+        months.append((current.year, current.month))
+        current += relativedelta(months=1)
+
+    n_months = len(months)
+    per_month = math.ceil(total_quantity / n_months)
+
+    distributions = [
+        ROPLvl2DistributionCreate(year=year, month=month, allocated_quantity=per_month)
+        for (year, month) in months
+    ]
+    return distributions

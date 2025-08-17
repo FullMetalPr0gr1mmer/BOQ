@@ -7,6 +7,7 @@ from APIs.LevelsRoute import levelsRouter
 from APIs.LogRoute import logRouter
 from APIs.ProjectRoute import projectRoute
 from APIs.ROPLvl1Route import ROPLvl1router
+from APIs.ROPLvl2Route import ROPLvl2router
 from APIs.ROPProjectRoute import ROPProjectrouter
 from APIs.UserRoute import userRoute
 from Database.session import engine, Base
@@ -32,3 +33,4 @@ app.include_router(LLDRoute.router)
 app.include_router(ROPProjectrouter)
 app.include_router(ROPLvl1router)
 app.include_router(logRouter)
+app.include_router(ROPLvl2router)

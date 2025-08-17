@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import '../css/header.css';
 
 const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'Level3 Items', 'LogOut'];
-const leAutomationTabs = ['ROP Lvl1', 'ROP Project', 'LogOut'];
+const leAutomationTabs = [ 'ROP Project', 'LogOut'];
 
 export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();

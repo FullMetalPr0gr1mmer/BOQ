@@ -1,11 +1,15 @@
-from sqlalchemy import Enum as SQLAlchemyEnum, String, Column  # Avoid name conflict
-
+# Models/ROPProject.py
+from sqlalchemy import Enum as SQLAlchemyEnum, String, Column
 from Database.session import Base
 from enum import Enum
+
+
+
 
 class CurrencyEnum(str, Enum):
     euros = "Euros"
     dollar = "Dollar"
+    dzd = "DZD"
 
 class ROPProject(Base):
     __tablename__ = 'rop_projects'
@@ -14,6 +18,8 @@ class ROPProject(Base):
     pid = Column(String(100), index=True)
     po = Column(String(100), index=True)
     project_name = Column(String(200), index=True)
-    wps = Column(String(200), unique=True, index=True)
+    # Renamed from wps -> wbs (and column name changed as well)
+    wbs = Column(String(200), unique=True, index=True)
     country = Column(String(200), index=True)
-    currency = Column(SQLAlchemyEnum(CurrencyEnum), default=CurrencyEnum.euros, index=True)  # Enum in DB
+    currency = Column(SQLAlchemyEnum(CurrencyEnum), default=CurrencyEnum.euros, index=True)
+    product_number = Column(String(100),nullable=True, index=True)

@@ -1,901 +1,336 @@
 import { useEffect, useState } from 'react';
-import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import '../css/Project.css';
-import { FaSignOutAlt, FaTimes } from 'react-icons/fa';
-export default function ROPLvl1() {
-    const [entries, setEntries] = useState([]);
-    const [showForm, setShowForm] = useState(false);
-    const [isEditing, setIsEditing] = useState(false); // to track if editing or creating
-    const [editId, setEditId] = useState(null); // id of entry being edited
-    const [formData, setFormData] = useState({
-        project_id: '',
-        project_name: '',
-        item_name: '',
-        region: '',
-        total_quantity: '',
-        price: '',
-        start_date: '',
-        end_date: '',
+
+const ENTRIES_PER_PAGE = 5;
+
+export default function RopLvl1() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const projectState = location.state; // { pid_po, project_name }
+
+  const [entries, setEntries] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [formData, setFormData] = useState({
+    project_id: projectState?.pid_po || '',
+    project_name: projectState?.project_name || '',
+    item_name: '',
+    region: '',
+    total_quantity: '',
+    price: '',
+    start_date: '',
+    end_date: '',
+  });
+
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const VITE_API_URL = import.meta.env.VITE_API_URL;
+
+  useEffect(() => {
+    fetchEntries();
+  }, []);
+
+  const fetchEntries = async () => {
+    try {
+      const url = projectState?.pid_po
+        ? `${VITE_API_URL}/rop-lvl1/by-project/${projectState.pid_po}`
+        : `${VITE_API_URL}/rop-lvl1/`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setEntries(data);
+    } catch {
+      setError('Failed to fetch ROP Lvl1 entries');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      project_id: projectState?.pid_po || '',
+      project_name: projectState?.project_name || '',
+      item_name: '',
+      region: '',
+      total_quantity: '',
+      price: '',
+      start_date: '',
+      end_date: '',
     });
-    const [distributions, setDistributions] = useState([]);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [expandedRows, setExpandedRows] = useState([]);
-    const [showGeneralRop, setShowGeneralRop] = useState(false);
-    const [showLE, setShowLE] = useState(false);
-    const [showDetails, setShowDetails] = useState(false);
-    const [detailsEntry, setDetailsEntry] = useState(null);
+    setEditId(null);
+    setIsEditing(false);
+    setShowForm(false);
+  };
 
-    const VITE_API_URL = import.meta.env.VITE_API_URL;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
-    useEffect(() => {
-        fetchEntries();
-    }, []);
-
-    const fetchEntries = async () => {
-        try {
-            const res = await fetch(`${VITE_API_URL}/rop-lvl1`);
-            const data = await res.json();
-            setEntries(data);
-        } catch {
-            setError('Failed to fetch ROP Lvl1 entries');
-        }
+    const payload = {
+      project_id: formData.project_id,
+      project_name: formData.project_name,
+      item_name: formData.item_name,
+      region: formData.region || null,
+      total_quantity: formData.total_quantity ? parseInt(formData.total_quantity) : null,
+      price: formData.price ? parseFloat(formData.price) : null,
+      start_date: formData.start_date || null,
+      end_date: formData.end_date || null,
     };
 
-    const generateDistributions = (start, end) => {
-        const result = [];
-        let current = new Date(start);
-        const endDate = new Date(end);
-        // Calculate number of months
-        let months = 0;
-        let temp = new Date(start);
-        while (temp <= endDate) {
-            months++;
-            temp.setMonth(temp.getMonth() + 1);
-        }
-        // Calculate default value
-        let defaultValue = '';
-        if (formData.total_quantity && months > 0) {
-            defaultValue = Math.round(parseInt(formData.total_quantity) / months);
-        }
-        while (current <= endDate) {
-            result.push({
-                year: current.getFullYear(),
-                month: current.getMonth() + 1,
-                allocated_quantity: defaultValue,
-            });
-            current.setMonth(current.getMonth() + 1);
-        }
-        setDistributions(result);
-    };
-
-    const handleDateChange = (e) => {
-        const { name, value } = e.target;
-        const updatedForm = { ...formData, [name]: value };
-        setFormData(updatedForm);
-
-        if (name === 'start_date' || name === 'end_date') {
-            const { start_date, end_date } = { ...updatedForm, [name]: value };
-            if (start_date && end_date) {
-                generateDistributions(start_date, end_date);
-            }
-        }
-    };
-
-    const handleDistributionChange = (index, value) => {
-        const updated = [...distributions];
-        updated[index].allocated_quantity = parseInt(value) || 0;
-        setDistributions(updated);
-    };
-
-    const resetForm = () => {
-        setFormData({
-            project_id: '',
-            project_name: '',
-            item_name: '',
-            region: '',
-            total_quantity: '',
-            price: '',
-            start_date: '',
-            end_date: '',
+    try {
+      let res;
+      if (isEditing && editId !== null) {
+        res = await fetch(`${VITE_API_URL}/rop-lvl1/update/${editId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
-        setDistributions([]);
-        setEditId(null);
-        setIsEditing(false);
-        setShowForm(false);
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-
-        const payload = {
-            ...formData,
-            total_quantity: parseInt(formData.total_quantity),
-            price: parseInt(formData.price),
-            distributions: distributions.map(d => ({
-                year: d.year,
-                month: d.month,
-                allocated_quantity: d.allocated_quantity
-            }))
-        };
-
-        try {
-            let res;
-            if (isEditing && editId !== null) {
-                // Update existing entry
-                res = await fetch(`${VITE_API_URL}/rop-lvl1/update/${editId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-            } else {
-                // Create new entry
-                res = await fetch(`${VITE_API_URL}/rop-lvl1/create`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-            }
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to save entry');
-            }
-
-            setSuccess(isEditing ? 'ROP Lvl1 updated successfully!' : 'ROP Lvl1 created successfully!');
-            resetForm();
-            fetchEntries();
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this entry?')) return;
-
-        try {
-            const res = await fetch(`${VITE_API_URL}/rop-lvl1/${id}`, {
-                method: 'DELETE'
-            });
-
-            if (!res.ok) throw new Error('Failed to delete entry');
-
-            setEntries(entries.filter(e => e.id !== id));
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
-    const toggleDistributions = (id) => {
-        if (expandedRows.includes(id)) {
-            setExpandedRows(expandedRows.filter(rowId => rowId !== id));
-        } else {
-            setExpandedRows([...expandedRows, id]);
-        }
-    };
-
-    const handleEdit = (entry) => {
-        setIsEditing(true);
-        setEditId(entry.id);
-        setFormData({
-            project_id: entry.project_id,
-            project_name: entry.project_name,
-            item_name: entry.item_name,
-            region: entry.region,
-            total_quantity: entry.total_quantity,
-            price: entry.price,
-            start_date: entry.start_date,
-            end_date: entry.end_date,
+      } else {
+        res = await fetch(`${VITE_API_URL}/rop-lvl1/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
+      }
 
-        // Load distributions for editing
-        // Make sure allocated_quantity is string or number for inputs
-        const distData = entry.distributions.map(d => ({
-            year: d.year,
-            month: d.month,
-            allocated_quantity: d.allocated_quantity === 0 ? 0 : (d.allocated_quantity || ''),
-        }));
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save entry');
+      }
 
-        setDistributions(distData);
-        setShowForm(true);
-        setSuccess('');
-        setError('');
-    };
-
-    // Prepare timeline: get all years/months from entries' distributions, sorted chronologically within each year
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const allMonthsSet = new Set();
-    entries.forEach(entry => {
-        entry.distributions.forEach(d => {
-            allMonthsSet.add(`${d.year}-${d.month}`);
-        });
-    });
-    // Group months by year, then sort months within each year
-    const monthsByYear = {};
-    Array.from(allMonthsSet).forEach(key => {
-        const [year, month] = key.split('-').map(Number);
-        if (!monthsByYear[year]) monthsByYear[year] = [];
-        monthsByYear[year].push(month);
-    });
-    Object.keys(monthsByYear).forEach(year => {
-        monthsByYear[year].sort((a, b) => a - b);
-    });
-    // Flatten to get allMonths in correct order
-    const allMonths = [];
-    Object.keys(monthsByYear).sort((a, b) => a - b).forEach(year => {
-        monthsByYear[year].forEach(month => {
-            allMonths.push(`${year}-${month}`);
-        });
-    });
-
-    // Group items by region, each item with its distributions
-    const groupedByRegion = {};
-    entries.forEach(entry => {
-        if (!groupedByRegion[entry.region]) groupedByRegion[entry.region] = [];
-        groupedByRegion[entry.region].push(entry);
-    });
-
-    // Helper to get quantity for a given item/distribution month
-    function getQty(entry, year, month) {
-        const found = entry.distributions.find(d => d.year === year && d.month === month);
-        return found ? found.allocated_quantity : '';
+      setSuccess(isEditing ? 'ROP Lvl1 updated successfully!' : 'ROP Lvl1 created successfully!');
+      resetForm();
+      fetchEntries();
+    } catch (err) {
+      setError(err.message);
     }
+  };
 
-    // Helper to get total for an item
-    function getItemTotal(entry) {
-        return entry.distributions.reduce((sum, d) => sum + (parseInt(d.allocated_quantity) || 0), 0);
+  const handleEdit = (entry) => {
+    setIsEditing(true);
+    setEditId(entry.id);
+    setFormData({
+      project_id: entry.project_id,
+      project_name: entry.project_name,
+      item_name: entry.item_name,
+      region: entry.region || '',
+      total_quantity: entry.total_quantity || '',
+      price: entry.price || '',
+      start_date: entry.start_date || '',
+      end_date: entry.end_date || '',
+    });
+    setShowForm(true);
+    setSuccess('');
+    setError('');
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this entry?')) return;
+
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-lvl1/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete entry');
+      setEntries(entries.filter((e) => e.id !== id));
+      setSuccess('Entry deleted successfully!');
+    } catch (err) {
+      setError(err.message);
     }
+  };
 
-    // Helper to get region total
-    function getRegionTotal(regionEntries) {
-        return regionEntries.reduce((sum, entry) => sum + getItemTotal(entry), 0);
-    }
+  const paginatedEntries = entries.slice(
+    (currentPage - 1) * ENTRIES_PER_PAGE,
+    currentPage * ENTRIES_PER_PAGE
+  );
+  const totalPages = Math.ceil(entries.length / ENTRIES_PER_PAGE);
 
-    // Helper to get month total for region
-    function getMonthTotal(regionEntries, year, month) {
-        return regionEntries.reduce((sum, entry) => sum + (parseInt(getQty(entry, year, month)) || 0), 0);
-    }
+  // Statistics
+  const totalItems = entries.length;
+  const totalQuantity = entries.reduce((sum, e) => sum + (e.total_quantity || 0), 0);
+  const totalLE = entries.reduce((sum, e) => sum + ((e.total_quantity || 0) * (e.price || 0)), 0);
+  const avgQuantityPerItem = totalItems > 0 ? Math.round(totalQuantity / totalItems) : 0;
+  const avgLEPerItem = totalItems > 0 ? Math.round(totalLE / totalItems) : 0;
+  const highestLEItem = entries.reduce((highest, e) => {
+    const le = (e.total_quantity || 0) * (e.price || 0);
+    return le > (highest.le || 0) ? { ...e, le } : highest;
+  }, {});
+  const earliestStart = entries
+    .filter(e => e.start_date)
+    .reduce((earliest, e) => (!earliest || new Date(e.start_date) < earliest ? new Date(e.start_date) : earliest), null);
+  const latestEnd = entries
+    .filter(e => e.end_date)
+    .reduce((latest, e) => (!latest || new Date(e.end_date) > latest ? new Date(e.end_date) : latest), null);
 
-    // Helper to get grand total
-    function getGrandTotal() {
-        return Object.values(groupedByRegion).reduce((sum, regionEntries) => sum + getRegionTotal(regionEntries), 0);
-    }
+  return (
+    <div className="project-container">
+      <div className="header-row">
+        <h2>ROP Level 1</h2>
+        <button className="new-project-btn" onClick={() => { resetForm(); setShowForm(!showForm); }}>
+          {showForm ? 'Cancel' : '+ New Entry'}
+        </button>
+      </div>
 
-    return (
-        <div className="project-container">
-            <div className="header-row">
-                <h2>ROP Level 1</h2>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                        className="stylish-btn"
-                        onClick={() => {
-                            resetForm();
-                            setShowForm(true);
-                        }}
-                    >
-                        + New Entry
-                    </button>
-                    <button
-                        className="stylish-btn secondary"
-                        onClick={() => setShowGeneralRop(true)}
-                    >
-                        Generate general ROP
-                    </button>
-                    <button
-                        className="stylish-btn secondary"
-                        onClick={() => setShowLE(true)}
-                    >
-                        Generate LE
-                    </button>
-                </div>
-            </div>
-            {/* General Info Section */}
-            <div className="project-info-bar" style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: '1.5rem',
-                marginBottom: '2rem',
-                background: 'rgba(255,255,255,0.0)',
-                borderRadius: '32px',
-                boxShadow: 'none',
-                padding: '0',
-                border: 'none'
-            }}>
-                {/** Each info label in a rounded rectangle matching the attached image **/}
-                {[
-                    { label: 'Total Quantity', value: getGrandTotal() },
-                    { label: 'Total LE', value: Object.values(entries).reduce((sum, entry) => sum + (getItemTotal(entry) * (parseInt(entry.price) || 0)), 0).toLocaleString() },
-                    { label: 'Number of Items', value: entries.length },
-                    { label: 'Longest Item (Months)', value: (() => { let maxMonths = 0; let itemName = ''; entries.forEach(entry => { if (entry.distributions && entry.distributions.length > maxMonths) { maxMonths = entry.distributions.length; itemName = entry.item_name; } }); return itemName ? `${itemName} (${maxMonths} months)` : '-'; })() },
-                    { label: 'Highest LE Item', value: (() => { let maxLE = 0; let itemName = ''; entries.forEach(entry => { const le = getItemTotal(entry) * (parseInt(entry.price) || 0); if (le > maxLE) { maxLE = le; itemName = entry.item_name; } }); return itemName ? `${itemName} (${maxLE.toLocaleString()})` : '-'; })() },
-                    { label: 'Avg. Quantity/Item', value: entries.length > 0 ? Math.round(getGrandTotal() / entries.length) : '-' },
-                    { label: 'Avg. LE/Item', value: entries.length > 0 ? Math.round(Object.values(entries).reduce((sum, entry) => sum + (getItemTotal(entry) * (parseInt(entry.price) || 0)), 0) / entries.length).toLocaleString() : '-' },
-                    { label: 'Earliest Start Date', value: (() => { let earliest = null; entries.forEach(entry => { if (entry.start_date) { const d = new Date(entry.start_date); if (!earliest || d < earliest) earliest = d; } }); return earliest ? earliest.toLocaleDateString() : '-'; })() },
-                    { label: 'Latest End Date', value: (() => { let latest = null; entries.forEach(entry => { if (entry.end_date) { const d = new Date(entry.end_date); if (!latest || d > latest) latest = d; } }); return latest ? latest.toLocaleDateString() : '-'; })() }
-                ].map((info, idx) => (
-                    <div key={idx} className="project-info-label" style={{
-                        fontWeight: 'bold',
-                        color: '#fff',
-                        textAlign: 'center',
-                        background: 'linear-gradient(135deg, #8fa4e6 0%, #7b8fdc 100%)',
-                        borderRadius: '18px',
-                        boxShadow: '0 2px 12px #8fa4e633',
-                        padding: '1rem 0.3rem',
-                        border: '1px solid #bfc8f7',
-                        minWidth: '120px',
-                        maxWidth: '140px',
-                        margin: '0 auto',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        fontFamily: 'Segoe UI, Nokia Pure, Roboto, Arial, sans-serif',
-                        fontSize: '0.85em',
-                        letterSpacing: '0.01em',
-                    }}>
-                        <span style={{ fontSize: '1.2em', fontWeight: '700', marginBottom: '0.2em', color: '#fff', lineHeight: '1' }}>{info.value}</span>
-                        <span style={{ fontSize: '0.9em', fontWeight: '400', color: '#fff', opacity: 0.95 }}>{info.label}</span>
-                    </div>
-                ))}
-            </div>
-            {/* Modal for LE Table (values multiplied by price) */}
-            {showLE && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(0,0,0,0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: '#fff',
-                        borderRadius: '12px',
-                        padding: '2rem',
-                        minWidth: '900px',
-                        boxShadow: '0 4px 32px #00bcd44a',
-                        maxHeight: '80vh',
-                        overflowY: 'auto'
-                    }}>
-                        <h3 style={{ marginBottom: '1rem' }}>LE Table (Values × Price)</h3>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem', marginBottom: '1rem' }}>
-                            <thead>
-                                <tr style={{ background: '#e0f7fa' }}>
-                                    <th rowSpan="2" style={{ border: '1px solid #b2ebf2', padding: '0.5rem', minWidth: '120px' }}>Activities</th>
-                                    {Object.keys(monthsByYear).sort((a, b) => a - b).map(year => {
-                                        const monthsInYear = monthsByYear[year].length;
-                                        return <th key={year} colSpan={monthsInYear} style={{ border: '1px solid #b2ebf2', textAlign: 'center' }}>{year}</th>;
-                                    })}
-                                    <th rowSpan="2" style={{ border: '1px solid #b2ebf2', padding: '0.5rem' }}>Total</th>
-                                </tr>
-                                <tr style={{ background: '#e0f7fa' }}>
-                                    {Object.keys(monthsByYear).sort((a, b) => a - b).map(year => (
-                                        monthsByYear[year].map(month => (
-                                            <th key={`${year}-${month}`} style={{ border: '1px solid #b2ebf2', padding: '0.5rem', minWidth: '40px' }}>{monthNames[month-1]}</th>
-                                        ))
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {Object.entries(groupedByRegion).map(([region, regionEntries], idx) => (
-                                    <React.Fragment key={region}>
-                                        <tr style={{ background: '#ffe082', fontWeight: 'bold' }}>
-                                            <td colSpan={allMonths.length + 2} style={{ border: '1px solid #b2ebf2', padding: '0.5rem' }}>{region}</td>
-                                        </tr>
-                                        {regionEntries.map((entry, i) => (
-                                            <tr key={entry.id} style={{ borderBottom: '1px dotted #aaa' }}>
-                                                <td style={{ border: '1px solid #b2ebf2', padding: '0.5rem' }}>{entry.item_name}</td>
-                                                {allMonths.map(m => {
-                                                    const [year, month] = m.split('-');
-                                                    const qty = getQty(entry, parseInt(year), parseInt(month));
-                                                    const val = qty ? qty * entry.price : 0;
-                                                    return <td key={m} style={{ border: '1px solid #b2ebf2', padding: '0.5rem', textAlign: 'center' }}>{val.toLocaleString()}</td>;
-                                                })}
-                                                <td style={{ border: '1px solid #b2ebf2', padding: '0.5rem', fontWeight: 'bold', background: '#e0f7fa' }}>{(getItemTotal(entry) * entry.price).toLocaleString()}</td>
-                                            </tr>
-                                        ))}
-                                        {/* Region total row */}
-                                        <tr style={{ background: '#fffde7', fontWeight: 'bold' }}>
-                                            <td style={{ border: '1px solid #b2ebf2', padding: '0.5rem' }}>Total {region}</td>
-                                            {allMonths.map(m => {
-                                                const [year, month] = m.split('-');
-                                                // Sum for region, multiplied by price for each entry
-                                                const total = regionEntries.reduce((sum, entry) => sum + ((parseInt(getQty(entry, parseInt(year), parseInt(month))) || 0) * entry.price), 0);
-                                                return <td key={m} style={{ border: '1px solid #b2ebf2', padding: '0.5rem', textAlign: 'center' }}>{total.toLocaleString()}</td>;
-                                            })}
-                                            <td style={{ border: '1px solid #b2ebf2', padding: '0.5rem', fontWeight: 'bold', background: '#e0f7fa' }}>{regionEntries.reduce((sum, entry) => sum + (getItemTotal(entry) * entry.price), 0).toLocaleString()}</td>
-                                        </tr>
-                                    </React.Fragment>
-                                ))}
-                                {/* Grand total row */}
-                                <tr style={{ background: '#b2ebf2', fontWeight: 'bold' }}>
-                                    <td style={{ border: '1px solid #2196f3', padding: '0.5rem' }}>Total Sites</td>
-                                    {allMonths.map(m => {
-                                        const [year, month] = m.split('-');
-                                        // Sum for all regions, multiplied by price
-                                        const total = Object.values(groupedByRegion).reduce((sum, regionEntries) => sum + regionEntries.reduce((s, entry) => s + ((parseInt(getQty(entry, parseInt(year), parseInt(month))) || 0) * entry.price), 0), 0);
-                                        return <td key={m} style={{ border: '1px solid #2196f3', padding: '0.5rem', textAlign: 'center' }}>{total.toLocaleString()}</td>;
-                                    })}
-                                    <td style={{ border: '1px solid #2196f3', padding: '0.5rem', fontWeight: 'bold', background: '#e0f7fa' }}>{Object.values(groupedByRegion).reduce((sum, regionEntries) => sum + regionEntries.reduce((s, entry) => s + (getItemTotal(entry) * entry.price), 0), 0).toLocaleString()}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                            <button
-                                className="stylish-btn"
-                                onClick={() => {
-                                    // Generate CSV for LE Table
-                                    let csv = '';
-                                    csv += 'Activities,';
-                                    allMonths.forEach(m => {
-                                        const [year, month] = m.split('-');
-                                        csv += `${monthNames[month-1]} ${year},`;
-                                    });
-                                    csv += 'Total\n';
+      {/* Statistics Cards */}
+  <div className="stats-grid" style={{ display: 'flex', flexWrap: 'wrap', columnGap: '0.2rem', rowGap: '0.1rem' }}>
+        {(() => {
+          const statCards = [
+            <div className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }} key="project_id">
+              <div className="stat-value" style={{ fontSize: '1rem'  }}>{formData.project_id}</div>
+              <div className="stat-label" style={{ fontSize: '0.95rem' }}>Project ID</div>
+            </div>,
+            <div className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }} key="project_name">
+              <div className="stat-value" style={{ fontSize: '1.2rem' }}>{formData.project_name}</div>
+              <div className="stat-label" style={{ fontSize: '0.95rem' }}>Project Name</div>
+            </div>,
+            ...[
+              { label: 'Total Quantity', value: totalQuantity.toLocaleString() },
+              { label: 'Total LE', value: totalLE.toLocaleString() },
+              { label: 'Number of Items', value: totalItems },
+              { label: 'Highest LE Item', value: highestLEItem.item_name || '-', extra: highestLEItem.le ? `(${highestLEItem.le.toLocaleString()})` : '' },
+              { label: 'Avg. Quantity/Item', value: avgQuantityPerItem.toLocaleString() },
+              { label: 'Avg. LE/Item', value: avgLEPerItem.toLocaleString() },
+              { label: 'Earliest Start Date', value: earliestStart ? earliestStart.toLocaleDateString() : '-' },
+              { label: 'Latest End Date', value: latestEnd ? latestEnd.toLocaleDateString() : '-' }
+            ].map((stat, idx) => (
+              <div key={idx} className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }}>
+                <div className="stat-value" style={{ fontSize: '1.2rem' }}>{stat.value}</div>
+                {stat.extra && <div className="stat-extra" style={{ fontSize: '0.95rem' }}>{stat.extra}</div>}
+                <div className="stat-label" style={{ fontSize: '0.95rem' }}>{stat.label}</div>
+              </div>
+            ))
+          ];
+          return (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-evenly', gap: '0.2rem', marginBottom: '0.2rem', width: '100%' }}>
+                {statCards.slice(0, 5)}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-evenly', gap: '0.2rem', width: '100%' }}>
+                {statCards.slice(5, 10)}
+              </div>
+            </>
+          );
+        })()}
+      </div>
 
-                                    Object.entries(groupedByRegion).forEach(([region, regionEntries]) => {
-                                        csv += `${region},`;
-                                        csv += Array(allMonths.length).fill('').join(',') + ',\n';
-                                        regionEntries.forEach(entry => {
-                                            csv += `${entry.item_name},`;
-                                            allMonths.forEach(m => {
-                                                const [year, month] = m.split('-');
-                                                const qty = getQty(entry, parseInt(year), parseInt(month));
-                                                csv += `${qty ? qty * entry.price : 0},`;
-                                            });
-                                            csv += `${getItemTotal(entry) * entry.price}\n`;
-                                        });
-                                        csv += `Total ${region},`;
-                                        allMonths.forEach(m => {
-                                            const [year, month] = m.split('-');
-                                            const total = regionEntries.reduce((sum, entry) => sum + ((parseInt(getQty(entry, parseInt(year), parseInt(month))) || 0) * entry.price), 0);
-                                            csv += `${total},`;
-                                        });
-                                        csv += `${regionEntries.reduce((sum, entry) => sum + (getItemTotal(entry) * entry.price), 0)}\n`;
-                                    });
-                                    csv += 'Total Sites,';
-                                    allMonths.forEach(m => {
-                                        const [year, month] = m.split('-');
-                                        const total = Object.values(groupedByRegion).reduce((sum, regionEntries) => sum + regionEntries.reduce((s, entry) => s + ((parseInt(getQty(entry, parseInt(year), parseInt(month))) || 0) * entry.price), 0), 0);
-                                        csv += `${total},`;
-                                    });
-                                    csv += `${Object.values(groupedByRegion).reduce((sum, regionEntries) => sum + regionEntries.reduce((s, entry) => s + (getItemTotal(entry) * entry.price), 0), 0)}\n`;
+      {/* Modal Form */}
+      {showForm && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '12px', padding: '2rem',
+            minWidth: '500px', boxShadow: '0 4px 32px #00bcd44a',
+            maxHeight: '80vh', overflowY: 'auto'
+          }}>
+            <form className="project-form" onSubmit={handleSubmit}>
+              <div>
+                <button
+                  style={{ width: 'fit-content', padding: '0.4rem', float: 'right' }}
+                  className="stylish-btn danger"
+                  onClick={() => setShowForm(false)}
+                  type="button"
+                >
+                  X
+                </button>
+              </div>
 
-                                    const blob = new Blob([csv], { type: 'text/csv' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = 'le_table.csv';
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                }}
-                            >
-                                Download CSV
-                            </button>
-                            <button className="stylish-btn danger" onClick={() => setShowLE(false)}>
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+              <input type="text" placeholder="Project ID" value={formData.project_id} disabled />
+              <input type="text" placeholder="Project Name" value={formData.project_name} disabled />
+              <input type="text" placeholder="Item Name" value={formData.item_name}
+                onChange={e => setFormData({ ...formData, item_name: e.target.value })} required />
+              <input type="text" placeholder="Region" value={formData.region}
+                onChange={e => setFormData({ ...formData, region: e.target.value })} />
+              <input type="number" placeholder="Total Quantity" value={formData.total_quantity}
+                onChange={e => setFormData({ ...formData, total_quantity: e.target.value })} />
+              <input type="number" step="0.01" placeholder="Price" value={formData.price}
+                onChange={e => setFormData({ ...formData, price: e.target.value })} />
+              <input type="date" placeholder="Start Date" value={formData.start_date}
+                onChange={e => setFormData({ ...formData, start_date: e.target.value })} />
+              <input type="date" placeholder="End Date" value={formData.end_date}
+                onChange={e => setFormData({ ...formData, end_date: e.target.value })} />
 
-            {/* Modal for General ROP Table */}
-            {showGeneralRop && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(0,0,0,0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: '#fff',
-                        borderRadius: '12px',
-                        padding: '2rem',
-                        minWidth: '900px',
-                        boxShadow: '0 4px 32px #00bcd44a',
-                        maxHeight: '80vh',
-                        overflowY: 'auto'
-                    }}>
-                        <h3 style={{ marginBottom: '1rem' }}>General ROP Table</h3>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem', marginBottom: '1rem' }}>
-                            <thead>
-                                {/* Timeline header: years and months */}
-                                <tr style={{ background: '#e0f7fa' }}>
-                                    <th rowSpan="2" style={{ border: '1px solid #b2ebf2', padding: '0.5rem', minWidth: '120px' }}>Activities</th>
-                                    {/* Years header */}
-                                    {Object.keys(monthsByYear).sort((a, b) => a - b).map(year => {
-                                        const monthsInYear = monthsByYear[year].length;
-                                        return <th key={year} colSpan={monthsInYear} style={{ border: '1px solid #b2ebf2', textAlign: 'center' }}>{year}</th>;
-                                    })}
-                                    <th rowSpan="2" style={{ border: '1px solid #b2ebf2', padding: '0.5rem' }}>Total</th>
-                                </tr>
-                                <tr style={{ background: '#e0f7fa' }}>
-                                    {/* Months header */}
-                                    {Object.keys(monthsByYear).sort((a, b) => a - b).map(year => (
-                                        monthsByYear[year].map(month => (
-                                            <th key={`${year}-${month}`} style={{ border: '1px solid #b2ebf2', padding: '0.5rem', minWidth: '40px' }}>{monthNames[month-1]}</th>
-                                        ))
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {/* Regions and items */}
-                                {Object.entries(groupedByRegion).map(([region, regionEntries], idx) => (
-                                    <React.Fragment key={region}>
-                                        <tr style={{ background: '#ffe082', fontWeight: 'bold' }}>
-                                            <td colSpan={allMonths.length + 2} style={{ border: '1px solid #b2ebf2', padding: '0.5rem' }}>{region}</td>
-                                        </tr>
-                                        {regionEntries.map((entry, i) => (
-                                            <tr key={entry.id} style={{ borderBottom: '1px dotted #aaa' }}>
-                                                <td style={{ border: '1px solid #b2ebf2', padding: '0.5rem' }}>{entry.item_name}</td>
-                                                {allMonths.map(m => {
-                                                    const [year, month] = m.split('-');
-                                                    const val = getQty(entry, parseInt(year), parseInt(month));
-                                                    return <td key={m} style={{ border: '1px solid #b2ebf2', padding: '0.5rem', textAlign: 'center' }}>{val !== '' ? Number(val).toLocaleString() : ''}</td>;
-                                                })}
-                                                <td style={{ border: '1px solid #b2ebf2', padding: '0.5rem', fontWeight: 'bold', background: '#e0f7fa' }}>{getItemTotal(entry).toLocaleString()}</td>
-                                            </tr>
-                                        ))}
-                                        {/* Region total row */}
-                                        <tr style={{ background: '#fffde7', fontWeight: 'bold' }}>
-                                            <td style={{ border: '1px solid #b2ebf2', padding: '0.5rem' }}>Total {region}</td>
-                                            {allMonths.map(m => {
-                                                const [year, month] = m.split('-');
-                                                const val = getMonthTotal(regionEntries, parseInt(year), parseInt(month));
-                                                return <td key={m} style={{ border: '1px solid #b2ebf2', padding: '0.5rem', textAlign: 'center' }}>{val.toLocaleString()}</td>;
-                                            })}
-                                            <td style={{ border: '1px solid #b2ebf2', padding: '0.5rem', fontWeight: 'bold', background: '#e0f7fa' }}>{getRegionTotal(regionEntries).toLocaleString()}</td>
-                                        </tr>
-                                    </React.Fragment>
-                                ))}
-                                {/* Grand total row */}
-                                <tr style={{ background: '#b2ebf2', fontWeight: 'bold' }}>
-                                    <td style={{ border: '1px solid #2196f3', padding: '0.5rem' }}>Total Sites</td>
-                                    {allMonths.map(m => {
-                                        const [year, month] = m.split('-');
-                                        const total = Object.values(groupedByRegion).reduce((sum, regionEntries) => sum + getMonthTotal(regionEntries, parseInt(year), parseInt(month)), 0);
-                                        return <td key={m} style={{ border: '1px solid #2196f3', padding: '0.5rem', textAlign: 'center' }}>{total.toLocaleString()}</td>;
-                                    })}
-                                    <td style={{ border: '1px solid #2196f3', padding: '0.5rem', fontWeight: 'bold', background: '#e0f7fa' }}>{getGrandTotal().toLocaleString()}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                            <button
-                                className="stylish-btn"
-                                onClick={() => {
-                                    // Generate CSV
-                                    let csv = '';
-                                    // Header row: Activities, months, Total
-                                    csv += 'Activities,';
-                                    allMonths.forEach(m => {
-                                        const [year, month] = m.split('-');
-                                        csv += `${monthNames[month-1]} ${year},`;
-                                    });
-                                    csv += 'Total\n';
-
-                                    // Regions and items
-                                    Object.entries(groupedByRegion).forEach(([region, regionEntries]) => {
-                                        // Region header row
-                                        csv += `${region},`;
-                                        csv += Array(allMonths.length).fill('').join(',') + ',\n';
-                                        // Items
-                                        regionEntries.forEach(entry => {
-                                            csv += `${entry.item_name},`;
-                                            allMonths.forEach(m => {
-                                                const [year, month] = m.split('-');
-                                                csv += `${getQty(entry, parseInt(year), parseInt(month))},`;
-                                            });
-                                            csv += `${getItemTotal(entry)}\n`;
-                                        });
-                                        // Region total row
-                                        csv += `Total ${region},`;
-                                        allMonths.forEach(m => {
-                                            const [year, month] = m.split('-');
-                                            csv += `${getMonthTotal(regionEntries, parseInt(year), parseInt(month))},`;
-                                        });
-                                        csv += `${getRegionTotal(regionEntries)}\n`;
-                                    });
-                                    // Grand total row
-                                    csv += 'Total Sites,';
-                                    allMonths.forEach(m => {
-                                        const [year, month] = m.split('-');
-                                        const total = Object.values(groupedByRegion).reduce((sum, regionEntries) => sum + getMonthTotal(regionEntries, parseInt(year), parseInt(month)), 0);
-                                        csv += `${total},`;
-                                    });
-                                    csv += `${getGrandTotal()}\n`;
-
-                                    // Download CSV
-                                    const blob = new Blob([csv], { type: 'text/csv' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = 'general_rop_table.csv';
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                }}
-                            >
-                                Download CSV
-                            </button>
-                            <button className="stylish-btn danger" onClick={() => setShowGeneralRop(false)}>
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showForm && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(0,0,0,0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: '#fff',
-                        borderRadius: '12px',
-                        padding: '2rem',
-                        minWidth: '500px',
-                        boxShadow: '0 4px 32px #00bcd44a',
-                        maxHeight: '80vh',
-                        overflowY: 'auto'
-                    }}>
-                        <form className="project-form" onSubmit={handleSubmit}>
-                            <div >
-                            <button style={{
-                                  
-                                  widows:'fit-content',
-                                  padding:'0.4rem',
-                                  float:'right'
-                                  }}
-                             className="stylish-btn danger" onClick={() => setShowForm(false)}>
-                                <FaTimes/>
-                            </button>
-                        </div>
-                            <input
-                                type="text"
-                                placeholder="Project ID"
-                                name="project_id"
-                                value={formData.project_id}
-                                onChange={e => setFormData({ ...formData, project_id: e.target.value })}
-                                required
-                                disabled={isEditing} // Prevent editing project_id on update if needed
-                            />
-                            <input
-                                type="text"
-                                placeholder="Project Name"
-                                name="project_name"
-                                value={formData.project_name}
-                                onChange={e => setFormData({ ...formData, project_name: e.target.value })}
-                                required
-                            />
-                            <input
-                                type="text"
-                                placeholder="Item Name"
-                                name="item_name"
-                                value={formData.item_name}
-                                onChange={e => setFormData({ ...formData, item_name: e.target.value })}
-                                required
-                            />
-                            <input
-                                type="text"
-                                placeholder="Region"
-                                name="region"
-                                value={formData.region}
-                                onChange={e => setFormData({ ...formData, region: e.target.value })}
-                                required
-                            />
-                            <input
-                                type="number"
-                                placeholder="Total Quantity"
-                                name="total_quantity"
-                                value={formData.total_quantity}
-                                onChange={e => setFormData({ ...formData, total_quantity: e.target.value })}
-                                required
-                            />
-                            <input
-                                type="number"
-                                placeholder="Price"
-                                name="price"
-                                value={formData.price}
-                                onChange={e => setFormData({ ...formData, price: e.target.value })}
-                                required
-                            />
-                            <input
-                                type="date"
-                                name="start_date"
-                                value={formData.start_date}
-                                onChange={handleDateChange}
-                                required
-                            />
-                            <input
-                                type="date"
-                                name="end_date"
-                                value={formData.end_date}
-                                onChange={handleDateChange}
-                                required
-                            />
-
-                            {distributions.length > 0 && (
-                                <div style={{ marginTop: '1rem' }}>
-                                    <h4>Monthly Distributions</h4>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                                        {distributions.map((dist, index) => (
-                                            <div
-                                                key={index}
-                                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '110px' }}
-                                            >
-                                                <label style={{ width: '100%', textAlign: 'center', fontWeight: 'bold', marginBottom: '0.3rem' }}>{`${dist.month}/${dist.year}`}</label>
-                                                <input
-                                                    type="number"
-                                                    placeholder="Allocated Quantity"
-                                                    value={dist.allocated_quantity}
-                                                    onChange={e => handleDistributionChange(index, e.target.value)}
-                                                    required
-                                                    style={{ width: '90px', textAlign: 'center' }}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <button style={{
-                                  
-                                  width:'100%',
-                                  
-                                  }}type="submit" className="stylish-btn">
-                                {isEditing ? 'Update' : 'Save'}
-                            </button>
-                            {/* <button 
-                                type="button"
-                                className="stylish-btn secondary"
-                                style={{ marginLeft: '0.5rem' , width:'fit-content' }}
-                                onClick={() => {
-                                    resetForm();
-                                }}
-                            >
-                                Cancel
-                            </button> */}
-                        </form>
-                        
-                    </div>
-                </div>
-            )}
-
-            {error && <div className="error">{error}</div>}
-            {success && <div className="success">{success}</div>}
-
-            <div className="project-table-container">
-                <table className="project-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Project Name</th>
-                            <th>Item Name</th>
-                            <th>Region</th>
-                            <th>Total Quantity</th>
-                            <th>Price</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {entries.map((entry) => (
-                            <React.Fragment key={entry.id}>
-                                <tr>
-                                    <td>{entry.id}</td>
-                                    <td>{entry.project_name}</td>
-                                    <td>{entry.item_name}</td>
-                                    <td>{entry.region}</td>
-                                    <td>{entry.total_quantity}</td>
-                                    <td>{entry.price}</td>
-                                    <td>
-                                        <button
-                                            className="stylish-btn"
-                                            style={{ width: '100%', margin: '0.5rem' }}
-                                            onClick={() => {
-                                                setDetailsEntry(entry);
-                                                setShowDetails(true);
-                                            }}
-                                        >
-                                            View Details
-                                        </button>
-                                        <button
-                                            className="stylish-btn secondary"
-                                            style={{ width: '46%', margin: '0.5rem' }}
-                                            onClick={() => handleEdit(entry)}
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            className="stylish-btn danger"
-                                            style={{ width: '46%', margin: '0.5rem -0.5rem 0rem 0rem', float: 'right' }}
-                                            onClick={() => handleDelete(entry.id)}
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                                {showDetails && detailsEntry && (
-                                    <div style={{
-                                        position: 'fixed',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100vw',
-                                        height: '100vh',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        zIndex: 1000
-                                    }}>
-                                        <div style={{
-                                            background: '#fff',
-                                            borderRadius: '12px',
-                                            padding: '2rem',
-                                            minWidth: '500px',
-                                            boxShadow: '0 4px 32px #00bcd44a',
-                                            maxHeight: '80vh',
-                                            overflowY: 'auto'
-                                        }}>
-                                            <h3 style={{ marginBottom: '1rem' }}>Details for {detailsEntry.item_name}</h3>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem', marginBottom: '1rem' }}>
-                                                <thead>
-                                                    <tr>
-                                                        <th>Month</th>
-                                                        <th>Year</th>
-                                                        <th>Allocated Quantity</th>
-                                                        <th>Latest Estimate</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {detailsEntry.distributions.map((d, idx) => (
-                                                        <tr key={idx}>
-                                                            <td>{d.month}</td>
-                                                            <td>{d.year}</td>
-                                                            <td>{d.allocated_quantity}</td>
-                                                            <td>{(d.allocated_quantity * detailsEntry.price).toLocaleString()}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                                <button className="stylish-btn danger" onClick={() => setShowDetails(false)}>
-                                                    Close
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </React.Fragment>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+              <button style={{ width: '100%' }} type="submit" className="stylish-btn">
+                {isEditing ? 'Update' : 'Create'}
+              </button>
+            </form>
+          </div>
         </div>
-    );
+      )}
+
+      {error && <div className="error">{error}</div>}
+      {success && <div className="success">{success}</div>}
+
+      {/* Entries Table */}
+      <div className="project-table-container">
+        <table className="project-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Item Name</th>
+              <th>Product Number</th>
+              <th>Region</th>
+              <th>Quantity</th>
+              <th>Price</th>
+              <th>LE</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedEntries.map(entry => (
+              <tr key={entry.id}>
+                <td>{entry.id}</td>
+                <td>{entry.item_name}</td>
+                <td>{entry.product_number || '-'}</td>
+                <td>{entry.region || '-'}</td>
+                <td>{entry.total_quantity?.toLocaleString() || '-'}</td>
+                <td>{entry.price?.toFixed(2) || '-'}</td>
+                <td>{((entry.total_quantity || 0) * (entry.price || 0)).toLocaleString()}</td>
+                <td style={{ textAlign: 'center' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                    <button className="stylish-btn" style={{ width: '48%' }} onClick={() => handleEdit(entry)}>Edit</button>
+                    <button className="stylish-btn danger" style={{ width: '48%' }} onClick={() => handleDelete(entry.id)}>Delete</button>
+                  </div>
+                  <div>
+                    <button className="stylish-btn" style={{ width: '100%' }} onClick={() => navigate('/rop-lvl2', {
+                      state: {
+                        lvl1_id: entry.id,
+                        lvl1_item_name: entry.item_name,
+                        pid_po: entry.project_id,
+                        project_name: entry.project_name
+                      }
+                    })}>Level 2</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {entries.length === 0 && (
+              <tr>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', color: '#6c757d' }}>
+                  No entries found. Click "New Entry" to create your first entry.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="pagination">
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i}
+              className={i + 1 === currentPage ? 'active-page' : ''}
+              onClick={() => setCurrentPage(i + 1)}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

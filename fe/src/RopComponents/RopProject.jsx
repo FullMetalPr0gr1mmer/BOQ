@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../css/Project.css';
 
 const PROJECTS_PER_PAGE = 5;
@@ -6,14 +7,12 @@ const PROJECTS_PER_PAGE = 5;
 export default function ROPProject() {
   const [projects, setProjects] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  // New: store current editing project info
   const [editingProject, setEditingProject] = useState(null);
 
-  // Form fields for create & update
   const [pid, setPid] = useState('');
   const [po, setPo] = useState('');
   const [projectName, setProjectName] = useState('');
-  const [wps, setWps] = useState('');
+  const [wbs, setWbs] = useState('');
   const [country, setCountry] = useState('');
   const [currency, setCurrency] = useState('Euros');
 
@@ -22,6 +21,7 @@ export default function ROPProject() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const VITE_API_URL = import.meta.env.VITE_API_URL;
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProjects();
@@ -37,33 +37,22 @@ export default function ROPProject() {
     }
   };
 
-  // Handle create or update submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    // Compose project data
-    const projectData = {
-      pid,
-      po,
-      project_name: projectName,
-      wps,
-      country,
-      currency,
-    };
+    const projectData = { pid, po, project_name: projectName, wbs, country, currency };
 
     try {
       let res;
       if (editingProject) {
-        // Update existing
         res = await fetch(`${VITE_API_URL}/rop-projects/${editingProject.pid + editingProject.po}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(projectData),
         });
       } else {
-        // Create new
         res = await fetch(`${VITE_API_URL}/rop-projects/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -84,44 +73,44 @@ export default function ROPProject() {
     }
   };
 
-  // Clear form & editing state
   const clearForm = () => {
     setPid('');
     setPo('');
     setProjectName('');
-    setWps('');
+    setWbs('');
     setCountry('');
     setCurrency('Euros');
     setEditingProject(null);
     setShowForm(false);
   };
 
-  // Start editing a project - prefill form
   const handleEditClick = (proj) => {
     setEditingProject(proj);
     setPid(proj.pid);
     setPo(proj.po);
     setProjectName(proj.project_name);
-    setWps(proj.wps || '');
+    setWbs(proj.wbs || '');
     setCountry(proj.country || '');
     setCurrency(proj.currency || 'Euros');
     setShowForm(true);
   };
 
-  // Delete project
   const handleDelete = async (proj) => {
     if (!window.confirm(`Delete project ${proj.pid} - ${proj.project_name}?`)) return;
 
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-projects/${proj.pid + proj.po}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(`${VITE_API_URL}/rop-projects/${proj.pid + proj.po}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete project');
       setSuccess('Project deleted successfully!');
       fetchProjects();
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const handleLevel1 = (proj) => {
+    const pid_po = proj.pid + proj.po;
+    navigate('/rop-lvl1', { state: { pid_po, project_name: proj.project_name } });
   };
 
   const paginatedProjects = projects.slice(
@@ -134,79 +123,70 @@ export default function ROPProject() {
     <div className="project-container">
       <div className="header-row">
         <h2>ROP Projects</h2>
-        <button className="new-project-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
-          {showForm ? 'Cancel' : '+ New Project'}
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button className="new-project-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
+            {showForm ? 'Cancel' : '+ New Project'}
+          </button>
+          <form id="csv-upload-form" style={{ display: 'inline' }}>
+            <input
+              type="file"
+              accept=".csv"
+              style={{ display: 'none' }}
+              id="csv-upload-input"
+              onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append('file', file);
+                try {
+                  const res = await fetch(`${VITE_API_URL}/rop-projects/upload-csv`, {
+                    method: 'POST',
+                    body: formData
+                  });
+                  if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Failed to upload CSV');
+                  }
+                  setSuccess('CSV uploaded and processed successfully!');
+                  fetchProjects();
+                } catch (err) {
+                  setError(err.message);
+                }
+                document.getElementById('csv-upload-input').value = '';
+              }}
+            />
+            <button
+              type="button"
+              className="stylish-btn"
+              onClick={() => document.getElementById('csv-upload-input').click()}
+            >Upload CSV</button>
+          </form>
+        </div>
       </div>
 
       {showForm && (
         <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.3)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 1000
         }}>
           <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            padding: '2rem',
-            minWidth: '500px',
-            boxShadow: '0 4px 32px #00bcd44a',
-            maxHeight: '80vh',
-            overflowY: 'auto'
+            background: '#fff', borderRadius: '12px', padding: '2rem',
+            minWidth: '500px', boxShadow: '0 4px 32px #00bcd44a',
+            maxHeight: '80vh', overflowY: 'auto'
           }}>
             <form className="project-form" onSubmit={handleSubmit}>
               <div>
-                <button style={{
-                  width: 'fit-content',
-                  padding: '0.4rem',
-                  float: 'right'
-                }}
+                <button style={{ width: 'fit-content', padding: '0.4rem', float: 'right' }}
                   className="stylish-btn danger" onClick={() => setShowForm(false)} type="button">
                   X
                 </button>
               </div>
-              <input
-                type="text"
-                placeholder="Project ID"
-                value={pid}
-                onChange={e => setPid(e.target.value)}
-                required
-                disabled={!!editingProject}
-              />
-              <input
-                type="text"
-                placeholder="Purchase Order"
-                value={po}
-                onChange={e => setPo(e.target.value)}
-                required
-                disabled={!!editingProject}
-              />
-              <input
-                type="text"
-                placeholder="Project Name"
-                value={projectName}
-                onChange={e => setProjectName(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="WPS"
-                value={wps}
-                onChange={e => setWps(e.target.value)}
-              />
-              <input
-                type="text"
-                placeholder="Country"
-                value={country}
-                onChange={e => setCountry(e.target.value)}
-              />
+              <input type="text" placeholder="Project ID" value={pid} onChange={e => setPid(e.target.value)} required disabled={!!editingProject}/>
+              <input type="text" placeholder="Purchase Order" value={po} onChange={e => setPo(e.target.value)} required disabled={!!editingProject}/>
+              <input type="text" placeholder="Project Name" value={projectName} onChange={e => setProjectName(e.target.value)} required />
+              <input type="text" placeholder="WBS" value={wbs} onChange={e => setWbs(e.target.value)} />
+              <input type="text" placeholder="Country" value={country} onChange={e => setCountry(e.target.value)} />
               <select value={currency} onChange={e => setCurrency(e.target.value)}>
                 <option value="Euros">Euros</option>
                 <option value="Dollar">Dollar</option>
@@ -227,9 +207,10 @@ export default function ROPProject() {
           <thead>
             <tr>
               <th>Project ID</th>
-              <th>Purchase Order</th>
+              <th>Customer Material Number</th>
               <th>Project Name</th>
-              <th>WPS</th>
+              <th>Product Number</th>
+              <th>WBS</th>
               <th>Country</th>
               <th>Currency</th>
               <th>Actions</th>
@@ -241,25 +222,17 @@ export default function ROPProject() {
                 <td>{proj.pid}</td>
                 <td>{proj.po}</td>
                 <td>{proj.project_name}</td>
-                <td>{proj.wps}</td>
+                <td>{proj.product_number}</td>
+                <td>{proj.wbs}</td>
                 <td>{proj.country}</td>
                 <td>{proj.currency}</td>
-                <td style={{textAlign: 'center'}}>
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                    <button
-                      className="stylish-btn"
-                      style={{ width: '46%' }}
-                      onClick={() => handleEditClick(proj)}
-                    >
-                      Details
-                    </button>
-                    <button
-                      className="stylish-btn danger"
-                      style={{ width: '46%' }}
-                      onClick={() => handleDelete(proj)}
-                    >
-                      Delete
-                    </button>
+                <td style={{ textAlign: 'center', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.5rem', width: '100%' }}>
+                    <button className="stylish-btn" style={{ width: '48%' }} onClick={() => handleEditClick(proj)}>Edit</button>
+                    <button className="stylish-btn danger" style={{ width: '48%' }} onClick={() => handleDelete(proj)}>Delete</button>
+                  </div>
+                  <div style={{ width: '100%' }}>
+                    <button className="stylish-btn" style={{ width: '100%' }} onClick={() => handleLevel1(proj)}>Level 1</button>
                   </div>
                 </td>
               </tr>
@@ -271,11 +244,7 @@ export default function ROPProject() {
       {totalPages > 1 && (
         <div className="pagination">
           {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              className={i + 1 === currentPage ? 'active-page' : ''}
-              onClick={() => setCurrentPage(i + 1)}
-            >
+            <button key={i} className={i + 1 === currentPage ? 'active-page' : ''} onClick={() => setCurrentPage(i + 1)}>
               {i + 1}
             </button>
           ))}
