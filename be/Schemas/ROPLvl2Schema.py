@@ -9,9 +9,9 @@ class ROPLvl2DistributionCreate(BaseModel):
     allocated_quantity: int
 
 class ROPLvl2Create(BaseModel):
-    id: int
+    id: str
     project_id: str
-    lvl1_id: int
+    lvl1_id: str
     lvl1_item_name: str
     item_name: str
     region: str
@@ -28,9 +28,9 @@ class ROPLvl2DistributionOut(ROPLvl2DistributionCreate):
         orm_mode = True
 
 class ROPLvl2Out(BaseModel):
-    id: int
+    id: str
     project_id: str
-    lvl1_id: int
+    lvl1_id: str
     lvl1_item_name: str
     item_name: str
     region: str

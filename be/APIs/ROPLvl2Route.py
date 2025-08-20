@@ -38,12 +38,12 @@ def get_all_lvl2(db: Session = Depends(get_db)):
 
 # READ BY LVL1
 @ROPLvl2router.get("/by-lvl1/{lvl1_id}", response_model=List[ROPLvl2Out])
-def get_lvl2_by_lvl1(lvl1_id: int, db: Session = Depends(get_db)):
+def get_lvl2_by_lvl1(lvl1_id: str, db: Session = Depends(get_db)):
     return db.query(ROPLvl2).filter(ROPLvl2.lvl1_id == lvl1_id).all()
 
 # READ ONE
 @ROPLvl2router.get("/{id}", response_model=ROPLvl2Out)
-def get_lvl2_by_id(id: int, db: Session = Depends(get_db)):
+def get_lvl2_by_id(id: str, db: Session = Depends(get_db)):
     lvl2 = db.query(ROPLvl2).filter(ROPLvl2.id == id).first()
     if not lvl2:
         raise HTTPException(status_code=404, detail="Lvl2 entry not found")
@@ -51,7 +51,7 @@ def get_lvl2_by_id(id: int, db: Session = Depends(get_db)):
 
 # UPDATE
 @ROPLvl2router.put("/update/{id}", response_model=ROPLvl2Out)
-def update_lvl2(id: int, data: ROPLvl2Create, db: Session = Depends(get_db)):
+def update_lvl2(id: str, data: ROPLvl2Create, db: Session = Depends(get_db)):
     lvl2 = db.query(ROPLvl2).filter(ROPLvl2.id == id).first()
     if not lvl2:
         raise HTTPException(status_code=404, detail="Lvl2 entry not found")
@@ -75,7 +75,7 @@ def update_lvl2(id: int, data: ROPLvl2Create, db: Session = Depends(get_db)):
 
 # DELETE
 @ROPLvl2router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_lvl2(id: int, db: Session = Depends(get_db)):
+def delete_lvl2(id: str, db: Session = Depends(get_db)):
     lvl2 = db.query(ROPLvl2).filter(ROPLvl2.id == id).first()
     if not lvl2:
         raise HTTPException(status_code=404, detail="Lvl2 entry not found")

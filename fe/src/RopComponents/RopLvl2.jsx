@@ -1,7 +1,6 @@
-import React,{ useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import '../css/Project.css';
-
+import '../css/RopLvl2.css';
 const ENTRIES_PER_PAGE = 5;
 
 export default function RopLvl2() {
@@ -98,83 +97,81 @@ export default function RopLvl2() {
   }, [formData.start_date, formData.end_date]);
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setSuccess('');
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
-  // Basic validation
-  if (!formData.start_date || !formData.end_date) {
-    setError('Start date and end date are required');
-    return;
-  }
-  if (new Date(formData.start_date) > new Date(formData.end_date)) {
-    setError('Start date cannot be after end date');
-    return;
-  }
+    // Basic validation
+    if (!formData.start_date || !formData.end_date) {
+      setError('Start date and end date are required');
+      return;
+    }
+    if (new Date(formData.start_date) > new Date(formData.end_date)) {
+      setError('Start date cannot be after end date');
+      return;
+    }
 
-  // Prepare payload with explicit type conversions
-  const payload = {
-    project_id: formData.project_id,
-    lvl1_id: Number(formData.lvl1_id),
-    lvl1_item_name: formData.lvl1_item_name,
-    item_name: formData.item_name,
-    region: formData.region || null,
-    total_quantity: Number(formData.total_quantity) || 0,
-    price: Number(formData.price) || 0,
-    start_date: formData.start_date,
-    end_date: formData.end_date,
-    distributions: distributions.map(d => ({
-      month: Number(d.month),
-      year: Number(d.year),
-      allocated_quantity: Number(d.allocated_quantity) || 0
-    }))
-  };
+    // Prepare payload with explicit type conversions
+    const payload = {
+      project_id: formData.project_id,
+      lvl1_id: Number(formData.lvl1_id),
+      lvl1_item_name: formData.lvl1_item_name,
+      item_name: formData.item_name,
+      region: formData.region || null,
+      total_quantity: Number(formData.total_quantity) || 0,
+      price: Number(formData.price) || 0,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
+      distributions: distributions.map(d => ({
+        month: Number(d.month),
+        year: Number(d.year),
+        allocated_quantity: Number(d.allocated_quantity) || 0
+      }))
+    };
 
-  console.log('Submitting payload:', payload);
+    console.log('Submitting payload:', payload);
 
-  try {
-    const url = isEditing && editId
-      ? `${VITE_API_URL}/rop-lvl2/update/${editId}`
-      : `${VITE_API_URL}/rop-lvl2/create`;
-
-    const res = await fetch(url, {
-      method: isEditing ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    console.log('Response status:', res.status);
-
-    // Try JSON first, fallback to text
-    let data;
     try {
-      data = await res.json();
-    } catch {
-      data = await res.text();
+      const url = isEditing && editId
+        ? `${VITE_API_URL}/rop-lvl2/update/${editId}`
+        : `${VITE_API_URL}/rop-lvl2/create`;
+
+      const res = await fetch(url, {
+        method: isEditing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      console.log('Response status:', res.status);
+
+      // Try JSON first, fallback to text
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        data = await res.text();
+      }
+      console.log('Response data:', data);
+
+      if (!res.ok) {
+        const message = data?.detail || data || 'Failed to save entry';
+        throw new Error(message);
+      }
+
+      setSuccess(isEditing ? 'ROP Lvl2 updated successfully!' : 'ROP Lvl2 created successfully!');
+      resetForm();
+      fetchEntries();
+    } catch (err) {
+      console.error('Error submitting:', err);
+      setError(err.message);
     }
-    console.log('Response data:', data);
-
-    if (!res.ok) {
-      const message = data?.detail || data || 'Failed to save entry';
-      throw new Error(message);
-    }
-
-    setSuccess(isEditing ? 'ROP Lvl2 updated successfully!' : 'ROP Lvl2 created successfully!');
-    resetForm();
-    fetchEntries();
-  } catch (err) {
-    console.error('Error submitting:', err);
-    setError(err.message);
-  }
-};
-
+  };
 
   const handleEdit = (entry) => {
     setIsEditing(true);
     setEditId(entry.id);
     setFormData({
       project_id: entry.project_id,
-
       lvl1_id: Number(entry.lvl1_id),
       lvl1_item_name: entry.lvl1_item_name,
       item_name: entry.item_name,
@@ -295,479 +292,534 @@ export default function RopLvl2() {
 
   const stats = [
     { label: 'Total Items', value: totalItems },
-    { label: 'Total Quantity', value: totalQuantity },
-    { label: 'Total LE', value: totalLE },
-    { label: 'Avg Quantity per Item', value: avgQuantityPerItem },
-    { label: 'Highest LE Item', value: highestLEItem.item_name || '-', extra: highestLEItem.le?.toLocaleString() },
+    { label: 'Total Quantity', value: totalQuantity.toLocaleString() },
+    { label: 'Total LE', value: `$${totalLE.toLocaleString()}` },
+    { label: 'Avg Quantity per Item', value: avgQuantityPerItem.toLocaleString() },
+    { label: 'Highest LE Item', value: highestLEItem.item_name || '-', extra: highestLEItem.le ? `$${highestLEItem.le.toLocaleString()}` : '' },
     { label: 'Earliest Start', value: earliestStart ? earliestStart.toLocaleDateString() : '-' },
     { label: 'Latest End', value: latestEnd ? latestEnd.toLocaleDateString() : '-' },
   ];
 
   return (
-    <div className="project-container">
+    <div className="nokia-dashboard">
       {/* Header */}
-      <div className="header-row">
-        <h2>ROP Level 2</h2>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <button className="new-project-btn" onClick={() => { resetForm(); setShowForm(!showForm); }}>
+      <div className="dashboard-header">
+        <div className="header-left">
+          <h1>ROP Level 2 Dashboard</h1>
+          <div className="breadcrumb">
+            <span>Projects</span> / <span>Level 1</span> / <span className="active">Level 2</span>
+          </div>
+        </div>
+        <div className="header-actions">
+          <button className="nokia-btn primary" onClick={() => { resetForm(); setShowForm(!showForm); }}>
             {showForm ? 'Cancel' : '+ New Entry'}
           </button>
-          <button className="stylish-btn secondary" onClick={() => setShowGeneralRop(true)}>
+          <button className="nokia-btn secondary" onClick={() => setShowGeneralRop(true)}>
             Generate ROP
           </button>
-          <button className="stylish-btn secondary" onClick={() => setShowLE(true)}>
+          <button className="nokia-btn secondary" onClick={() => setShowLE(true)}>
             Generate LE
           </button>
         </div>
+      </div>
+
+      {/* Project Context Cards */}
+      <div className="project-context">
+        <div className="context-card primary">
+          <div className="context-label">Project ID</div>
+          <div className="context-value">{formData.project_id}</div>
+        </div>
+        <div className="context-card">
+          <div className="context-label">Project Name</div>
+          <div className="context-value">{formData.project_name}</div>
+        </div>
+        <div className="context-card">
+          <div className="context-label">Level 1 ID</div>
+          <div className="context-value">{formData.lvl1_id}</div>
+        </div>
+        <div className="context-card">
+          <div className="context-label">Level 1 Item</div>
+          <div className="context-value">{formData.lvl1_item_name}</div>
+        </div>
+      </div>
+
+      {/* Statistics Grid */}
+      <div className="stats-grid">
+        {stats.map((stat, idx) => (
+          <div key={idx} className="stat-card">
+            <div className="stat-value">{stat.value}</div>
+            {stat.extra && <div className="stat-extra">{stat.extra}</div>}
+            <div className="stat-label">{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
       {/* Generate ROP Modal */}
       {showGeneralRop && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-          <div style={{ background: '#fff', borderRadius: '12px', padding: '2rem', minWidth: '90vw', maxWidth: '1200px', boxShadow: '0 4px 32px #00bcd44a', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
               <h3>ROP Table</h3>
+              <button className="close-btn" onClick={() => setShowGeneralRop(false)}>×</button>
             </div>
-            {/* Table Construction: same as Table View, but show quantities */}
-            {(() => {
-              const regions = Array.from(new Set(entries.map(e => e.region || '')));
-              let months = [];
-              if (earliestStart && latestEnd) {
-                let current = new Date(earliestStart.getFullYear(), earliestStart.getMonth(), 1);
-                const endDate = new Date(latestEnd.getFullYear(), latestEnd.getMonth(), 1);
-                while (current <= endDate) {
-                  months.push({
-                    month: current.getMonth() + 1,
-                    year: current.getFullYear(),
-                    label: `${current.toLocaleString('default', { month: 'short' })} ${current.getFullYear()}`
-                  });
-                  current.setMonth(current.getMonth() + 1);
+            <div className="modal-content">
+              {(() => {
+                const regions = Array.from(new Set(entries.map(e => e.region || '')));
+                let months = [];
+                if (earliestStart && latestEnd) {
+                  let current = new Date(earliestStart.getFullYear(), earliestStart.getMonth(), 1);
+                  const endDate = new Date(latestEnd.getFullYear(), latestEnd.getMonth(), 1);
+                  while (current <= endDate) {
+                    months.push({
+                      month: current.getMonth() + 1,
+                      year: current.getFullYear(),
+                      label: `${current.toLocaleString('default', { month: 'short' })} ${current.getFullYear()}`
+                    });
+                    current.setMonth(current.getMonth() + 1);
+                  }
                 }
-              }
-              // Calculate totals per month
-              const monthTotals = months.map(m => {
-                let total = 0;
-                entries.forEach(item => {
-                  const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
-                  total += dist ? dist.allocated_quantity : 0;
+                const monthTotals = months.map(m => {
+                  let total = 0;
+                  entries.forEach(item => {
+                    const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
+                    total += dist ? dist.allocated_quantity : 0;
+                  });
+                  return total;
                 });
-                return total;
-              });
-              return (
-                <>
-                  <table className="project-table" style={{ fontSize: '0.95rem' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ minWidth: 120 }}>Region</th>
-                        <th style={{ minWidth: 180 }}>Level 2 Item</th>
-                        {months.map(m => (
-                          <th key={m.label} style={{ minWidth: 60 }}>{m.label}</th>
-                        ))}
-                        <th>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {regions.map(region => (
-                        <React.Fragment key={region}>
-                          <tr style={{ background: '#fffbe6', fontWeight: 'bold' }}>
-                            <td colSpan={2 + months.length + 1}>{region || 'No Region'}</td>
+                return (
+                  <>
+                    <div className="table-container">
+                      <table className="nokia-table">
+                        <thead>
+                          <tr>
+                            <th>Region</th>
+                            <th>Level 2 Item</th>
+                            {months.map(m => (
+                              <th key={m.label}>{m.label}</th>
+                            ))}
+                            <th>Total</th>
                           </tr>
-                          {entries.filter(e => (e.region || '') === region).map(item => (
-                            <tr key={item.id}>
-                              <td></td>
-                              <td>{item.item_name}</td>
-                              {months.map(m => {
-                                const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
-                                return (
-                                  <td key={m.label} style={{ textAlign: 'center' }}>{dist ? dist.allocated_quantity : '-'}</td>
-                                );
-                              })}
-                              <td style={{ fontWeight: 'bold', textAlign: 'center' }}>{item.total_quantity?.toLocaleString() || '-'}</td>
-                            </tr>
+                        </thead>
+                        <tbody>
+                          {regions.map(region => (
+                            <React.Fragment key={region}>
+                              <tr className="region-header">
+                                <td colSpan={2 + months.length + 1}>{region || 'No Region'}</td>
+                              </tr>
+                              {entries.filter(e => (e.region || '') === region).map(item => (
+                                <tr key={item.id}>
+                                  <td></td>
+                                  <td>{item.item_name}</td>
+                                  {months.map(m => {
+                                    const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
+                                    return (
+                                      <td key={m.label}>{dist ? dist.allocated_quantity : '-'}</td>
+                                    );
+                                  })}
+                                  <td className="total-cell">{item.total_quantity?.toLocaleString() || '-'}</td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
                           ))}
-                        </React.Fragment>
-                      ))}
-                      {/* Totals row */}
-                      <tr style={{ background: '#e3f2fd', fontWeight: 'bold' }}>
-                        <td colSpan={2}>Total</td>
-                        {monthTotals.map((total, idx) => (
-                          <td key={idx} style={{ textAlign: 'center' }}>{total}</td>
-                        ))}
-                        <td></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem' }}>
-                    <button className="stylish-btn danger" onClick={() => setShowGeneralRop(false)}>Close</button>
-                    <button className="stylish-btn" onClick={() => {
-                      // CSV download logic
-                      let csv = '';
-                      csv += 'Region,Level 2 Item,' + months.map(m => m.label).join(',') + ',Total\n';
-                      regions.forEach(region => {
-                        entries.filter(e => (e.region || '') === region).forEach(item => {
-                          let row = [region || 'No Region', item.item_name];
-                          months.forEach(m => {
-                            const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
-                            row.push(dist ? dist.allocated_quantity : '-');
+                          <tr className="totals-row">
+                            <td colSpan={2}>Total</td>
+                            {monthTotals.map((total, idx) => (
+                              <td key={idx}>{total}</td>
+                            ))}
+                            <td></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="modal-actions">
+                      <button className="nokia-btn danger" onClick={() => setShowGeneralRop(false)}>Close</button>
+                      <button className="nokia-btn primary" onClick={() => {
+                        let csv = '';
+                        csv += 'Region,Level 2 Item,' + months.map(m => m.label).join(',') + ',Total\n';
+                        regions.forEach(region => {
+                          entries.filter(e => (e.region || '') === region).forEach(item => {
+                            let row = [region || 'No Region', item.item_name];
+                            months.forEach(m => {
+                              const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
+                              row.push(dist ? dist.allocated_quantity : '-');
+                            });
+                            row.push(item.total_quantity?.toLocaleString() || '-');
+                            csv += row.join(',') + '\n';
                           });
-                          row.push(item.total_quantity?.toLocaleString() || '-');
-                          csv += row.join(',') + '\n';
                         });
-                      });
-                      // Totals row
-                      let totalRow = ['Total', ''];
-                      monthTotals.forEach(t => totalRow.push(t));
-                      totalRow.push('');
-                      csv += totalRow.join(',') + '\n';
-                      const blob = new Blob([csv], { type: 'text/csv' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = 'rop_table.csv';
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}>Download CSV</button>
-                  </div>
-                </>
-              );
-            })()}
+                        let totalRow = ['Total', ''];
+                        monthTotals.forEach(t => totalRow.push(t));
+                        totalRow.push('');
+                        csv += totalRow.join(',') + '\n';
+                        const blob = new Blob([csv], { type: 'text/csv' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'rop_table.csv';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}>Download CSV</button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
 
       {/* Generate LE Modal */}
       {showLE && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-          <div style={{ background: '#fff', borderRadius: '12px', padding: '2rem', minWidth: '90vw', maxWidth: '1200px', boxShadow: '0 4px 32px #00bcd44a', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
               <h3>LE Table (Values × Price)</h3>
+              <button className="close-btn" onClick={() => setShowLE(false)}>×</button>
             </div>
-            {/* Table Construction: show quantity × price */}
-            {(() => {
-              const regions = Array.from(new Set(entries.map(e => e.region || '')));
-              let months = [];
-              if (earliestStart && latestEnd) {
-                let current = new Date(earliestStart.getFullYear(), earliestStart.getMonth(), 1);
-                const endDate = new Date(latestEnd.getFullYear(), latestEnd.getMonth(), 1);
-                while (current <= endDate) {
-                  months.push({
-                    month: current.getMonth() + 1,
-                    year: current.getFullYear(),
-                    label: `${current.toLocaleString('default', { month: 'short' })} ${current.getFullYear()}`
-                  });
-                  current.setMonth(current.getMonth() + 1);
+            <div className="modal-content">
+              {(() => {
+                const regions = Array.from(new Set(entries.map(e => e.region || '')));
+                let months = [];
+                if (earliestStart && latestEnd) {
+                  let current = new Date(earliestStart.getFullYear(), earliestStart.getMonth(), 1);
+                  const endDate = new Date(latestEnd.getFullYear(), latestEnd.getMonth(), 1);
+                  while (current <= endDate) {
+                    months.push({
+                      month: current.getMonth() + 1,
+                      year: current.getFullYear(),
+                      label: `${current.toLocaleString('default', { month: 'short' })} ${current.getFullYear()}`
+                    });
+                    current.setMonth(current.getMonth() + 1);
+                  }
                 }
-              }
-              // Calculate totals per month (LE)
-              const monthTotals = months.map(m => {
-                let total = 0;
-                entries.forEach(item => {
-                  const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
-                  total += dist ? (dist.allocated_quantity * (item.price || 0)) : 0;
+                const monthTotals = months.map(m => {
+                  let total = 0;
+                  entries.forEach(item => {
+                    const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
+                    total += dist ? (dist.allocated_quantity * (item.price || 0)) : 0;
+                  });
+                  return total;
                 });
-                return total;
-              });
-              return (
-                <>
-                  <table className="project-table" style={{ fontSize: '0.95rem' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ minWidth: 120 }}>Region</th>
-                        <th style={{ minWidth: 180 }}>Level 2 Item</th>
-                        {months.map(m => (
-                          <th key={m.label} style={{ minWidth: 60 }}>{m.label}</th>
-                        ))}
-                        <th>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {regions.map(region => (
-                        <React.Fragment key={region}>
-                          <tr style={{ background: '#fffbe6', fontWeight: 'bold' }}>
-                            <td colSpan={2 + months.length + 1}>{region || 'No Region'}</td>
+                return (
+                  <>
+                    <div className="table-container">
+                      <table className="nokia-table">
+                        <thead>
+                          <tr>
+                            <th>Region</th>
+                            <th>Level 2 Item</th>
+                            {months.map(m => (
+                              <th key={m.label}>{m.label}</th>
+                            ))}
+                            <th>Total</th>
                           </tr>
-                          {entries.filter(e => (e.region || '') === region).map(item => (
-                            <tr key={item.id}>
-                              <td></td>
-                              <td>{item.item_name}</td>
-                              {months.map(m => {
-                                const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
-                                return (
-                                  <td key={m.label} style={{ textAlign: 'center' }}>{dist ? (dist.allocated_quantity * (item.price || 0)).toLocaleString() : '-'}</td>
-                                );
-                              })}
-                              <td style={{ fontWeight: 'bold', textAlign: 'center' }}>{((item.total_quantity || 0) * (item.price || 0)).toLocaleString() || '-'}</td>
-                            </tr>
+                        </thead>
+                        <tbody>
+                          {regions.map(region => (
+                            <React.Fragment key={region}>
+                              <tr className="region-header">
+                                <td colSpan={2 + months.length + 1}>{region || 'No Region'}</td>
+                              </tr>
+                              {entries.filter(e => (e.region || '') === region).map(item => (
+                                <tr key={item.id}>
+                                  <td></td>
+                                  <td>{item.item_name}</td>
+                                  {months.map(m => {
+                                    const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
+                                    return (
+                                      <td key={m.label}>{dist ? (dist.allocated_quantity * (item.price || 0)).toLocaleString() : '-'}</td>
+                                    );
+                                  })}
+                                  <td className="total-cell">{((item.total_quantity || 0) * (item.price || 0)).toLocaleString() || '-'}</td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
                           ))}
-                        </React.Fragment>
-                      ))}
-                      {/* Totals row */}
-                      <tr style={{ background: '#e3f2fd', fontWeight: 'bold' }}>
-                        <td colSpan={2}>Total</td>
-                        {monthTotals.map((total, idx) => (
-                          <td key={idx} style={{ textAlign: 'center' }}>{total.toLocaleString()}</td>
-                        ))}
-                        <td></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem' }}>
-                    <button className="stylish-btn danger" onClick={() => setShowLE(false)}>Close</button>
-                    <button className="stylish-btn" onClick={() => {
-                      // CSV download logic
-                      let csv = '';
-                      csv += 'Region,Level 2 Item,' + months.map(m => m.label).join(',') + ',Total\n';
-                      regions.forEach(region => {
-                        entries.filter(e => (e.region || '') === region).forEach(item => {
-                          let row = [region || 'No Region', item.item_name];
-                          months.forEach(m => {
-                            const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
-                            row.push(dist ? (dist.allocated_quantity * (item.price || 0)) : '-');
+                          <tr className="totals-row">
+                            <td colSpan={2}>Total</td>
+                            {monthTotals.map((total, idx) => (
+                              <td key={idx}>{total.toLocaleString()}</td>
+                            ))}
+                            <td></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="modal-actions">
+                      <button className="nokia-btn danger" onClick={() => setShowLE(false)}>Close</button>
+                      <button className="nokia-btn primary" onClick={() => {
+                        let csv = '';
+                        csv += 'Region,Level 2 Item,' + months.map(m => m.label).join(',') + ',Total\n';
+                        regions.forEach(region => {
+                          entries.filter(e => (e.region || '') === region).forEach(item => {
+                            let row = [region || 'No Region', item.item_name];
+                            months.forEach(m => {
+                              const dist = (item.distributions || []).find(d => d.month === m.month && d.year === m.year);
+                              row.push(dist ? (dist.allocated_quantity * (item.price || 0)) : '-');
+                            });
+                            row.push(((item.total_quantity || 0) * (item.price || 0)).toLocaleString() || '-');
+                            csv += row.join(',') + '\n';
                           });
-                          row.push(((item.total_quantity || 0) * (item.price || 0)).toLocaleString() || '-');
-                          csv += row.join(',') + '\n';
                         });
-                      });
-                      // Totals row
-                      let totalRow = ['Total', ''];
-                      monthTotals.forEach(t => totalRow.push(t));
-                      totalRow.push('');
-                      csv += totalRow.join(',') + '\n';
-                      const blob = new Blob([csv], { type: 'text/csv' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = 'le_table.csv';
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}>Download CSV</button>
-                  </div>
-                </>
-              );
-            })()}
+                        let totalRow = ['Total', ''];
+                        monthTotals.forEach(t => totalRow.push(t));
+                        totalRow.push('');
+                        csv += totalRow.join(',') + '\n';
+                        const blob = new Blob([csv], { type: 'text/csv' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'le_table.csv';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}>Download CSV</button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
-      </div>
 
-      {/* Statistics Cards */}
-      <div className="stats-grid" style={{ display: 'flex', flexWrap: 'wrap', columnGap: '0.2rem', rowGap: '0.1rem' }}>
-        {(() => {
-          const statCards = [
-            <div className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }} key="lvl1_id">
-              <div className="stat-value" style={{ fontSize: '1rem' }}>{formData.lvl1_id}</div>
-              <div className="stat-label" style={{ fontSize: '0.95rem' }}>Level 1 ID</div>
-            </div>,
-            <div className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }} key="lvl1_name">
-              <div className="stat-value" style={{ fontSize: '1.2rem' }}>{formData.lvl1_item_name}</div>
-              <div className="stat-label" style={{ fontSize: '0.95rem' }}>Level 1 Name</div>
-            </div>,
-            <div className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }} key="project_id">
-              <div className="stat-value" style={{ fontSize: '1rem' }}>{formData.project_id}</div>
-              <div className="stat-label" style={{ fontSize: '0.95rem' }}>Project ID</div>
-            </div>,
-            <div className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }} key="project_name">
-              <div className="stat-value" style={{ fontSize: '1.2rem' }}>{formData.project_name}</div>
-              <div className="stat-label" style={{ fontSize: '0.95rem' }}>Project Name</div>
-            </div>,
-            ...stats.map((stat, idx) => (
-              <div key={idx} className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }}>
-                <div className="stat-value" style={{ fontSize: '1.2rem' }}>{stat.value}</div>
-                {stat.extra && <div className="stat-extra" style={{ fontSize: '0.95rem' }}>{stat.extra}</div>}
-                <div className="stat-label" style={{ fontSize: '0.95rem' }}>{stat.label}</div>
-              </div>
-            ))
-          ];
-          return (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-evenly', gap: '0.2rem', marginBottom: '0.2rem', width: '100%' }}>
-                {statCards.slice(0, 5)}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-evenly', gap: '0.2rem', width: '100%' }}>
-                {statCards.slice(5, 10)}
-              </div>
-            </>
-          );
-        })()}
-      </div>
-
-      {/* Modal Form */}
+      {/* Form Modal */}
       {showForm && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', zIndex: 1000
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: '12px', padding: '2rem',
-            minWidth: '500px', boxShadow: '0 4px 32px #00bcd44a',
-            maxHeight: '80vh', overflowY: 'auto'
-          }}>
-            <form className="project-form" onSubmit={handleSubmit}>
-              <div>
-                <button
-                  style={{ width: 'fit-content', padding: '0.4rem', float: 'right' }}
-                  className="stylish-btn danger"
-                  onClick={() => setShowForm(false)}
-                  type="button"
-                >X</button>
+        <div className="modal-overlay">
+          <div className="form-modal">
+            <div className="modal-header">
+              <h3>{isEditing ? 'Edit Entry' : 'New Entry'}</h3>
+              <button className="close-btn" onClick={() => setShowForm(false)}>×</button>
+            </div>
+            <form className="nokia-form" onSubmit={handleSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Project ID</label>
+                  <input type="text" value={formData.project_id} disabled />
+                </div>
+                <div className="form-group">
+                  <label>Level 1 ID</label>
+                  <input type="text" value={formData.lvl1_id} disabled />
+                </div>
               </div>
-
-              <input type="text" placeholder="Project ID" value={formData.project_id} disabled />
-              <input type="text" placeholder="Level 1 ID" value={formData.lvl1_id} disabled />
-              <input type="text" placeholder="Lvl1 Item Name" value={formData.lvl1_item_name} disabled />
-              <input type="text" placeholder="Item Name" value={formData.item_name}
-                onChange={e => setFormData({ ...formData, item_name: e.target.value })} required />
-              <input type="text" placeholder="Region" value={formData.region}
-                onChange={e => setFormData({ ...formData, region: e.target.value })} />
-              <input type="number" placeholder="Total Quantity" value={formData.total_quantity}
-                onChange={e => setFormData({ ...formData, total_quantity: Number(e.target.value) || 0 })} />
-              <input type="number" step="0.01" placeholder="Price" value={formData.price}
-                onChange={e => setFormData({ ...formData, price: Number(e.target.value) || 0 })} />
-              <input type="date" placeholder="Start Date" value={formData.start_date}
-                onChange={e => setFormData({ ...formData, start_date: e.target.value })} />
-              <input type="date" placeholder="End Date" value={formData.end_date}
-                onChange={e => setFormData({ ...formData, end_date: e.target.value })} />
+              <div className="form-group">
+                <label>Level 1 Item Name</label>
+                <input type="text" value={formData.lvl1_item_name} disabled />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Item Name *</label>
+                  <input type="text" value={formData.item_name}
+                    onChange={e => setFormData({ ...formData, item_name: e.target.value })} required />
+                </div>
+                <div className="form-group">
+                  <label>Region</label>
+                  <input type="text" value={formData.region}
+                    onChange={e => setFormData({ ...formData, region: e.target.value })} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Total Quantity</label>
+                  <input type="number" value={formData.total_quantity}
+                    onChange={e => setFormData({ ...formData, total_quantity: Number(e.target.value) || 0 })} />
+                </div>
+                <div className="form-group">
+                  <label>Price</label>
+                  <input type="number" step="0.01" value={formData.price}
+                    onChange={e => setFormData({ ...formData, price: Number(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input type="date" value={formData.start_date}
+                    onChange={e => setFormData({ ...formData, start_date: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>End Date</label>
+                  <input type="date" value={formData.end_date}
+                    onChange={e => setFormData({ ...formData, end_date: e.target.value })} />
+                </div>
+              </div>
 
               {/* Dynamic Distribution Table */}
               {distributions.length > 0 && (
-                <div style={{ margin: '1rem 0', overflowX: 'auto' }}>
-                  <table className="project-table">
-                    <thead>
-                      <tr>
-                        <th>Month</th>
-                        <th>Year</th>
-                        <th>Allocated Quantity</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {distributions.map((dist, idx) => (
-                        <tr key={idx}>
-                          <td>{dist.month}</td>
-                          <td>{dist.year}</td>
-                          <td>
-                            <input
-                              type="number"
-                              value={dist.allocated_quantity}
-                              onChange={e => {
-                                const newDists = [...distributions];
-                                newDists[idx].allocated_quantity = Number(e.target.value) || 0;
-                                setDistributions(newDists);
-                              }}
-                              style={{ width: '80px' }}
-                            />
-                          </td>
+                <div className="distribution-section">
+                  <h4>Distribution Schedule</h4>
+                  <div className="table-container">
+                    <table className="nokia-table">
+                      <thead>
+                        <tr>
+                          <th>Month</th>
+                          <th>Year</th>
+                          <th>Allocated Quantity</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {distributions.map((dist, idx) => (
+                          <tr key={idx}>
+                            <td>{dist.month}</td>
+                            <td>{dist.year}</td>
+                            <td>
+                              <input
+                                type="number"
+                                value={dist.allocated_quantity}
+                                onChange={e => {
+                                  const newDists = [...distributions];
+                                  newDists[idx].allocated_quantity = Number(e.target.value) || 0;
+                                  setDistributions(newDists);
+                                }}
+                                className="table-input"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
-              <button style={{ width: '100%' }} type="submit" className="stylish-btn">
-                {isEditing ? 'Update' : 'Create'}
+              <button type="submit" className="nokia-btn primary full-width">
+                {isEditing ? 'Update Entry' : 'Create Entry'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {error && <div className="error">{error}</div>}
-      {success && <div className="success">{success}</div>}
+      {/* Notifications */}
+      {error && <div className="notification error">{error}</div>}
+      {success && <div className="notification success">{success}</div>}
 
-      {/* Entries Table */}
-      <div className="project-table-container">
-        <table className="project-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Item Name</th>
-              <th>Product Number</th>
-              <th>Region</th>
-              <th>Quantity</th>
-              <th>Price</th>
-              <th>Total Price</th>
-              {/* Distribution columns */}
-              {distributionColumns.map(col => (
-                <th key={col.label}>{col.label}</th>
-              ))}
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedEntries.map(entry => (
-              <>
-              <tr key={entry.id}>
-                <td>{entry.id}</td>
-                <td>{entry.item_name}</td>
-                <td>{entry.product_number || '-'}</td>
-                <td>{entry.region || '-'}</td>
-                <td>{entry.total_quantity?.toLocaleString() || '-'}</td>
-                <td>{entry.price?.toFixed(2) || '-'}</td>
-                <td>{((entry.total_quantity || 0) * (entry.price || 0)).toLocaleString()}</td>
-                {/* Distribution cells */}
-                {distributionColumns.map(col => {
-                  const orig = (entry.distributions || []).find(d => d.month === col.month && d.year === col.year);
-                  const key = `${col.year}-${col.month}`;
-                  if (!orig) {
-                    // Month does not exist for this item, show '-' and disable editing
-                    return (
-                      <td key={key} style={{ color: '#aaa', textAlign: 'center' }}>-</td>
-                    );
-                  }
-                  const value = editedDistributions[entry.id]?.[key] ?? orig.allocated_quantity;
-                  return (
-                    <td key={key}>
-                      <input
-                        type="number"
-                        value={value !== undefined ? value : ''}
-                        style={{ width: '60px' }}
-                        onChange={e => handleDistributionEdit(entry.id, col.month, col.year, e.target.value)}
-                      />
-                    </td>
-                  );
-                })}
-                <td style={{ textAlign: 'center', display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <button className="stylish-btn danger" style={{ width: '100%' }} onClick={() => handleDelete(entry.id)}>Delete</button>
-                </td>
+      {/* Main Data Table */}
+      <div className="data-section">
+        <div className="section-header">
+          <h3>Entries</h3>
+          <div className="table-info">
+            Showing {paginatedEntries.length} of {entries.length} entries
+          </div>
+        </div>
+        
+        <div className="table-container">
+          <table className="nokia-table main-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Item Name</th>
+                <th>Product Number</th>
+                <th>Region</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total Price</th>
+                {/* Distribution columns */}
+                {distributionColumns.map(col => (
+                  <th key={col.label} className="dist-col">{col.label}</th>
+                ))}
+                <th>Actions</th>
               </tr>
-              {/* Save button row */}
-              {showSaveRow[entry.id] && (
-                <tr>
-                  <td colSpan={10 + distributionColumns.length} style={{ textAlign: 'center', background: '#f9f9f9' }}>
-                    <button style={{float:'left'}}className="stylish-btn" onClick={() => handleSaveDistributions(entry)}>
-                      Save
-                    </button>
+            </thead>
+            <tbody>
+              {paginatedEntries.map(entry => (
+                <React.Fragment key={entry.id}>
+                  <tr>
+                    <td className="id-cell">{entry.id}</td>
+                    <td className="item-name">{entry.item_name}</td>
+                    <td>{entry.product_number || '-'}</td>
+                    <td>{entry.region || '-'}</td>
+                    <td className="number-cell">{entry.total_quantity?.toLocaleString() || '-'}</td>
+                    <td className="number-cell">${entry.price?.toFixed(2) || '0.00'}</td>
+                    <td className="number-cell total">${((entry.total_quantity || 0) * (entry.price || 0)).toLocaleString()}</td>
+                    {/* Distribution cells */}
+                    {distributionColumns.map(col => {
+                      const orig = (entry.distributions || []).find(d => d.month === col.month && d.year === col.year);
+                      const key = `${col.year}-${col.month}`;
+                      if (!orig) {
+                        return (
+                          <td key={key} className="dist-cell empty">-</td>
+                        );
+                      }
+                      const value = editedDistributions[entry.id]?.[key] ?? orig.allocated_quantity;
+                      return (
+                        <td key={key} className="dist-cell">
+                          <input
+                            type="number"
+                            value={value !== undefined ? value : ''}
+                            className="dist-input"
+                            onChange={e => handleDistributionEdit(entry.id, col.month, col.year, e.target.value)}
+                          />
+                        </td>
+                      );
+                    })}
+                    <td className="actions-cell">
+                      <button className="nokia-btn small secondary" onClick={() => handleEdit(entry)}>
+                        Edit
+                      </button>
+                      <button className="nokia-btn small danger" onClick={() => handleDelete(entry.id)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                  {/* Save button row */}
+                  {showSaveRow[entry.id] && (
+                    <tr className="save-row">
+                      <td colSpan={7 + distributionColumns.length}>
+                        <button className="nokia-btn small primary" onClick={() => handleSaveDistributions(entry)}>
+                          Save Distribution Changes
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+              {entries.length === 0 && (
+                <tr className="empty-row">
+                  <td colSpan={7 + distributionColumns.length}>
+                    <div className="empty-state">
+                      <div className="empty-icon">📊</div>
+                      <div className="empty-text">No entries found</div>
+                      <div className="empty-subtext">Click "New Entry" to create your first entry</div>
+                    </div>
                   </td>
                 </tr>
               )}
-              </>
-            ))}
-            {entries.length === 0 && (
-              <tr>
-                <td colSpan={10 + distributionColumns.length} style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', color: '#6c757d' }}>
-                  No entries found. Click "New Entry" to create your first entry.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              className={i + 1 === currentPage ? 'active-page' : ''}
-              onClick={() => setCurrentPage(i + 1)}
-            >{i + 1}</button>
-          ))}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="pagination">
+            <button 
+              className="page-btn"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(currentPage - 1)}
+            >
+              Previous
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                className={`page-btn ${i + 1 === currentPage ? 'active' : ''}`}
+                onClick={() => setCurrentPage(i + 1)}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button 
+              className="page-btn"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(currentPage + 1)}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

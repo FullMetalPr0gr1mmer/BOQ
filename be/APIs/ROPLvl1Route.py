@@ -16,7 +16,7 @@ from Schemas.ROPLvl1Schema import ROPLvl1Out, ROPLvl1Create
 ROPLvl1router = APIRouter(prefix="/rop-lvl1", tags=["ROP Lvl1"])
 
 # --- Helper to update Lvl1 start/end dates from Lvl2 ---
-def update_lvl1_dates(lvl1_id: int, db: Session):
+def update_lvl1_dates(lvl1_id: str, db: Session):
     lvl2_items = db.query(ROPLvl2).filter(ROPLvl2.lvl1_id == lvl1_id).all()
     if not lvl2_items:
         return
@@ -49,7 +49,7 @@ def get_lvl1_by_project(pid_po: str, db: Session = Depends(get_db)):
 
 # --- Get by ID ---
 @ROPLvl1router.get("/{id}", response_model=ROPLvl1Out)
-def get_lvl1_by_id(id: int, db: Session = Depends(get_db)):
+def get_lvl1_by_id(id: str, db: Session = Depends(get_db)):
     lvl1 = db.query(ROPLvl1).filter(ROPLvl1.id == id).first()
     if not lvl1:
         raise HTTPException(status_code=404, detail="Lvl1 entry not found")
@@ -57,7 +57,7 @@ def get_lvl1_by_id(id: int, db: Session = Depends(get_db)):
 
 # --- Update ---
 @ROPLvl1router.put("/update/{id}", response_model=ROPLvl1Out)
-def update_lvl1(id: int, data: ROPLvl1Create, db: Session = Depends(get_db)):
+def update_lvl1(id: str, data: ROPLvl1Create, db: Session = Depends(get_db)):
     lvl1 = db.query(ROPLvl1).filter(ROPLvl1.id == id).first()
     if not lvl1:
         raise HTTPException(status_code=404, detail="Lvl1 entry not found")
@@ -69,7 +69,7 @@ def update_lvl1(id: int, data: ROPLvl1Create, db: Session = Depends(get_db)):
 
 # --- Delete ---
 @ROPLvl1router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_lvl1(id: int, db: Session = Depends(get_db)):
+def delete_lvl1(id: str, db: Session = Depends(get_db)):
     lvl1 = db.query(ROPLvl1).filter(ROPLvl1.id == id).first()
     if not lvl1:
         raise HTTPException(status_code=404, detail="Lvl1 entry not found")

@@ -6,7 +6,7 @@ from Database.session import Base
 class ROPLvl1(Base):
     __tablename__ = "rop_lvl1"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String(200), primary_key=True, index=True)
     project_id = Column(String(200), ForeignKey("rop_projects.pid_po"), nullable=False)
     project_name = Column(String(100), nullable=False)
     item_name = Column(String(100), nullable=False)

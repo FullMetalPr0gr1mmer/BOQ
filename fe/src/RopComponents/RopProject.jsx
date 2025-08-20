@@ -19,6 +19,8 @@ export default function ROPProject() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [csvModalMode, setCsvModalMode] = useState(false); // true if modal opened due to CSV error
+  const [lastCsvFile, setLastCsvFile] = useState(null); // to store the last uploaded CSV file
 
   const VITE_API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
@@ -37,12 +39,87 @@ export default function ROPProject() {
     }
   };
 
+  const handleCsvUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    setLastCsvFile(file);
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-projects/upload-csv`, {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.detail || 'Failed to upload CSV');
+        // If error is due to missing Level 0, open modal in CSV mode
+        if (err.detail && err.detail.includes('CSV must contain at least one Level 0 entry')) {
+          setCsvModalMode(true);
+          setShowForm(true);
+        }
+        return;
+      }
+      setSuccess('CSV uploaded and processed successfully!');
+      fetchProjects();
+    } catch (err) {
+      setError(err.message);
+    }
+    document.getElementById('csv-upload-input').value = '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-
     const projectData = { pid, po, project_name: projectName, wbs, country, currency };
+
+    if (csvModalMode) {
+      /*
+      =====================================================================
+      ||  CSV CORRECTION MODE: PROJECT DATA AVAILABLE HERE                ||
+      =====================================================================
+      ||  The user has corrected the project data after a CSV upload      ||
+      ||  failed due to missing Level 0. The object below contains the    ||
+      ||  corrected project data:                                         ||
+      ||                                                                 ||
+      ||      projectData = {                                            ||
+      ||        pid, po, project_name, wbs, country, currency            ||
+      ||      }                                                          ||
+      ||                                                                 ||
+      ||  You can send this data to your backend for further processing,  ||
+      ||  e.g. POST to a special endpoint for CSV correction:             ||
+      ||                                                                 ||
+      ||      await fetch(`${VITE_API_URL}/rop-projects/upload-csv-fix`,  ||
+      ||        { method: 'POST', body: formData, ...}                   ||
+      ||      );                                                        ||
+      ||                                                                 ||
+      ||  This block ONLY runs if the modal was opened due to a CSV error.||
+      =====================================================================
+      */
+      // --- SEND projectData BACK TO THE UPLOAD METHOD FOR FURTHER MANIPULATION ---
+      // Prepare FormData for FastAPI Form(...) endpoint
+      const formData = new FormData();
+      formData.append('pid', pid);
+      formData.append('po', po);
+      formData.append('project_name', projectName);
+      formData.append('wbs', wbs);
+      formData.append('country', country);
+      formData.append('currency', currency);
+      // Attach the CSV file again (assume you store it in state as lastCsvFile)
+      if (lastCsvFile) {
+        formData.append('file', lastCsvFile);
+      }
+      await fetch(`${VITE_API_URL}/rop-projects/upload-csv-fix`, {
+        method: 'POST',
+        body: formData
+      });
+      setCsvModalMode(false);
+      setShowForm(false);
+      setSuccess('Project data sent for CSV correction!');
+           fetchProjects();
+      return;
+    }
 
     try {
       let res;
@@ -64,7 +141,7 @@ export default function ROPProject() {
         const err = await res.json();
         throw new Error(err.detail || 'Failed to save project');
       }
-
+  
       setSuccess(editingProject ? 'Project updated successfully!' : 'Project created successfully!');
       clearForm();
       fetchProjects();
@@ -133,27 +210,7 @@ export default function ROPProject() {
               accept=".csv"
               style={{ display: 'none' }}
               id="csv-upload-input"
-              onChange={async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const formData = new FormData();
-                formData.append('file', file);
-                try {
-                  const res = await fetch(`${VITE_API_URL}/rop-projects/upload-csv`, {
-                    method: 'POST',
-                    body: formData
-                  });
-                  if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || 'Failed to upload CSV');
-                  }
-                  setSuccess('CSV uploaded and processed successfully!');
-                  fetchProjects();
-                } catch (err) {
-                  setError(err.message);
-                }
-                document.getElementById('csv-upload-input').value = '';
-              }}
+              onChange={handleCsvUpload}
             />
             <button
               type="button"
@@ -182,8 +239,8 @@ export default function ROPProject() {
                   X
                 </button>
               </div>
-              <input type="text" placeholder="Project ID" value={pid} onChange={e => setPid(e.target.value)} required disabled={!!editingProject}/>
-              <input type="text" placeholder="Purchase Order" value={po} onChange={e => setPo(e.target.value)} required disabled={!!editingProject}/>
+              <input type="text" placeholder="Project ID" value={pid} onChange={e => setPid(e.target.value)} required disabled={!!editingProject} />
+              <input type="text" placeholder="Purchase Order" value={po} onChange={e => setPo(e.target.value)} required disabled={!!editingProject} />
               <input type="text" placeholder="Project Name" value={projectName} onChange={e => setProjectName(e.target.value)} required />
               <input type="text" placeholder="WBS" value={wbs} onChange={e => setWbs(e.target.value)} />
               <input type="text" placeholder="Country" value={country} onChange={e => setCountry(e.target.value)} />

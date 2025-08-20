@@ -3,7 +3,7 @@ from typing import Optional
 from datetime import date
 
 class ROPLvl1Base(BaseModel):
-    id:int
+    id:str
     project_id: str
     project_name: str
     item_name: str
@@ -16,7 +16,7 @@ class ROPLvl1Create(ROPLvl1Base):
     end_date: Optional[date] = None
 
 class ROPLvl1Out(ROPLvl1Base):
-    id: int
+    id: str
     start_date: Optional[date] = None
     end_date: Optional[date] = None
 
