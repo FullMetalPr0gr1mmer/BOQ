@@ -1,6 +1,5 @@
 from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey
 from sqlalchemy.orm import relationship
-
 from Database.session import Base
 
 class ROPLvl1(Base):
@@ -15,5 +14,14 @@ class ROPLvl1(Base):
     price = Column(Float, nullable=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
-    product_number = Column(String(100),nullable=True, index=True)
+    product_number = Column(String(100), nullable=True, index=True)
+
+    # Existing relationship to Lvl2
     lvl2_items = relationship("ROPLvl2", back_populates="lvl1")
+
+    # Many-to-many relationship with RopPackage
+    packages = relationship(
+        "RopPackage",
+        secondary="rop_package_lvl1",
+        back_populates="lvl1_items"
+    )

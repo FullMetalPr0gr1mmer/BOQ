@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import '../css/Project.css';
+import '../css/RopLvl1.css';
 
-const ENTRIES_PER_PAGE = 5;
+const ENTRIES_PER_PAGE = 15;
+const VITE_API_URL = import.meta.env.VITE_API_URL;
 
 export default function RopLvl1() {
   const location = useLocation();
@@ -27,8 +28,8 @@ export default function RopLvl1() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-
-  const VITE_API_URL = import.meta.env.VITE_API_URL;
+  const [expandedRows, setExpandedRows] = useState({});
+  const [lvl2Items, setLvl2Items] = useState({});
 
   useEffect(() => {
     fetchEntries();
@@ -44,6 +45,17 @@ export default function RopLvl1() {
       setEntries(data);
     } catch {
       setError('Failed to fetch ROP Lvl1 entries');
+    }
+  };
+
+  const fetchLvl2Items = async (lvl1_id) => {
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${lvl1_id}`);
+      if (!res.ok) throw new Error('Failed to fetch Level 2 items');
+      const data = await res.json();
+      setLvl2Items(prev => ({ ...prev, [lvl1_id]: data }));
+    } catch (err) {
+      setLvl2Items(prev => ({ ...prev, [lvl1_id]: [] }));
     }
   };
 
@@ -145,12 +157,13 @@ export default function RopLvl1() {
   );
   const totalPages = Math.ceil(entries.length / ENTRIES_PER_PAGE);
 
-  // Statistics
+  // Statistics calculations
   const totalItems = entries.length;
   const totalQuantity = entries.reduce((sum, e) => sum + (e.total_quantity || 0), 0);
   const totalLE = entries.reduce((sum, e) => sum + ((e.total_quantity || 0) * (e.price || 0)), 0);
   const avgQuantityPerItem = totalItems > 0 ? Math.round(totalQuantity / totalItems) : 0;
   const avgLEPerItem = totalItems > 0 ? Math.round(totalLE / totalItems) : 0;
+  const avgPrice = totalItems > 0 ? (entries.reduce((sum, e) => sum + (e.price || 0), 0) / totalItems).toFixed(2) : 0;
   const highestLEItem = entries.reduce((highest, e) => {
     const le = (e.total_quantity || 0) * (e.price || 0);
     return le > (highest.le || 0) ? { ...e, le } : highest;
@@ -162,175 +175,344 @@ export default function RopLvl1() {
     .filter(e => e.end_date)
     .reduce((latest, e) => (!latest || new Date(e.end_date) > latest ? new Date(e.end_date) : latest), null);
 
+  // Regional distribution
+  const regionCounts = entries.reduce((acc, e) => {
+    const region = e.region || 'Unknown';
+    acc[region] = (acc[region] || 0) + 1;
+    return acc;
+  }, {});
+  const topRegion = Object.entries(regionCounts).reduce((max, [region, count]) => 
+    count > max.count ? { region, count } : max, { region: 'None', count: 0 });
+
   return (
-    <div className="project-container">
-      <div className="header-row">
-        <h2>ROP Level 1</h2>
-        <button className="new-project-btn" onClick={() => { resetForm(); setShowForm(!showForm); }}>
-          {showForm ? 'Cancel' : '+ New Entry'}
+    <div className="dashboard-container">
+      {/* Header Section */}
+      <div className="dashboard-header">
+        <div>
+          <h1 className="dashboard-title">ROP Level 1 Analytics</h1>
+          <p className="dashboard-subtitle">
+            {formData.project_name ? `${formData.project_name} • Project ID: ${formData.project_id}` : 'Project Management Dashboard'}
+          </p>
+        </div>
+        <button className="new-entry-btn" onClick={() => { resetForm(); setShowForm(!showForm); }}>
+          {showForm ? '✕ Cancel' : '+ New Package'}
         </button>
       </div>
 
-      {/* Statistics Cards */}
-  <div className="stats-grid" style={{ display: 'flex', flexWrap: 'wrap', columnGap: '0.2rem', rowGap: '0.1rem' }}>
-        {(() => {
-          const statCards = [
-            <div className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }} key="project_id">
-              <div className="stat-value" style={{ fontSize: '1rem'  }}>{formData.project_id}</div>
-              <div className="stat-label" style={{ fontSize: '0.95rem' }}>Project ID</div>
-            </div>,
-            <div className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }} key="project_name">
-              <div className="stat-value" style={{ fontSize: '1.2rem' }}>{formData.project_name}</div>
-              <div className="stat-label" style={{ fontSize: '0.95rem' }}>Project Name</div>
-            </div>,
-            ...[
-              { label: 'Total Quantity', value: totalQuantity.toLocaleString() },
-              { label: 'Total LE', value: totalLE.toLocaleString() },
-              { label: 'Number of Items', value: totalItems },
-              { label: 'Highest LE Item', value: highestLEItem.item_name || '-', extra: highestLEItem.le ? `(${highestLEItem.le.toLocaleString()})` : '' },
-              { label: 'Avg. Quantity/Item', value: avgQuantityPerItem.toLocaleString() },
-              { label: 'Avg. LE/Item', value: avgLEPerItem.toLocaleString() },
-              { label: 'Earliest Start Date', value: earliestStart ? earliestStart.toLocaleDateString() : '-' },
-              { label: 'Latest End Date', value: latestEnd ? latestEnd.toLocaleDateString() : '-' }
-            ].map((stat, idx) => (
-              <div key={idx} className="stat-card" style={{ width: 140, borderRadius: 26, padding: '0.8rem 1.2rem', fontSize: '1.1rem', margin: '0.06rem', boxSizing: 'border-box' }}>
-                <div className="stat-value" style={{ fontSize: '1.2rem' }}>{stat.value}</div>
-                {stat.extra && <div className="stat-extra" style={{ fontSize: '0.95rem' }}>{stat.extra}</div>}
-                <div className="stat-label" style={{ fontSize: '0.95rem' }}>{stat.label}</div>
-              </div>
-            ))
-          ];
-          return (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-evenly', gap: '0.2rem', marginBottom: '0.2rem', width: '100%' }}>
-                {statCards.slice(0, 5)}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-evenly', gap: '0.2rem', width: '100%' }}>
-                {statCards.slice(5, 10)}
-              </div>
-            </>
-          );
-        })()}
+      {/* Alerts */}
+      {error && <div className="dashboard-alert dashboard-alert-error">⚠️ {error}</div>}
+      {success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>}
+
+      {/* Artistic Stats Grid */}
+      <div className="dashboard-stats-container">
+        <div className="stats-row">
+          <div className="mini-stat-card card-blue">
+            <div className="stat-icon">📊</div>
+            <div className="mini-stat-value">{totalItems}</div>
+            <div className="mini-stat-label">Total Items</div>
+          </div>
+          
+          <div className="mini-stat-card card-cyan">
+            <div className="stat-icon">📦</div>
+            <div className="mini-stat-value">{totalQuantity.toLocaleString()}</div>
+            <div className="mini-stat-label">Total Quantity</div>
+          </div>
+          
+          <div className="mini-stat-card card-success">
+            <div className="stat-icon">💰</div>
+            <div className="mini-stat-value">{totalLE.toLocaleString()}</div>
+            <div className="mini-stat-label">Total Price</div>
+          </div>
+          
+          <div className="mini-stat-card card-warning">
+            <div className="stat-icon">📈</div>
+            <div className="mini-stat-value">{avgLEPerItem.toLocaleString()}</div>
+            <div className="mini-stat-label">Avg LE/Item</div>
+          </div>
+        </div>
+
+        <div className="stats-row">
+          <div className="mini-stat-card card-purple">
+            <div className="stat-icon">🎯</div>
+            <div className="mini-stat-value">{avgQuantityPerItem.toLocaleString()}</div>
+            <div className="mini-stat-label">Avg Qty/Item</div>
+          </div>
+          
+          <div className="mini-stat-card card-teal">
+            <div className="stat-icon">💲</div>
+            <div className="mini-stat-value">{avgPrice}</div>
+            <div className="mini-stat-label">Avg Price</div>
+          </div>
+          
+          <div className="mini-stat-card card-blue">
+            <div className="stat-icon">🏆</div>
+            <div className="mini-stat-value">{highestLEItem.item_name?.substring(0, 12) || '-'}</div>
+            <div className="mini-stat-extra">
+              {highestLEItem.le ? `${highestLEItem.le.toLocaleString()} LE` : ''}
+            </div>
+            <div className="mini-stat-label">Top Item</div>
+          </div>
+          
+          <div className="mini-stat-card card-warning">
+            <div className="stat-icon">🌍</div>
+            <div className="mini-stat-value">{topRegion.region}</div>
+            <div className="mini-stat-extra">{topRegion.count} items</div>
+            <div className="mini-stat-label">Top Region</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Chart Dashboard Section */}
+      <div className="dashboard-chart-section">
+        <div className="chart-card">
+          <h3 className="chart-title">📊 Project Overview</h3>
+          
+          <div className="metric-row">
+            <span className="metric-label">Project Progress</span>
+            <span className="metric-value">{totalItems} Items</span>
+          </div>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{width: `${Math.min((totalItems / 10) * 100, 100)}%`}}></div>
+          </div>
+          
+          <div className="metric-row">
+            <span className="metric-label">Budget Utilization</span>
+            <span className="metric-value">{totalLE.toLocaleString()} LE</span>
+          </div>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{width: `${Math.min((totalLE / 100000) * 100, 100)}%`}}></div>
+          </div>
+          
+          <div className="metric-row">
+            <span className="metric-label">Quantity Target</span>
+            <span className="metric-value">{totalQuantity.toLocaleString()} Units</span>
+          </div>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{width: `${Math.min((totalQuantity / 1000) * 100, 100)}%`}}></div>
+          </div>
+        </div>
+
+        <div className="chart-card">
+          <h3 className="chart-title">📅 Timeline Analysis</h3>
+          
+          <div className="metric-row">
+            <span className="metric-label">Project Start</span>
+            <span className="metric-value">
+              {earliestStart ? earliestStart.toLocaleDateString() : 'Not Set'}
+            </span>
+          </div>
+          
+          <div className="metric-row">
+            <span className="metric-label">Project End</span>
+            <span className="metric-value">
+              {latestEnd ? latestEnd.toLocaleDateString() : 'Not Set'}
+            </span>
+          </div>
+          
+          <div className="metric-row">
+            <span className="metric-label">Duration</span>
+            <span className="metric-value">
+              {earliestStart && latestEnd 
+                ? `${Math.ceil((latestEnd - earliestStart) / (1000 * 60 * 60 * 24))} days`
+                : 'TBD'}
+            </span>
+          </div>
+          
+          <div className="metric-row">
+            <span className="metric-label">Active Regions</span>
+            <span className="metric-value">{Object.keys(regionCounts).length}</span>
+          </div>
+          
+          <div className="metric-row">
+            <span className="metric-label">Efficiency Rate</span>
+            <span className="metric-value">
+              {totalItems > 0 ? `${((totalLE / totalItems) / 1000).toFixed(1)}K LE/Item` : '0'}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Modal Form */}
       {showForm && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', zIndex: 1000
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: '12px', padding: '2rem',
-            minWidth: '500px', boxShadow: '0 4px 32px #00bcd44a',
-            maxHeight: '80vh', overflowY: 'auto'
-          }}>
-            <form className="project-form" onSubmit={handleSubmit}>
-              <div>
-                <button
-                  style={{ width: 'fit-content', padding: '0.4rem', float: 'right' }}
-                  className="stylish-btn danger"
-                  onClick={() => setShowForm(false)}
-                  type="button"
-                >
-                  X
-                </button>
-              </div>
+        <div className="dashboard-modal">
+          <div className="dashboard-modal-content">
+            <div className="dashboard-modal-header">
+              <h2 className="dashboard-modal-title">
+                {isEditing ? '✏️ Edit Entry' : '✨ Create New Entry'}
+              </h2>
+              <button
+                className="dashboard-modal-close"
+                onClick={() => setShowForm(false)}
+                type="button"
+              >
+                ✕
+              </button>
+            </div>
 
+            <form className="dashboard-form" onSubmit={handleSubmit}>
               <input type="text" placeholder="Project ID" value={formData.project_id} disabled />
               <input type="text" placeholder="Project Name" value={formData.project_name} disabled />
-              <input type="text" placeholder="Item Name" value={formData.item_name}
-                onChange={e => setFormData({ ...formData, item_name: e.target.value })} required />
-              <input type="text" placeholder="Region" value={formData.region}
-                onChange={e => setFormData({ ...formData, region: e.target.value })} />
-              <input type="number" placeholder="Total Quantity" value={formData.total_quantity}
-                onChange={e => setFormData({ ...formData, total_quantity: e.target.value })} />
-              <input type="number" step="0.01" placeholder="Price" value={formData.price}
-                onChange={e => setFormData({ ...formData, price: e.target.value })} />
-              <input type="date" placeholder="Start Date" value={formData.start_date}
-                onChange={e => setFormData({ ...formData, start_date: e.target.value })} />
-              <input type="date" placeholder="End Date" value={formData.end_date}
-                onChange={e => setFormData({ ...formData, end_date: e.target.value })} />
+              <input 
+                type="text" 
+                placeholder="Item Name" 
+                value={formData.item_name}
+                onChange={e => setFormData({ ...formData, item_name: e.target.value })} 
+                required 
+              />
+              <input 
+                type="text" 
+                placeholder="Region" 
+                value={formData.region}
+                onChange={e => setFormData({ ...formData, region: e.target.value })} 
+              />
+              <input 
+                type="number" 
+                placeholder="Total Quantity" 
+                value={formData.total_quantity}
+                onChange={e => setFormData({ ...formData, total_quantity: e.target.value })} 
+              />
+              <input 
+                type="number" 
+                step="0.01" 
+                placeholder="Price" 
+                value={formData.price}
+                onChange={e => setFormData({ ...formData, price: e.target.value })} 
+              />
+              <input 
+                type="date" 
+                placeholder="Start Date" 
+                value={formData.start_date}
+                onChange={e => setFormData({ ...formData, start_date: e.target.value })} 
+              />
+              <input 
+                type="date" 
+                placeholder="End Date" 
+                value={formData.end_date}
+                onChange={e => setFormData({ ...formData, end_date: e.target.value })} 
+              />
 
-              <button style={{ width: '100%' }} type="submit" className="stylish-btn">
-                {isEditing ? 'Update' : 'Create'}
+              <button type="submit">
+                {isEditing ? '🔄 Update Entry' : '🚀 Create Entry'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {error && <div className="error">{error}</div>}
-      {success && <div className="success">{success}</div>}
-
-      {/* Entries Table */}
-      <div className="project-table-container">
-        <table className="project-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Item Name</th>
-              <th>Product Number</th>
-              <th>Region</th>
-              <th>Quantity</th>
-              <th>Price</th>
-              <th>LE</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedEntries.map(entry => (
-              <tr key={entry.id}>
-                <td>{entry.id}</td>
-                <td>{entry.item_name}</td>
-                <td>{entry.product_number || '-'}</td>
-                <td>{entry.region || '-'}</td>
-                <td>{entry.total_quantity?.toLocaleString() || '-'}</td>
-                <td>{entry.price?.toFixed(2) || '-'}</td>
-                <td>{((entry.total_quantity || 0) * (entry.price || 0)).toLocaleString()}</td>
-                <td style={{ textAlign: 'center' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.5rem' }}>
-                    <button className="stylish-btn" style={{ width: '48%' }} onClick={() => handleEdit(entry)}>Edit</button>
-                    <button className="stylish-btn danger" style={{ width: '48%' }} onClick={() => handleDelete(entry.id)}>Delete</button>
-                  </div>
-                  <div>
-                    <button className="stylish-btn" style={{ width: '100%' }} onClick={() => navigate('/rop-lvl2', {
-                      state: {
-                        lvl1_id: entry.id,
-                        lvl1_item_name: entry.item_name,
-                        pid_po: entry.project_id,
-                        project_name: entry.project_name
-                      }
-                    })}>Level 2</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {entries.length === 0 && (
-              <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', color: '#6c757d' }}>
-                  No entries found. Click "New Entry" to create your first entry.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              className={i + 1 === currentPage ? 'active-page' : ''}
-              onClick={() => setCurrentPage(i + 1)}
-            >
-              {i + 1}
-            </button>
-          ))}
+      {/* Data Table Section */}
+      <div className="dashboard-content-section">
+        <div className="dashboard-section-header">
+          📋 Detailed Entry Management
         </div>
-      )}
+        
+        <div className="dashboard-table-container">
+          {entries.length > 0 ? (
+            <table className="dashboard-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th></th>
+                  <th style={{textAlign:'center'}}>ID</th>
+                  <th style={{textAlign:'center'}}>Item Name</th>
+                  <th style={{textAlign:'center'}}>Product Number</th>
+                  <th>Quantity</th>
+                  <th>Unit Price</th>
+                  <th>Total Price</th>
+                                   <th></th>
+
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedEntries.map(entry => (
+                  <>
+                    <tr key={entry.id}>
+                      <td>
+                        <button
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}
+                          onClick={async () => {
+                            setExpandedRows(prev => ({ ...prev, [entry.id]: !prev[entry.id] }));
+                            if (!lvl2Items[entry.id]) await fetchLvl2Items(entry.id);
+                          }}
+                          aria-label={expandedRows[entry.id] ? 'Collapse' : 'Expand'}
+                        >
+                          {expandedRows[entry.id] ? '▼' : '▶'}
+                        </button>
+                      </td>
+                      <td><strong>#{entry.id}</strong></td>
+                      <td><strong>{entry.item_name}</strong></td>
+                      <td>{entry.product_number || '-'}</td>
+                      <td>{entry.total_quantity?.toLocaleString() || '-'}</td>
+                      <td>{entry.price ? `${entry.price.toFixed(2)} LE` : '-'}</td>
+                      <td>
+                        <strong style={{color: 'var(--nokia-success)'}}>
+                          {((entry.total_quantity || 0) * (entry.price || 0)).toLocaleString()} LE
+                        </strong>
+                      </td>
+                    </tr>
+                    {expandedRows[entry.id] && (
+                      <tr>
+                        <td colSpan={7} style={{ background: '#f6f8fc', padding: 0 }}>
+                          <div style={{ width: '100%' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr>
+                                  <th style={{textAlign:'center'}}>ID</th>
+                                  <th style={{textAlign:'center'}}>Item Name</th>
+                                  <th style={{textAlign:'center'}}>Product Number</th>
+                                  <th style={{textAlign:'center'}}>Quantity</th>
+                                  <th style={{textAlign:'center'}}>Price</th>
+                                  <th style={{textAlign:'center'}}>Total Price</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(lvl2Items[entry.id] || []).map(lvl2 => (
+                                  <tr key={lvl2.id}>
+                                    <td>{lvl2.id}</td>
+                                    <td>{lvl2.item_name}</td>
+                                    <td>{lvl2.product_number || '-'}</td>
+                                    <td>{lvl2.total_quantity?.toLocaleString() || '-'}</td>
+                                    <td>{lvl2.price ? `${lvl2.price.toFixed(2)} LE` : '-'}</td>
+                                    <td>{((lvl2.total_quantity || 0) * (lvl2.price || 0)).toLocaleString()} LE</td>
+                                  </tr>
+                                ))}
+                                {(lvl2Items[entry.id] && lvl2Items[entry.id].length === 0) && (
+                                  <tr><td colSpan={6} style={{ textAlign: 'center', color: '#888' }}>No Level 2 items found.</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="dashboard-empty-state">
+              <div className="dashboard-empty-icon">📋</div>
+              <div className="dashboard-empty-text">
+                No entries found. Create your first entry to get started!
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="dashboard-pagination">
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                className={i + 1 === currentPage ? 'active' : ''}
+                onClick={() => setCurrentPage(i + 1)}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

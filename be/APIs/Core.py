@@ -1,16 +1,22 @@
+import ipaddress
 import os
-from datetime import timedelta, datetime
+import re
+from datetime import datetime
+from datetime import timedelta
+from typing import Dict, Any
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, HTTPException
+from fastapi import Depends
+from fastapi import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from starlette import status
+
 from Database.session import Session
 from Models.User import User
-from Schemas.UserSchema import CreateUser
+
 load_dotenv()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
@@ -88,3 +94,45 @@ def generate_distributions(start_date_str, end_date_str, total_quantity):
         for (year, month) in months
     ]
     return distributions
+
+def _parse_interface_name(interface_name: str) -> Dict[str, Any]:
+    """
+    Parse interface names like:
+      "Port 3/5-Port 3/5"
+    Return a dict: {'a_slot': int|None, 'a_port': int|None, 'b_slot': int|None, 'b_port': int|None}
+    """
+    if not interface_name:
+        return {"a_slot": None, "a_port": None, "b_slot": None, "b_port": None}
+
+    try:
+        # split left/right by first dash (handles " - " or "-")
+        left_right = interface_name.split("-", 1)
+        left = left_right[0]
+        right = left_right[1] if len(left_right) > 1 else ""
+
+        # find the first "num/num" pattern on each side
+        m_left = re.search(r'(\d+)\s*/\s*(\d+)', left)
+        m_right = re.search(r'(\d+)\s*/\s*(\d+)', right)
+
+        a_slot = int(m_left.group(1)) if m_left else None
+        a_port = int(m_left.group(2)) if m_left else None
+        b_slot = int(m_right.group(1)) if m_right else None
+        b_port = int(m_right.group(2)) if m_right else None
+
+        return {"a_slot": a_slot, "a_port": a_port, "b_slot": b_slot, "b_port": b_port}
+    except Exception:
+        return {"a_slot": None, "a_port": None, "b_slot": None, "b_port": None}
+
+def _sa_row_to_dict(obj) -> Dict[str, Any]:
+    """Convert a SQLAlchemy ORM row to a plain dict (drops _sa_instance_state). Handles special types."""
+    out = {}
+    for k, v in getattr(obj, "__dict__", {}).items():
+        if k.startswith("_"):
+            continue
+        if isinstance(v, datetime):
+            out[k] = v.isoformat()
+        elif isinstance(v, ipaddress.IPv4Address):
+            out[k] = str(v)  # <-- convert IPv4Address to string
+        else:
+            out[k] = v
+    return out

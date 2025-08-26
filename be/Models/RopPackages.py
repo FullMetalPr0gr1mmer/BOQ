@@ -1,0 +1,29 @@
+from sqlalchemy import Date
+from sqlalchemy import Table, Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
+
+from Database.session import Base
+
+
+class RopPackage(Base):
+    __tablename__ = "rop_packages"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    project_id = Column(String(200), ForeignKey("rop_projects.pid_po"), nullable=False)
+    package_name = Column(String(200), nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    quantity = Column(Integer, nullable=True)
+    # Many-to-many relationship with Lvl1
+    lvl1_items = relationship(
+        "ROPLvl1",
+        secondary="rop_package_lvl1",
+        back_populates="packages"
+    )
+
+rop_package_lvl1 = Table(
+    "rop_package_lvl1",
+    Base.metadata,
+    Column("package_id", Integer, ForeignKey("rop_packages.id", ondelete="CASCADE")),
+    Column("lvl1_id", String(200), ForeignKey("rop_lvl1.id", ondelete="CASCADE"))
+)
