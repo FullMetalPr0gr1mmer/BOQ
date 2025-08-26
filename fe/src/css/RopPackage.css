@@ -1,0 +1,233 @@
+/* General Layout */
+.dashboard-container {
+    padding: 20px;
+    background-color: #f5f6fa;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-title {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #004d9c; /* Nokia blue */
+    margin: 0;
+}
+
+.dashboard-subtitle {
+    font-size: 1rem;
+    color: #666;
+    margin: 5px 0 0;
+}
+
+/* Alerts */
+.dashboard-alert {
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.dashboard-alert-error {
+    background-color: #ffe6e6;
+    color: #cc0000;
+    border: 1px solid #ffb3b3;
+}
+
+.dashboard-alert-success {
+    background-color: #e6ffed;
+    color: #00732e;
+    border: 1px solid #b3ffc2;
+}
+
+/* Table and Gantt Chart */
+.dashboard-content-section {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    padding: 20px;
+}
+
+.dashboard-section-header {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 10px;
+}
+
+.gantt-table-container {
+    overflow-x: auto;
+}
+
+.gantt-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.gantt-table th, .gantt-table td {
+    padding: 12px 15px;
+    border: 1px solid #eee;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.gantt-table th {
+    background-color: #004d9c;
+    color: #ffffff;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.gantt-table tbody tr:nth-child(odd) {
+    background-color: #f9f9f9;
+}
+
+.gantt-table tbody tr:hover {
+    background-color: #eef5ff;
+}
+
+.package-name-cell {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    color: #004d9c;
+}
+
+.expand-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    margin-right: 8px;
+    color: #333;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-around;
+    position: relative;
+    height: 100%;
+}
+
+.timeline-month-header {
+    width: 60px; /* This should match the monthWidth in JSX */
+    text-align: center;
+}
+
+/* Positioning for the gantt-chart cells and their contents */
+.gantt-header-cell {
+  position: relative;
+  padding: 0;
+  border-left: 1px solid #eee;
+}
+
+.gantt-chart-cell {
+    position: relative;
+    padding: 0;
+    vertical-align: top;
+    border-right: 1px solid #eee;
+}
+
+.gantt-bar-container {
+    position: relative;
+    height: 30px;
+    margin-bottom: 5px;
+    border-left: 1px solid #eee;
+}
+
+/* Vertical dividers */
+.timeline-divider {
+    height: 100%;
+    width: 1px;
+    background-color: #ccc;
+    position: absolute;
+    top: 0;
+    z-index: 1;
+}
+
+/* Gantt Bar */
+.gantt-bar {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 20px;
+    background-color: #36a2eb;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+}
+
+.gantt-quantity-label {
+    padding: 2px 8px;
+    font-size: 0.8em;
+    white-space: nowrap;
+}
+
+/* Monthly Quantities */
+.monthly-quantities-row {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    font-size: 0.8rem;
+    color: #555;
+    position: relative;
+    z-index: 2;
+}
+
+.monthly-quantity-cell {
+    width: 60px;
+    text-align: center;
+    padding: 2px 0;
+}
+
+/* Expanded Row (Sub-table) */
+.expanded-row td {
+    padding: 0;
+}
+
+.sub-table-container {
+    padding: 20px;
+    background-color: #f0f4f7;
+    border-top: 1px solid #e0e0e0;
+}
+
+.sub-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.sub-table th, .sub-table td {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.sub-table th {
+    background-color: #e6f7ff;
+    color: #004d9c;
+    font-weight: 600;
+}
+
+.empty-state {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+}

@@ -24,6 +24,7 @@ class RopPackage(Base):
 rop_package_lvl1 = Table(
     "rop_package_lvl1",
     Base.metadata,
-    Column("package_id", Integer, ForeignKey("rop_packages.id", ondelete="CASCADE")),
-    Column("lvl1_id", String(200), ForeignKey("rop_lvl1.id", ondelete="CASCADE"))
+    Column("package_id", Integer, ForeignKey("rop_packages.id", ondelete="CASCADE"), primary_key=True),
+    Column("lvl1_id", String(200), ForeignKey("rop_lvl1.id", ondelete="CASCADE"), primary_key=True),
+    Column("quantity", Integer, nullable=True)   # ✅ added
 )

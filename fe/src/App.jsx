@@ -15,6 +15,7 @@ import ROPProject from './RopComponents/RopProject';
 import RopLvl1 from './RopComponents/RopLvl1';
 import RopLvl2 from './RopComponents/RopLvl2';
 import BOQGeneration from './Components/BOQGeneration';
+import RopPackage from './RopComponents/RopPackage';
 function App() {
   const [auth, setAuth] = useState(null); // { token, user }
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -42,10 +43,11 @@ function App() {
               <Route path="/level3-items" element={<Lvl3Items />} />
               <Route path="/rop-project" element={<ROPProject />} />
               <Route path="/rop-lvl1" element={<RopLvl1 />} />
-                            <Route path="/rop-lvl2" element={<RopLvl2 />} />
+              <Route path="/rop-lvl2" element={<RopLvl2 />} />
               <Route path="/rop-lvl1/:pid_po" element={<RopLvl1 />} />
               <Route path="/logs" element={<Logs user={auth.user} />} />
               <Route path="/boq-generation" element={<BOQGeneration />} />
+              <Route path="/rop-package" element={<RopPackage />} />
               <Route path="*" element={<Project />} />
             </Routes>
           </div>

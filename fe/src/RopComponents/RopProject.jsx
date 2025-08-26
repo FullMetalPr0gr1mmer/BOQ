@@ -197,12 +197,15 @@ export default function ROPProject() {
   const totalPages = Math.ceil(projects.length / PROJECTS_PER_PAGE);
 
   return (
-    <div className="project-container">
-      <div className="header-row">
-        <h2>ROP Projects</h2>
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <div>
+          <h1 className="dashboard-title">ROP Projects</h1>
+          <p className="dashboard-subtitle">Project Management Dashboard</p>
+        </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <button className="new-project-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
-            {showForm ? 'Cancel' : '+ New Project'}
+          <button className="new-entry-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
+            {showForm ? '✕ Cancel' : '+ New Project'}
           </button>
           <form id="csv-upload-form" style={{ display: 'inline' }}>
             <input
@@ -214,7 +217,7 @@ export default function ROPProject() {
             />
             <button
               type="button"
-              className="stylish-btn"
+              className="new-entry-btn"
               onClick={() => document.getElementById('csv-upload-input').click()}
             >Upload CSV</button>
           </form>
@@ -256,32 +259,33 @@ export default function ROPProject() {
         </div>
       )}
 
-      {error && <div className="error">{error}</div>}
-      {success && <div className="success">{success}</div>}
+  {error && <div className="dashboard-alert dashboard-alert-error">⚠️ {error}</div>}
+  {success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>}
 
-      <div className="project-table-container">
-        <table className="project-table">
+  <div className="dashboard-table-container" style={{ overflowX: 'hidden' }}>
+        <table className="dashboard-table">
           <thead>
             <tr>
-              <th>Project ID</th>
-              <th>Customer Material Number</th>
-              <th>Project Name</th>
-              <th>Product Number</th>
-              <th>WBS</th>
-              <th>Country</th>
-              <th>Currency</th>
-              <th>Actions</th>
+              <th></th>
+              {/* Removed Project ID column */}
+              <th style={{textAlign:'center'}}>Customer Material Number</th>
+              <th style={{textAlign:'center'}}>Project Name</th>
+              {/* Removed Product Number column */}
+              <th style={{textAlign:'center'}}>WBS</th>
+                {/* Removed Country column */}
+              <th style={{textAlign:'center'}}>Currency</th>
+              <th style={{textAlign:'center'}}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {paginatedProjects.map((proj, index) => (
               <tr key={index}>
-                <td>{proj.pid}</td>
+                {/* Removed Project ID cell */}
                 <td>{proj.po}</td>
                 <td>{proj.project_name}</td>
-                <td>{proj.product_number}</td>
+                {/* Removed Product Number cell */}
                 <td>{proj.wbs}</td>
-                <td>{proj.country}</td>
+                  {/* Removed Country cell */}
                 <td>{proj.currency}</td>
                 <td style={{ textAlign: 'center', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.5rem', width: '100%' }}>
@@ -299,9 +303,13 @@ export default function ROPProject() {
       </div>
 
       {totalPages > 1 && (
-        <div className="pagination">
+        <div className="dashboard-pagination">
           {Array.from({ length: totalPages }, (_, i) => (
-            <button key={i} className={i + 1 === currentPage ? 'active-page' : ''} onClick={() => setCurrentPage(i + 1)}>
+            <button
+              key={i}
+              className={i + 1 === currentPage ? 'active' : ''}
+              onClick={() => setCurrentPage(i + 1)}
+            >
               {i + 1}
             </button>
           ))}
