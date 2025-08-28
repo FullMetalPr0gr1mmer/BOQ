@@ -4,14 +4,15 @@ from Database.session import Base
 
 class LLD(Base):
     __tablename__ = 'lld'
-    link_id=Column(String(100), primary_key=True,index=True)
+    id = Column(Integer, primary_key=True,index=True)
+    link_id=Column(String(200),index=True)
     action=Column(String(100),index=True)
     fon=Column(String(100),index=True)
-    item_name = Column(String(200),ForeignKey("lvl3.item_name"), index=True)
+    item_name = Column(String(200), index=True)
     distance = Column(String(100),index=True)
     scope = Column(String(100),index=True)
-    fe=Column(String(100),ForeignKey("sites.site_name"),index=True)
-    ne=Column(String(100),ForeignKey("sites.site_name"),index=True)
+    fe=Column(String(100),index=True)
+    ne=Column(String(100),index=True)
     link_category=Column(String(100),index=True)
     link_status=Column(String(100),index=True)
     comments=Column(String(100),index=True)

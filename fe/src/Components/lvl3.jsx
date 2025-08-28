@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import '../css/Project.css'; // Shared styling
+import { MdExpandMore, MdExpandLess } from 'react-icons/md';
 
 const ENTRIES_PER_PAGE = 10;
 
@@ -9,22 +10,45 @@ const SERVICE_LABELS = {
     "3": "Service"
 };
 
+const SERVICE_VALUES = {
+    "Software": "1",
+    "Hardware": "2",
+    "Service": "3"
+};
+
+const initialLvl3State = {
+    project_id: '',
+    project_name: '',
+    item_name: '',
+    uom: '',
+    total_quantity: '',
+    total_price: '',
+    service_type: [],
+};
+
+const initialItemState = {
+    item_name: '',
+    item_details: '',
+    vendor_part_number: '',
+    service_type: [],
+    category: '',
+    uom: '',
+    quantity: '',
+    price: ''
+};
+
 export default function Lvl3() {
     const [entries, setEntries] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [editingEntry, setEditingEntry] = useState(null);
-    const [formData, setFormData] = useState({
-        project_id: '',
-        project_name: '',
-        item_name: '',
-        uom: '',
-        total_quantity: '',
-        total_price: '',
-        service_type: []
-    });
+    const [formData, setFormData] = useState(initialLvl3State);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [showItemsForId, setShowItemsForId] = useState(null);
+    const [showItemForm, setShowItemForm] = useState(false);
+    const [editingItemData, setEditingItemData] = useState(null);
+    const [itemFormData, setItemFormData] = useState(initialItemState);
 
     const VITE_API_URL = import.meta.env.VITE_API_URL;
 
@@ -34,7 +58,7 @@ export default function Lvl3() {
 
     const fetchLvl3 = async () => {
         try {
-            const res = await fetch(`${VITE_API_URL}/get-lvl3`);
+            const res = await fetch(`${VITE_API_URL}/lvl3/`);
             const data = await res.json();
             setEntries(data);
         } catch {
@@ -52,6 +76,90 @@ export default function Lvl3() {
         setFormData(prev => ({ ...prev, service_type: selectedValues }));
     };
 
+    const handleItemChange = (e) => {
+        const { name, value } = e.target;
+        setItemFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleItemMultiSelectChange = (e) => {
+        const selectedValues = Array.from(e.target.selectedOptions, option => option.value);
+        setItemFormData(prev => ({ ...prev, service_type: selectedValues }));
+    };
+
+    const handleAddItem = (lvl3Id) => {
+        setItemFormData(initialItemState);
+        setEditingItemData({ lvl3Id, itemId: null });
+        setShowItemForm(true);
+    };
+
+    const handleEditItem = (lvl3Id, item) => {
+        setItemFormData({
+            ...item,
+            service_type: (item.service_type || []).map(name => SERVICE_VALUES[name])
+        });
+        setEditingItemData({ lvl3Id, itemId: item.id });
+        setShowItemForm(true);
+    };
+    
+    const handleSaveItem = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        const payload = {
+            ...itemFormData,
+            quantity: parseInt(itemFormData.quantity, 10),
+            price: parseInt(itemFormData.price, 10),
+        };
+
+        const { lvl3Id, itemId } = editingItemData;
+
+        try {
+            let res;
+            if (itemId) {
+                // Update existing item
+                res = await fetch(`${VITE_API_URL}/lvl3/${lvl3Id}/items/${itemId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                // Create new item for an existing Lvl3
+                res = await fetch(`${VITE_API_URL}/lvl3/${lvl3Id}/items`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || 'Failed to save item');
+            }
+
+            setSuccess(itemId ? 'Item updated successfully!' : 'Item added successfully!');
+            setShowItemForm(false);
+            setEditingItemData(null);
+            fetchLvl3();
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleDeleteItem = async (lvl3Id, itemId) => {
+        if (!window.confirm("Are you sure you want to delete this item?")) return;
+        try {
+            const res = await fetch(`${VITE_API_URL}/lvl3/${lvl3Id}/items/${itemId}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('Failed to delete item');
+            setSuccess('Item deleted!');
+            fetchLvl3();
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -59,20 +167,21 @@ export default function Lvl3() {
 
         const payload = {
             ...formData,
-            total_quantity: parseInt(formData.total_quantity),
-            total_price: parseInt(formData.total_price),
+            total_quantity: parseInt(formData.total_quantity, 10),
+            total_price: parseInt(formData.total_price, 10),
+            items: [] // Ensure no items are sent on Lvl3 create/update
         };
 
         try {
             let res;
             if (editingEntry) {
-                res = await fetch(`${VITE_API_URL}/update-lvl3/${editingEntry.id}`, {
+                res = await fetch(`${VITE_API_URL}/lvl3/${editingEntry.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } else {
-                res = await fetch(`${VITE_API_URL}/create-lvl3`, {
+                res = await fetch(`${VITE_API_URL}/lvl3/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -93,15 +202,7 @@ export default function Lvl3() {
     };
 
     const clearForm = () => {
-        setFormData({
-            project_id: '',
-            project_name: '',
-            item_name: '',
-            uom: '',
-            total_quantity: '',
-            total_price: '',
-            service_type: []
-        });
+        setFormData(initialLvl3State);
         setEditingEntry(null);
         setShowForm(false);
     };
@@ -115,7 +216,7 @@ export default function Lvl3() {
             uom: entry.uom,
             total_quantity: entry.total_quantity,
             total_price: entry.total_price,
-            service_type: entry.service_type || []
+            service_type: (entry.service_type || []).map(name => SERVICE_VALUES[name]),
         });
         setShowForm(true);
     };
@@ -123,7 +224,7 @@ export default function Lvl3() {
     const handleDelete = async (entry) => {
         if (!window.confirm(`Delete entry ${entry.project_id} - ${entry.item_name}?`)) return;
         try {
-            const res = await fetch(`${VITE_API_URL}/delete-lvl3/${entry.id}`, {
+            const res = await fetch(`${VITE_API_URL}/lvl3/${entry.id}`, {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error('Failed to delete entry');
@@ -141,7 +242,6 @@ export default function Lvl3() {
 
     const totalPages = Math.ceil(entries.length / ENTRIES_PER_PAGE);
 
-
     return (
         <div className="project-container">
             <div className="header-row">
@@ -152,38 +252,11 @@ export default function Lvl3() {
             </div>
 
             {showForm && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(0,0,0,0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: '#fff',
-                        borderRadius: '12px',
-                        padding: '2rem',
-                        minWidth: '500px',
-                        boxShadow: '0 4px 32px #00bcd44a',
-                        maxHeight: '80vh',
-                        overflowY: 'auto'
-                    }}>
+                <div className="modal-overlay">
+                    <div className="modal-content">
                         <form className="project-form" onSubmit={handleSubmit}>
-                            <div>
-                                <button style={{
-                                    width: 'fit-content',
-                                    padding: '0.4rem',
-                                    float: 'right'
-                                }}
-                                    className="stylish-btn danger" onClick={() => setShowForm(false)} type="button">
-                                    X
-                                </button>
-                            </div>
+                            <button className="close-btn stylish-btn danger" onClick={clearForm} type="button">X</button>
+                            <h3>{editingEntry ? 'Edit Lvl3 Entry' : 'New Lvl3 Entry'}</h3>
                             <input type="text" name="project_id" placeholder="Project ID" value={formData.project_id} onChange={handleChange} required disabled={!!editingEntry} />
                             <input type="text" name="project_name" placeholder="Project Name" value={formData.project_name} onChange={handleChange} required />
                             <input type="text" name="item_name" placeholder="Item Name" value={formData.item_name} onChange={handleChange} required />
@@ -195,8 +268,35 @@ export default function Lvl3() {
                                 <option value="2">Hardware</option>
                                 <option value="3">Service</option>
                             </select>
-                            <button style={{ width: '100%' }} type="submit" className="stylish-btn">
+
+                            <button style={{ width: '100%', marginTop: '1rem' }} type="submit" className="stylish-btn">
                                 {editingEntry ? 'Update' : 'Save'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showItemForm && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <form className="project-form" onSubmit={handleSaveItem}>
+                            <button className="close-btn stylish-btn danger" onClick={() => setShowItemForm(false)} type="button">X</button>
+                            <h3>{editingItemData?.itemId ? 'Edit Item' : 'Add New Item'}</h3>
+                            <input type="text" name="item_name" placeholder="Item Name" value={itemFormData.item_name} onChange={handleItemChange} required />
+                            <input type="text" name="item_details" placeholder="Item Details" value={itemFormData.item_details} onChange={handleItemChange} />
+                            <input type="text" name="vendor_part_number" placeholder="Vendor Part Number" value={itemFormData.vendor_part_number} onChange={handleItemChange} />
+                            <input type="text" name="category" placeholder="Category" value={itemFormData.category} onChange={handleItemChange} />
+                            <input type="text" name="uom" placeholder="UOM" value={itemFormData.uom} onChange={handleItemChange} />
+                            <input type="number" name="quantity" placeholder="Quantity" value={itemFormData.quantity} onChange={handleItemChange} required />
+                            <input type="number" name="price" placeholder="Price" value={itemFormData.price} onChange={handleItemChange} required />
+                            <select multiple name="service_type" value={itemFormData.service_type} onChange={handleItemMultiSelectChange}>
+                                <option value="1">Software</option>
+                                <option value="2">Hardware</option>
+                                <option value="3">Service</option>
+                            </select>
+                            <button style={{ width: '100%', marginTop: '1rem' }} type="submit" className="stylish-btn">
+                                Save Item
                             </button>
                         </form>
                     </div>
@@ -210,6 +310,7 @@ export default function Lvl3() {
                 <table className="project-table">
                     <thead>
                         <tr>
+                            <th></th>
                             <th>Project ID</th>
                             <th>Project Name</th>
                             <th>Item Name</th>
@@ -221,34 +322,72 @@ export default function Lvl3() {
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedEntries.map((entry, index) => (
-                            <tr key={index}>
-                                <td>{entry.project_id}</td>
-                                <td>{entry.project_name}</td>
-                                <td>{entry.item_name}</td>
-                                <td>{entry.uom}</td>
-                                <td>{entry.total_quantity}</td>
-                                <td>{entry.total_price}</td>
-                                <td>{entry.service_type.map((val, idx) => SERVICE_LABELS[val] || val).join(', ')}</td>
-                                <td style={{textAlign: 'center'}}>
-                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                        <button
-                                            className="stylish-btn"
-                                            style={{ width: '100%', margin: '0.5rem' }}
-                                            onClick={() => handleEditClick(entry)}
-                                        >
-                                            Details
+                        {paginatedEntries.map((entry) => (
+                            <>
+                                <tr key={entry.id}>
+                                    <td>
+                                        <button onClick={() => setShowItemsForId(showItemsForId === entry.id ? null : entry.id)} className="expand-btn">
+                                            {showItemsForId === entry.id ? <MdExpandLess /> : <MdExpandMore />}
                                         </button>
-                                        <button
-                                            className="stylish-btn danger"
-                                            style={{ width: '100%', margin: '0.5rem' }}
-                                            onClick={() => handleDelete(entry)}
-                                        >
-                                            Delete
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                    <td>{entry.project_id}</td>
+                                    <td>{entry.project_name}</td>
+                                    <td>{entry.item_name}</td>
+                                    <td>{entry.uom}</td>
+                                    <td>{entry.total_quantity?.toLocaleString()}</td>
+                                    <td>{entry.total_price?.toLocaleString()}</td>
+                                    <td>{(entry.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                            <button className="stylish-btn" onClick={() => handleEditClick(entry)}>Details</button>
+                                            <button className="stylish-btn danger" onClick={() => handleDelete(entry)}>Delete</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {showItemsForId === entry.id && (
+                                    <tr className="items-row-container">
+                                        <td colSpan="9">
+                                            <div className="sub-table-wrapper">
+                                                <h4>Items for {entry.item_name}</h4>
+                                                <button className="stylish-btn" onClick={() => handleAddItem(entry.id)}>+ Add New Item</button>
+                                                <table className="project-sub-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Item Name</th>
+                                                            <th>Details</th>
+                                                            <th>Part #</th>
+                                                            <th>Category</th>
+                                                            <th>UOM</th>
+                                                            <th>Quantity</th>
+                                                            <th>Price</th>
+                                                            <th>Service Type</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {(entry.items || []).map((item) => (
+                                                            <tr key={item.id}>
+                                                                <td>{item.item_name}</td>
+                                                                <td>{item.item_details}</td>
+                                                                <td>{item.vendor_part_number}</td>
+                                                                <td>{item.category}</td>
+                                                                <td>{item.uom}</td>
+                                                                <td>{item.quantity}</td>
+                                                                <td>{item.price}</td>
+                                                                <td>{(item.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
+                                                                <td>
+                                                                    <button className="stylish-btn" onClick={() => handleEditItem(entry.id, item)}>Edit</button>
+                                                                    <button className="stylish-btn danger" onClick={() => handleDeleteItem(entry.id, item.id)}>Delete</button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </>
                         ))}
                     </tbody>
                 </table>

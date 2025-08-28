@@ -31,46 +31,54 @@ class Lvl1Out(BaseModel):
 
 #####################################################################################################
 ################### LEVEL 3####################
-class Lvl3Create(BaseModel):
-    service_type: List[TypeofService] = []
+
+
+
+# ---------- ItemsForLvl3 ----------
+class ItemsForLvl3Base(BaseModel):
+    item_name: str
+    item_details: Optional[str] = None
+    vendor_part_number: Optional[str] = None
+    service_type: Optional[List[str]] = None
+    category: Optional[str] = None
+    uom: Optional[int] = None
+    quantity: Optional[int] = None
+    price: Optional[int] = None
+
+
+class ItemsForLvl3Create(ItemsForLvl3Base):
+    pass
+
+
+class ItemsForLvl3Out(ItemsForLvl3Base):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+# ---------- Lvl3 ----------
+class Lvl3Base(BaseModel):
     project_id: str
     project_name: str
     item_name: str
-    uom: str
-    total_quantity: int
-    total_price: int
+    service_type: Optional[List[str]] = None
+    uom: Optional[str] = None
+    total_quantity: Optional[int] = None
+    total_price: Optional[int] = None
 
 
-    class Config:
-        use_enum_values = True
-        orm_mode = True
+class Lvl3Create(Lvl3Base):
+    items: List[ItemsForLvl3Create] = []
 
-class Lvl3Out(Lvl3Create):
+
+class Lvl3Update(Lvl3Base):
+    items: Optional[List[ItemsForLvl3Create]] = None
+
+
+class Lvl3Out(Lvl3Base):
     id: int
-    service_type: List[str]
+    items: List[ItemsForLvl3Out] = []
+
     class Config:
         orm_mode = True
-
-
-
-class Lvl3ItemsCreate(BaseModel):
-    project_id:str
-    item_name:str
-    item_details:str
-    vendor_part_number:str
-    service_type:List[TypeofService] = []
-    category:str
-    uom:int
-    quantity:int
-    price:int
-    class Config:
-        use_enum_values = True
-        orm_mode = True
-
-class Lvl3ItemsOut(Lvl3ItemsCreate):
-    id: int
-    service_type: List[str]
-    class Config:
-        orm_mode = True
-        use_enum_values = True
-

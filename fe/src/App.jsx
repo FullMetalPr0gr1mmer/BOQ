@@ -16,6 +16,7 @@ import RopLvl1 from './RopComponents/RopLvl1';
 import RopLvl2 from './RopComponents/RopLvl2';
 import BOQGeneration from './Components/BOQGeneration';
 import RopPackage from './RopComponents/RopPackage';
+import LLDManagement from './Components/LLDManagement';
 function App() {
   const [auth, setAuth] = useState(null); // { token, user }
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -48,6 +49,7 @@ function App() {
               <Route path="/logs" element={<Logs user={auth.user} />} />
               <Route path="/boq-generation" element={<BOQGeneration />} />
               <Route path="/rop-package" element={<RopPackage />} />
+              <Route path="/lld" element={<LLDManagement />} />
               <Route path="*" element={<Project />} />
             </Routes>
           </div>

@@ -1,19 +1,3 @@
-  // Delete handler for lvl1 item
-  const handleDeleteLvl1Item = async (pkgId, itemId) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) return;
-    try {
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkgId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delete_lvl1_id: itemId })
-      });
-      if (!res.ok) throw new Error("Failed to delete item");
-      setSuccess("Item deleted!");
-      fetchPackages();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
 import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -551,15 +535,6 @@ export default function RopPackage() {
                                           disabled={savingPkgId === pkg.id}
                                         />
                                       </td>
-                                      <td style={{ textAlign: 'center' }}>
-                                        <button
-                                          title="Delete item"
-                                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                                          onClick={() => handleDeleteLvl1Item(pkg.id, item.id || item)}
-                                        >
-                                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                                        </button>
-                                      </td>
                                     </tr>
                                   ))
                                 ) : (
@@ -569,14 +544,16 @@ export default function RopPackage() {
                                 )}
                               </tbody>
                             </table>
-                            <button
-                              className="stylish-btn"
-                              style={{ marginTop: 8, float: 'right' }}
-                              onClick={() => handleSaveQuantities(pkg)}
-                              disabled={savingPkgId === pkg.id}
-                            >
-                              {savingPkgId === pkg.id ? 'Saving...' : 'Save Quantities'}
-                            </button>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: 8 }}>
+                              <button
+                                className="stylish-btn"
+                                style={{ marginTop: 0 }}
+                                onClick={() => handleSaveQuantities(pkg)}
+                                disabled={savingPkgId === pkg.id}
+                              >
+                                {savingPkgId === pkg.id ? 'Saving...' : 'Save Quantities'}
+                              </button>
+                            </div>
                           </div>
                         </td>
                       </tr>

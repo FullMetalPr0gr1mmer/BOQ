@@ -67,7 +67,7 @@ export default function AuthForm({ onLogin, onRegister }) {
 
   return (
     <div className="auth-container">
-      <h1 className="title">BOQ</h1>
+      <h1 className="title">Project Managment</h1>
       <form onSubmit={showRegister ? handleRegister : handleLogin} className="auth-form">
         <h2 style={{ float: 'left' }}>{showRegister ? 'Register' : 'Login'}</h2>
         {error && <div className="error">{error}</div>}

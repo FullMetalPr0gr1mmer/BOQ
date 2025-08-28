@@ -338,9 +338,9 @@ export default function RopLvl1() {
 
             {/* Modal Form */}
             {showForm && (
-                <div className="dashboard-modal">
-                    <div className="dashboard-modal-content">
-                        <div className="dashboard-modal-header">
+				<div className="dashboard-modal">
+					<div className="dashboard-modal-content" style={{ minWidth: 900, maxWidth: 1300, margin: '0 auto', overflowX: 'hidden' }}>
+					<div className="dashboard-modal-header" style={{ fontSize: '1.3em' }}>
                             <h2 className="dashboard-modal-title">
                                 ✨ Create New Package
                             </h2>
@@ -353,71 +353,100 @@ export default function RopLvl1() {
                             </button>
                         </div>
 
-                        <form className="dashboard-form" onSubmit={handleSubmit}>
-                            <input type="text" placeholder="Project ID" value={formData.project_id} disabled />
-                            <input type="text" placeholder="Project Name" value={formData.project_name} disabled />
-                            <input
-                                type="text"
-                                placeholder="Package Name"
-                                value={formData.package_name}
-                                onChange={e => setFormData({ ...formData, package_name: e.target.value })}
-                                required
-                            />
-                            <input
-                                type="date"
-                                placeholder="Start Date"
-                                value={formData.start_date}
-                                onChange={e => setFormData({ ...formData, start_date: e.target.value })}
-                            />
-                            <input
-                                type="date"
-                                placeholder="End Date"
-                                value={formData.end_date}
-                                onChange={e => setFormData({ ...formData, end_date: e.target.value })}
-                            />
-                            <input
-                                type="number"
-                                placeholder="Quantity"
-                                value={formData.quantity}
-                                onChange={e => setFormData({ ...formData, quantity: e.target.value })}
-                            />
+					<form className="dashboard-form" onSubmit={handleSubmit} style={{ minWidth: 820, maxWidth: 1200, margin: '0 auto', fontSize: '1.1em' }}>
+					<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 18, width: '100%' }}>
+						<input
+							type="text"
+							placeholder="Project ID"
+							value={formData.project_id}
+							disabled
+							style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
+						/>
+						<input
+							type="text"
+							placeholder="Project Name"
+							value={formData.project_name}
+							disabled
+							style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
+						/>
+					</div>
+					<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 18, width: '100%' }}>
+						<input
+							type="text"
+							placeholder="Package Name"
+							value={formData.package_name}
+							onChange={e => setFormData({ ...formData, package_name: e.target.value })}
+							required
+							style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
+						/>
+						<input
+							type="number"
+							placeholder="Quantity"
+							value={formData.quantity}
+							onChange={e => setFormData({ ...formData, quantity: e.target.value })}
+							style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
+						/>
+					</div>
+					<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 12 }}>
+						<label style={{ fontWeight: 500, marginRight: 8 }}>Start Date:</label>
+						<input
+							type="date"
+							placeholder="Start Date"
+							value={formData.start_date}
+							onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+							style={{ minWidth: 180 }}
+						/>
+						<label style={{ fontWeight: 500, marginLeft: 24, marginRight: 8 }}>End Date:</label>
+						<input
+							type="date"
+							placeholder="End Date"
+							value={formData.end_date}
+							onChange={e => setFormData({ ...formData, end_date: e.target.value })}
+							style={{ minWidth: 180 }}
+						/>
+					</div>
 
                             <div className="form-group" style={{ position: 'relative' }}>
-                                <label htmlFor="lvl1-select">Select ROP Lvl1 Items:</label>
-                                <div
-                                    className="custom-dropdown-select"
-                                    onClick={() => setShowLvl1Dropdown(!showLvl1Dropdown)}
-                                    style={{
-                                        padding: '10px',
-                                        border: '1px solid #ccc',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        backgroundColor: '#fff',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                    }}
-                                >
+                                <label htmlFor="lvl1-select">Select PCI Items:</label>
+						<div
+							className="custom-dropdown-select"
+							onClick={() => setShowLvl1Dropdown(!showLvl1Dropdown)}
+							style={{
+								padding: '16px',
+								border: '1.5px solid #1976d2',
+								borderRadius: '6px',
+								cursor: 'pointer',
+								backgroundColor: '#fff',
+								display: 'flex',
+								justifyContent: 'space-between',
+								alignItems: 'center',
+								fontSize: '1.1em',
+								minWidth: 320,
+								maxWidth: 520,
+							}}
+						>
                                     {selectedLvl1Items.length > 0
                                         ? `${selectedLvl1Items.length} item(s) selected`
                                         : 'Click to select items'}
                                     <span>{showLvl1Dropdown ? '▲' : '▼'}</span>
                                 </div>
                                 {showLvl1Dropdown && (
-                                    <div
-                                        style={{
-                                            position: 'absolute',
-                                            top: '100%',
-                                            left: 0,
-                                            zIndex: 100,
-                                            width: '100%',
-                                            border: '1px solid #ccc',
-                                            borderRadius: '4px',
-                                            backgroundColor: '#fff',
-                                            maxHeight: '200px',
-                                            overflowY: 'auto',
-                                        }}
-                                    >
+						<div
+							style={{
+								position: 'absolute',
+								top: '100%',
+								left: 0,
+								zIndex: 100,
+								minWidth: 820,
+								maxWidth: 1200,
+								border: '1.5px solid #1976d2',
+								borderRadius: '6px',
+								backgroundColor: '#fff',
+								maxHeight: '320px',
+								overflowY: 'auto',
+								fontSize: '0.92em',
+							}}
+						>
                                         {entries.map(entry => {
                                             const isSelected = selectedLvl1Items.some(item => item.id === entry.id);
                                             const selectedItem = selectedLvl1Items.find(item => item.id === entry.id);
@@ -433,24 +462,27 @@ export default function RopLvl1() {
                                                         alignItems: 'center',
                                                     }}
                                             >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={() => handleSelectLvl1Item(entry)}
-                                                    style={{ marginRight: '10px' }}
-                                                />
+													<input
+														type="checkbox"
+														checked={isSelected}
+														onChange={() => handleSelectLvl1Item(entry)}
+														style={{ marginRight: '10px', width: 16, height: 16 }}
+													/>
                                                 <span style={{ flexGrow: 1 }}>
                                                     {entry.item_name} (ID: {entry.id})
                                                 </span>
                                                 {isSelected && (
-                                                    <input
-                                                        type="number"
-                                                        placeholder="Quantity"
-                                                        value={selectedItem.quantity}
-                                                        onChange={e => handleQuantityChange(entry.id, e.target.value)}
-                                                        style={{ width: '80px' }}
-                                                        onClick={e => e.stopPropagation()} // Prevent closing dropdown
-                                                    />
+											<span style={{ display: 'flex', alignItems: 'center' }}>
+												<span style={{ fontWeight: 600, fontSize: '1.08em', marginRight: 6 }}>Qty:</span>
+												<input
+													type="number"
+													placeholder="Quantity"
+													value={selectedItem.quantity}
+													onChange={e => handleQuantityChange(entry.id, e.target.value)}
+													style={{ width: '120px', fontSize: '1.08em', padding: '6px 10px', borderRadius: '4px', border: '1px solid #1976d2' }}
+													onClick={e => e.stopPropagation()} // Prevent closing dropdown
+												/>
+											</span>
                                                 )}
                                             </div>
                                         );
@@ -461,7 +493,7 @@ export default function RopLvl1() {
 
 
                             <div className="form-group">
-                                <label>Associated ROP Lvl2 Items:</label>
+                                <label>Associated SI Items:</label>
                                 <div style={{ border: '1px solid #ccc', padding: '10px', maxHeight: '150px', overflowY: 'auto' }}>
                                     {selectedLvl1Items.length === 0 ? (
                                         <p style={{ color: '#888' }}>Select Lvl1 items to see their Lvl2 details.</p>
