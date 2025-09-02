@@ -6,8 +6,8 @@ from Database.session import Base
 class Inventory(Base):
     __tablename__ = 'inventory'
     id = Column(Integer , primary_key=True,index=True)
-    site_id=Column(String(100),ForeignKey("sites.site_id"), index=True)
-    site_name=Column(String(100),ForeignKey("sites.site_name"),index=True)
+    site_id=Column(String(100), index=True)
+    site_name=Column(String(100),index=True)
     slot_id = Column(Integer, index=True)
     port_id=Column(Integer, index=True)
     status=Column(String(100),index=True)

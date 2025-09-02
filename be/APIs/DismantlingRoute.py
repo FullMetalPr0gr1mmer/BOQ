@@ -14,7 +14,7 @@ DismantlingRouter = APIRouter(prefix="/dismantling", tags=["Dismantling"])
 # ---------- CRUD with Routers ----------
 
 # This is the correct endpoint for pagination.
-@DismantlingRouter.get("/", response_model=DismantlingPagination)
+@DismantlingRouter.get("", response_model=DismantlingPagination)
 def get_all(
     skip: int = 0,
     limit: int = 100,
