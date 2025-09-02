@@ -153,6 +153,7 @@ async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
 
         project_id = None
         project_name = None
+        project_currency=None
         level1_id= None
         for row in rows:
             try:
@@ -196,6 +197,10 @@ async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
                     row[10],  # end date
                     safe_int(row[6])  # Target Quantity
                 )
+                if project_currency==None:
+                    project_currency = row[8]
+                    project = get_project(project_id, db=db)
+                    project.currency = project_currency
 
                 lvl2_data = ROPLvl2Create(
                     project_id=project_id,
@@ -230,7 +235,7 @@ async def upload_csv_fix(
     product_number: str = Form(None),
     wbs: str = Form(None),
     country: str = Form(None),
-    currency: str = Form("Euros"),
+    currency: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):

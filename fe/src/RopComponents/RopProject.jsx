@@ -187,7 +187,7 @@ export default function ROPProject() {
 
   const handleLevel1 = (proj) => {
     const pid_po = proj.pid + proj.po;
-    navigate('/rop-lvl1', { state: { pid_po, project_name: proj.project_name } });
+    navigate('/rop-lvl1', { state: { pid_po, project_name: proj.project_name,currency:proj.currency } });
   };
 
   const paginatedProjects = projects.slice(

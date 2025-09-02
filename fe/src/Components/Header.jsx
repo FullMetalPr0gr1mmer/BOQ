@@ -1,11 +1,17 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import '../css/header.css';
 
-const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Generation','LLD', 'LogOut'];
-const leAutomationTabs = [ 'ROP Project','ROP Package', 'LogOut'];
+const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Generation', 'LLD', 'Dismantling', 'LogOut'];
+const leAutomationTabs = ['ROP Project', 'ROP Package', 'LogOut'];
 
 export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Hide the header if the current path is the home page
+  if (location.pathname === '/*') {
+    return null;
+  }
 
   let tabs = activeSection === 'le-automation' ? leAutomationTabs : boqTabs;
   // Add Logs tab for admin users in BOQ
@@ -26,7 +32,7 @@ export default function Header({ onLogout, activeSection, user }) {
 
   return (
     <header className="nokia-header">
-      <div className="logo"><img src='logo.svg' alt="Logo"/></div>
+      <div className="logo"><img src='logo.svg' alt="Logo" /></div>
       <nav className="tabs">
         {tabs.map(tab => (
           <NavLink

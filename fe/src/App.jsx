@@ -17,6 +17,8 @@ import RopLvl2 from './RopComponents/RopLvl2';
 import BOQGeneration from './Components/BOQGeneration';
 import RopPackage from './RopComponents/RopPackage';
 import LLDManagement from './Components/LLDManagement';
+import Dismantling from './Components/Dismantling';
+import Home from './Components/Home';
 function App() {
   const [auth, setAuth] = useState(null); // { token, user }
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -50,8 +52,8 @@ function App() {
               <Route path="/boq-generation" element={<BOQGeneration />} />
               <Route path="/rop-package" element={<RopPackage />} />
               <Route path="/lld" element={<LLDManagement />} />
-              <Route path="*" element={<Project />} />
-            </Routes>
+              <Route path="/dismantling" element={<Dismantling />} />
+              <Route path="*" element={<Home setActiveSection={setActiveSection} />} /></Routes>
           </div>
 
           {/* ☰ Sidebar Toggle */}

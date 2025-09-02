@@ -30,7 +30,7 @@ export default function AuthForm({ onLogin, onRegister }) {
       if (data.access_token) {
         // Store role and username in user object
         onLogin({ token: data.access_token, user: { role: data.role, username } });
-        navigate('/project');
+        navigate('/*');
       } else {
         setError(data.detail || 'Login failed');
       }

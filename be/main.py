@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from APIs import LevelsRoute, LLDRoute, Level3Route
 from APIs.BOQReferenceRoute import BOQRouter
+from APIs.DismantlingRoute import DismantlingRouter
 from APIs.InventoryRoute import inventoryRoute
 from APIs.LLDRoute import lld_router
 from APIs.LevelsRoute import levelsRouter
@@ -41,6 +42,7 @@ app.include_router(ROPLvl2router)
 app.include_router(BOQRouter)
 app.include_router(RopPackageRouter)
 app.include_router(Level3Route.router)
+app.include_router(DismantlingRouter)
 
 app.include_router(lld_router)
 

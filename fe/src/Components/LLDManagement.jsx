@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import '../css/Project.css';
+import '../css/LLDManagment.css'; // Updated to use the new LLD.css file
 
-const ROWS_PER_PAGE = 100;
+const ROWS_PER_PAGE = 50;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 
 export default function LLDManagement() {
@@ -14,7 +14,6 @@ export default function LLDManagement() {
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
   const [editRow, setEditRow] = useState(null);
   const [updating, setUpdating] = useState(false);
 
@@ -52,6 +51,7 @@ export default function LLDManagement() {
 
   useEffect(() => {
     fetchLLD(1, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onSearchChange = (e) => {
@@ -141,12 +141,12 @@ export default function LLDManagement() {
   const downloadCSV = () => {
     if (!rows.length) return;
     const header = [
-      'link_id','action','fon','item_name','distance','scope','fe','ne','link_category','link_status',
-      'comments','dismanting_link_id','band','t_band_cs','ne_ant_size','fe_ant_size','sd_ne','sd_fe',
-      'odu_type','updated_sb','region','losr_approval','initial_lb','flb'
+      'link_id', 'action', 'fon', 'item_name', 'distance', 'scope', 'fe', 'ne', 'link_category', 'link_status',
+      'comments', 'dismanting_link_id', 'band', 't_band_cs', 'ne_ant_size', 'fe_ant_size', 'sd_ne', 'sd_fe',
+      'odu_type', 'updated_sb', 'region', 'losr_approval', 'initial_lb', 'flb'
     ];
     const rowsCsv = rows.map(r => header.map(h => r[h] || ''));
-    const csvContent = [header, ...rowsCsv].map(e => e.join(',')).join('\n');
+    const csvContent = [header.join(','), ...rowsCsv.map(e => e.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -160,40 +160,51 @@ export default function LLDManagement() {
   const totalPages = Math.ceil(total / ROWS_PER_PAGE);
 
   return (
-    <div className="project-container">
-      {/* Header */}
-      <div className="header-row" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>LLD Management</h2>
-        <label className="new-project-btn" style={{ width: 220, cursor: uploading ? 'not-allowed' : 'pointer' }}>
-          📤 Upload CSV
-          <input type="file" accept=".csv" style={{ display: 'none' }} disabled={uploading} onChange={handleUpload} />
-        </label>
-        <button onClick={downloadCSV} style={{ padding: '6px 10px', borderRadius: 6 }}>⬇ Download CSV</button>
+    <div className="lld-container"> {/* Updated container class */}
+      {/* Header & Upload */}
+      <div className="lld-header-row"> {/* Updated header class */}
+        <h2>LLD Management</h2>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <label className={`upload-btn ${uploading ? 'disabled' : ''}`}>
+            📤 Upload CSV
+            <input type="file" accept=".csv" style={{ display: 'none' }} disabled={uploading} onChange={handleUpload} />
+          </label>
+          <button onClick={downloadCSV} className="upload-btn">⬇ Download CSV</button>
+        </div>
       </div>
 
       {/* Search */}
-      <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div className="lld-search-container"> {/* Updated search container class */}
         <input
           type="text"
           placeholder="Search by Link ID..."
           value={searchTerm}
           onChange={onSearchChange}
-          style={{ padding: 8, borderRadius: 6, border: '1px solid #dbe3f4', width: 360 }}
+          className="search-input"
         />
-        {searchTerm && <button onClick={() => { setSearchTerm(''); fetchLLD(1, ''); }} style={{ padding: '6px 10px', borderRadius: 6 }}>Clear</button>}
+        {searchTerm && (
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              fetchLLD(1, '');
+            }}
+            className="clear-btn"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Messages */}
-      {error && <div className="error" style={{ marginTop: 10 }}>{error}</div>}
-      {success && <div className="success" style={{ marginTop: 10 }}>{success}</div>}
-      {loading && <div style={{ marginTop: 10 }}>Loading...</div>}
+      {error && <div className="lld-message error">{error}</div>} {/* Updated message class */}
+      {success && <div className="lld-message success">{success}</div>} {/* Updated message class */}
+      {loading && <div className="loading-message">Loading LLD records...</div>}
 
       {/* Table */}
-      <div className="project-table-container" style={{ marginTop: 16 }}>
-        <table className="project-table">
+      <div className="lld-table-container"> {/* Updated table container class */}
+        <table className="lld-table"> {/* Updated table class */}
           <thead>
             <tr>
-              
               <th>Link ID</th>
               <th>Action</th>
               <th>FON</th>
@@ -209,10 +220,9 @@ export default function LLDManagement() {
           </thead>
           <tbody>
             {rows.length === 0 && !loading ? (
-              <tr><td colSpan={11} style={{ textAlign: 'center', padding: 16 }}>No results</td></tr>
-            ) : rows.map((row, idx) => (
-              <tr key={idx}>
-                
+              <tr><td colSpan={11} className="no-results">No results</td></tr>
+            ) : rows.map((row) => (
+              <tr key={row.link_id}>
                 <td>{row.link_id}</td>
                 <td>{row.action}</td>
                 <td>{row.fon}</td>
@@ -223,9 +233,9 @@ export default function LLDManagement() {
                 <td>{row.ne}</td>
                 <td>{row.link_category}</td>
                 <td>{row.link_status}</td>
-                <td style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => handleEdit(row)}>Edit</button>
-                  <button onClick={() => handleDelete(row.link_id)}>Delete</button>
+                <td>
+                  <button onClick={() => handleEdit(row)} className="lld-table-btn edit-btn">Edit</button>
+                  <button onClick={() => handleDelete(row.link_id)} className="lld-table-btn delete-btn">Delete</button>
                 </td>
               </tr>
             ))}
@@ -235,33 +245,42 @@ export default function LLDManagement() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="pagination" style={{ marginTop: 12 }}>
-          <button disabled={currentPage === 1} onClick={() => fetchLLD(currentPage - 1, searchTerm)}>Prev</button>
-          <span style={{ margin: '0 8px' }}>Page {currentPage} of {totalPages}</span>
-          <button disabled={currentPage === totalPages} onClick={() => fetchLLD(currentPage + 1, searchTerm)}>Next</button>
+        <div className="lld-pagination"> {/* Updated pagination class */}
+          <button
+            className="pagination-btn"
+            disabled={currentPage === 1}
+            onClick={() => fetchLLD(currentPage - 1, searchTerm)}
+          >
+            Prev
+          </button>
+          <span className="pagination-info">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            className="pagination-btn"
+            disabled={currentPage === totalPages}
+            onClick={() => fetchLLD(currentPage + 1, searchTerm)}
+          >
+            Next
+          </button>
         </div>
       )}
 
-      {/* Modal */}
-      {showModal && (selectedRow || editRow) && (
-        <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex',
-          justifyContent: 'center', alignItems: 'center', zIndex: 1000
-        }}>
-          <div style={{ background: '#fff', padding: 24, borderRadius: 8, maxWidth: '90%', maxHeight: '80%', overflow: 'auto' }}>
+      {/* Edit Modal (using existing styles) */}
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h3>{editRow ? `Edit LLD: ${editRow.link_id}` : `LLD Details: ${selectedRow.link_id}`}</h3>
-              <button onClick={() => { setShowModal(false); setEditRow(null); }} style={{ fontSize: 18, cursor: 'pointer' }}>✖</button>
+              <h3>Edit LLD: {editRow?.link_id}</h3>
+              <button onClick={() => { setShowModal(false); setEditRow(null); }} className="close-btn">✖</button>
             </div>
-
-            {editRow ? (
+            {editRow && (
               <>
-                <table className="project-table" style={{ width: '100%' }}>
+                <table className="lld-table" style={{ width: '100%' }}>
                   <tbody>
                     {Object.entries(editRow).map(([key, value]) => (
                       <tr key={key}>
-                        <td style={{ fontWeight: 'bold', width: 200 }}>{key}</td>
+                        <td style={{ fontWeight: 'bold' }}>{key}</td>
                         <td>
                           <input
                             type="text"
@@ -274,21 +293,15 @@ export default function LLDManagement() {
                     ))}
                   </tbody>
                 </table>
-                <button onClick={handleUpdate} disabled={updating} style={{ marginTop: 12, padding: '6px 10px', borderRadius: 6 }}>
+                <button
+                  onClick={handleUpdate}
+                  disabled={updating}
+                  className="pagination-btn"
+                  style={{ marginTop: 12 }}
+                >
                   {updating ? 'Updating...' : 'Update'}
                 </button>
               </>
-            ) : (
-              <table className="project-table" style={{ width: '100%' }}>
-                <tbody>
-                  {Object.entries(selectedRow).map(([key, value]) => (
-                    <tr key={key}>
-                      <td style={{ fontWeight: 'bold', width: 200 }}>{key}</td>
-                      <td>{value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             )}
           </div>
         </div>
