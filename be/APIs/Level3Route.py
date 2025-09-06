@@ -20,10 +20,7 @@ def create_lvl3(payload: Lvl3Create, db: Session = Depends(get_db)):
         total_quantity=payload.total_quantity,
         total_price=payload.total_price,
     )
-    # Corrected line: use the property setter directly
     lvl3.service_type = payload.service_type or []
-
-    # Do not add children here, they will be added via separate endpoints
 
     db.add(lvl3)
     db.commit()
@@ -53,10 +50,8 @@ def update_lvl3(lvl3_id: int, payload: Lvl3Update, db: Session = Depends(get_db)
     if not lvl3:
         raise HTTPException(status_code=404, detail="Lvl3 not found")
 
-    # Update parent fields
     for field, value in payload.dict(exclude_unset=True).items():
         if field == "service_type":
-            # Corrected line: use the property setter directly
             lvl3.service_type = value or []
         else:
             setattr(lvl3, field, value)
@@ -96,13 +91,52 @@ def add_item_to_lvl3(lvl3_id: int, payload: ItemsForLvl3Create, db: Session = De
         quantity=payload.quantity,
         price=payload.price,
     )
-    # Corrected line: use the property setter directly
     new_item.service_type = payload.service_type or []
 
     db.add(new_item)
     db.commit()
     db.refresh(new_item)
     return new_item
+
+
+# ---------- BULK ADD ITEMS TO LVL3 ----------
+@router.post("/{lvl3_id}/items/bulk", response_model=List[ItemsForLvl3Out])
+def bulk_add_items_to_lvl3(lvl3_id: int, items_payload: List[ItemsForLvl3Create], db: Session = Depends(get_db)):
+    lvl3 = db.query(Lvl3).filter(Lvl3.id == lvl3_id).first()
+    if not lvl3:
+        raise HTTPException(status_code=404, detail="Lvl3 not found")
+
+    new_items = []
+    for payload in items_payload:
+        new_item = ItemsForLvl3(
+            lvl3_id=lvl3_id,
+            item_name=payload.item_name,
+            item_details=payload.item_details,
+            vendor_part_number=payload.vendor_part_number,
+            category=payload.category,
+            uom=payload.uom,
+            quantity=payload.quantity,
+            price=payload.price,
+        )
+        new_item.service_type = payload.service_type or []
+        new_items.append(new_item)
+
+    db.add_all(new_items)
+    db.commit()
+
+    # After adding new items, recalculate total_quantity and total_price for the parent Lvl3 record
+    all_items = db.query(ItemsForLvl3).filter(ItemsForLvl3.lvl3_id == lvl3_id).all()
+    total_quantity = sum(item.quantity for item in all_items if item.quantity is not None)
+    total_price = sum(item.price for item in all_items if item.price is not None)
+
+
+    db.commit()
+
+    for item in new_items:
+        db.refresh(item)
+    db.refresh(lvl3)
+
+    return new_items
 
 
 # ---------- UPDATE ITEM FOR LVL3 ----------
@@ -114,7 +148,6 @@ def update_item_for_lvl3(lvl3_id: int, item_id: int, payload: ItemsForLvl3Create
 
     for field, value in payload.dict(exclude_unset=True).items():
         if field == "service_type":
-            # Corrected line: use the property setter directly
             item.service_type = value or []
         else:
             setattr(item, field, value)

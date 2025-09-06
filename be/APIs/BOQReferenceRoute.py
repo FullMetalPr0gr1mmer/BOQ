@@ -150,8 +150,8 @@ def process_boq_data(site_a_ip: str, site_b_ip: str, linked_ip: str, db: Session
     # OUTDOOR inventory
     outdoor_inventory_a = []
     outdoor_inventory_b = []
-    site_a_serials=set()
-    site_b_serials=set()
+    site_a_serials = set()
+    site_b_serials = set()
     for ref in refs:
         parsed = _parse_interface_name(ref.interface_name)
 
@@ -173,7 +173,7 @@ def process_boq_data(site_a_ip: str, site_b_ip: str, linked_ip: str, db: Session
             ).first()
             if inv_rows_b.serial_no not in site_b_serials:
                 site_b_serials.add(inv_rows_b.serial_no)
-                outdoor_inventory_b.extend([_sa_row_to_dict(inv_rows_b) ])
+                outdoor_inventory_b.extend([_sa_row_to_dict(inv_rows_b)])
     # INDOOR inventory (slot=0, port=0)
     indoor_inventory_a = [
         _sa_row_to_dict(r) for r in db.query(Inventory).filter(
@@ -237,8 +237,10 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
 
     outdoor_idx = 0
     indoor_idx = 0
+    antenna_processed = False  # ✅ Add flag to track if antenna item has been processed
 
     for lvl3 in lvl3_rows:
+
         # Parent row
         writer.writerow([
             site_display,
@@ -280,8 +282,12 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                 vendor_part = inventory_item.get("part_no", "")
                 serial_no = inventory_item.get("serial_no", "")
 
-            # Handle ANTENNA items
+            # Handle ANTENNA items - ✅ Only process the first one
             elif "ANTENNA" in item_desc_upper:
+                if antenna_processed:
+                    continue  # Skip if we've already processed one antenna item
+
+                antenna_processed = True  # Mark as processed
                 vendor_part = "XXXXXXXX"
                 serial_no = "XXXXXXXX"
 
@@ -294,8 +300,8 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                     item.quantity = "XXXXXXXX"
 
             else:
-                vendor_part = ""
-                serial_no = ""
+                vendor_part = "----------- "
+                serial_no = "--------------"
 
             writer.writerow([
                 site_display,
@@ -305,10 +311,10 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                 get_service_type_name(item.service_type),
                 "MW",
                 item.uom or "1",
-                item.quantity or "",
-                item.price or "",
+                item.quantity or "----------",
+                item.price or "------------",
                 serial_no,
-                inventory_item.get("software_no", "") if inventory_item else "",
+                inventory_item.get("software_no", "") if inventory_item else "------------",
 
             ])
 

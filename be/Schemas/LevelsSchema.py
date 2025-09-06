@@ -23,7 +23,7 @@ class Lvl1Out(BaseModel):
     item_name: str
     region: Optional[str] = None
     quantity: int
-    price: int
+    price: float
     service_type: List[str]  # <-- previously List[TypeofService]
 
     class Config:
@@ -43,7 +43,7 @@ class ItemsForLvl3Base(BaseModel):
     category: Optional[str] = None
     uom: Optional[int] = None
     quantity: Optional[int] = None
-    price: Optional[int] = None
+    price: Optional[float] = None
 
 
 class ItemsForLvl3Create(ItemsForLvl3Base):
@@ -65,7 +65,7 @@ class Lvl3Base(BaseModel):
     service_type: Optional[List[str]] = None
     uom: Optional[str] = None
     total_quantity: Optional[int] = None
-    total_price: Optional[int] = None
+    total_price: Optional[float] = None
 
 
 class Lvl3Create(Lvl3Base):

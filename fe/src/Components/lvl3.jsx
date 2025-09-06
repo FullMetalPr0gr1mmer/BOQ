@@ -100,7 +100,7 @@ export default function Lvl3() {
         setEditingItemData({ lvl3Id, itemId: item.id });
         setShowItemForm(true);
     };
-    
+
     const handleSaveItem = async (e) => {
         e.preventDefault();
         setError('');
@@ -109,7 +109,7 @@ export default function Lvl3() {
         const payload = {
             ...itemFormData,
             quantity: parseInt(itemFormData.quantity, 10),
-            price: parseInt(itemFormData.price, 10),
+            price: parseFloat(itemFormData.price),
         };
 
         const { lvl3Id, itemId } = editingItemData;
@@ -168,7 +168,7 @@ export default function Lvl3() {
         const payload = {
             ...formData,
             total_quantity: parseInt(formData.total_quantity, 10),
-            total_price: parseInt(formData.total_price, 10),
+            total_price: parseFloat(formData.total_price),
             items: [] // Ensure no items are sent on Lvl3 create/update
         };
 
@@ -200,6 +200,132 @@ export default function Lvl3() {
             setError(err.message);
         }
     };
+const handleUploadCSV = (lvl3Id, parentItemName) => async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setError('');
+    setSuccess('');
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim() !== '');
+
+        if (lines.length === 0) {
+            setError('CSV file is empty.');
+            return;
+        }
+
+        // Function to parse CSV line properly handling quotes and commas
+        const parseCSVLine = (line) => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            // Don't forget the last field
+            result.push(current.trim());
+            return result;
+        };
+
+        const payloadItems = [];
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            // Use our custom CSV parser
+            const columns = parseCSVLine(line);
+            
+            if (columns.length < 4) {
+                setError(`Error on row ${i + 1}: Expected at least 4 columns, got ${columns.length}.`);
+                return;
+            }
+
+            // Extract columns directly
+            let item_details = columns[0].replace(/^"|"$/g, ''); // Remove surrounding quotes
+            let vendor_part_number = columns[1].replace(/^"|"$/g, ''); 
+            let uom = columns[2].replace(/^"|"$/g, ''); 
+            let priceColumn = columns[3].replace(/^"|"$/g, '');
+
+            // Clean the price column - more robust approach
+            let cleanedPriceString = priceColumn;
+            
+            // Remove "SAR" and any other text
+            cleanedPriceString = cleanedPriceString.replace(/SAR/gi, '');
+            
+            // Remove any leading/trailing whitespace
+            cleanedPriceString = cleanedPriceString.trim();
+            
+            // Remove any remaining non-numeric characters except dots and commas
+            cleanedPriceString = cleanedPriceString.replace(/[^0-9.,]/g, '');
+            
+            // Remove thousands separators (commas) but keep decimal point
+            cleanedPriceString = cleanedPriceString.replace(/,/g, '');
+            
+            const parsedPrice = parseFloat(cleanedPriceString);
+
+            if (isNaN(parsedPrice)) {
+                setError(`Error on row ${i + 1}: Could not parse price from "${priceColumn}".`);
+                return;
+            }
+
+            console.log(`Row ${i + 1}:`, {
+                item_details,
+                vendor_part_number,
+                uom,
+                originalPrice: priceColumn,
+                cleanedPrice: cleanedPriceString,
+                price: parsedPrice,
+                allColumns: columns
+            });
+
+            payloadItems.push({
+                item_name: parentItemName,
+                item_details: item_details,
+                vendor_part_number: vendor_part_number,
+                service_type: ["2"],
+                category: "MW",
+                uom: uom,
+                quantity: 0,
+                price: parsedPrice
+            });
+        }
+
+        try {
+            const res = await fetch(`${VITE_API_URL}/lvl3/${lvl3Id}/items/bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payloadItems)
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || 'Failed to upload items from CSV.');
+            }
+
+            setSuccess('Items uploaded successfully!');
+            e.target.value = null;
+            fetchLvl3();
+        } catch (err) {
+            setError(err.message);
+            e.target.value = null;
+        }
+    };
+
+    reader.readAsText(file);
+};
 
     const clearForm = () => {
         setFormData(initialLvl3State);
@@ -261,7 +387,7 @@ export default function Lvl3() {
                             <input type="text" name="project_name" placeholder="Project Name" value={formData.project_name} onChange={handleChange} required />
                             <input type="text" name="item_name" placeholder="Item Name" value={formData.item_name} onChange={handleChange} required />
                             <input type="text" name="uom" placeholder="UOM" value={formData.uom} onChange={handleChange} required />
-                            <input type="number" name="total_quantity" placeholder="Total Quantity" value={formData.total_quantity} onChange={handleChange} required />
+                            <input type="number" name="total_quantity" placeholder="Total Quantity" value={formData.total_quantity} onChange={handleChange}  />
                             <input type="number" name="total_price" placeholder="Total Price" value={formData.total_price} onChange={handleChange} required />
                             <select multiple name="service_type" value={formData.service_type} onChange={handleMultiSelectChange}>
                                 <option value="1">Software</option>
@@ -349,7 +475,13 @@ export default function Lvl3() {
                                         <td colSpan="9">
                                             <div className="sub-table-wrapper">
                                                 <h4>Items for {entry.item_name}</h4>
-                                                <button className="stylish-btn" onClick={() => handleAddItem(entry.id)}>+ Add New Item</button>
+                                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                                    <button className="stylish-btn" onClick={() => handleAddItem(entry.id)}>+ Add New Item</button>
+                                                    <label className="stylish-btn" style={{ cursor: 'pointer' }}>
+                                                        Upload CSV
+                                                        <input type="file" accept=".csv" onChange={handleUploadCSV(entry.id, entry.item_name)} style={{ display: 'none' }} />
+                                                    </label>
+                                                </div>
                                                 <table className="project-sub-table">
                                                     <thead>
                                                         <tr>

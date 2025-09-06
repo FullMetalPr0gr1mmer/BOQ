@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, PrimaryKeyConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, PrimaryKeyConstraint,Float
 from sqlalchemy.orm import relationship
 
 from Database.session import Base
@@ -23,7 +23,7 @@ class Lvl1(Base):
     region = Column(String(200), index=True)
     service_type = Column(Text, nullable=True)
     quantity = Column(Integer, nullable=True)
-    price = Column(Integer, nullable=True)
+    price = Column(Float, nullable=True)
 
     def set_service_type(self, types: list):
         enum_list = [TypeofService(t) if not isinstance(t, TypeofService) else t for t in types]
@@ -46,7 +46,7 @@ class Lvl3(Base):
     _service_type = Column('service_type', String, default='[]')
     uom = Column(String(200), index=True)
     total_quantity = Column(Integer, nullable=True)
-    total_price = Column(Integer, nullable=True)
+    total_price = Column(Float, nullable=True)
 
     # 🔑 establish relationship: one Lvl3 has many ItemsForLvl3
     items = relationship("ItemsForLvl3", back_populates="lvl3", cascade="all, delete-orphan")
@@ -83,7 +83,7 @@ class ItemsForLvl3(Base):
     category = Column(String(200), nullable=True)
     uom = Column(Integer, nullable=True)
     quantity = Column(Integer, nullable=True)
-    price = Column(Integer, nullable=True)
+    price = Column(Float, nullable=True)
 
     lvl3 = relationship("Lvl3", back_populates="items")
 
