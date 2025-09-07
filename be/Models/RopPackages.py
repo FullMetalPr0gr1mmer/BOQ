@@ -1,4 +1,4 @@
-from sqlalchemy import Date
+from sqlalchemy import Date, Float
 from sqlalchemy import Table, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -14,6 +14,7 @@ class RopPackage(Base):
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     quantity = Column(Integer, nullable=True)
+    price = Column(Float, nullable=True)
     # Many-to-many relationship with Lvl1
     lvl1_items = relationship(
         "ROPLvl1",
@@ -26,5 +27,5 @@ rop_package_lvl1 = Table(
     Base.metadata,
     Column("package_id", Integer, ForeignKey("rop_packages.id", ondelete="CASCADE"), primary_key=True),
     Column("lvl1_id", String(200), ForeignKey("rop_lvl1.id", ondelete="CASCADE"), primary_key=True),
-    Column("quantity", Integer, nullable=True)   # ✅ added
+    Column("quantity", Integer, nullable=True),# ✅ added
 )

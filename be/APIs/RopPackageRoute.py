@@ -20,6 +20,7 @@ def create_package(data: RopPackageCreate, db: Session = Depends(get_db)):
         start_date=data.start_date,
         end_date=data.end_date,
         quantity=data.quantity,
+        price=data.price,
     )
     db.add(new_pkg)
     db.commit()
@@ -50,6 +51,7 @@ def create_package(data: RopPackageCreate, db: Session = Depends(get_db)):
         start_date=new_pkg.start_date,
         end_date=new_pkg.end_date,
         quantity=new_pkg.quantity,
+        price=new_pkg.price,
         lvl1_items=[{"id": r.id, "name": r.item_name, "quantity": r.quantity} for r in rows]
     )
 
@@ -72,6 +74,7 @@ def get_all_packages(db: Session = Depends(get_db)):
             start_date=pkg.start_date,
             end_date=pkg.end_date,
             quantity=pkg.quantity,
+            price=pkg.price,
             lvl1_items=[{"id": r.id, "name": r.item_name, "quantity": r.quantity} for r in rows]
         ))
     return result
@@ -97,6 +100,7 @@ def get_package(id: int, db: Session = Depends(get_db)):
         start_date=pkg.start_date,
         end_date=pkg.end_date,
         quantity=pkg.quantity,
+        price=pkg.price,
         lvl1_items=[{"id": r.id, "name": r.item_name, "quantity": r.quantity} for r in rows]
     )
 
@@ -145,6 +149,7 @@ def update_package(id: int, data: RopPackageUpdate, db: Session = Depends(get_db
         start_date=pkg.start_date,
         end_date=pkg.end_date,
         quantity=pkg.quantity,
+        price=pkg.price,
         lvl1_items=[{"id": r.id, "name": r.item_name, "quantity": r.quantity} for r in rows]
     )
 

@@ -1,15 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../css/RopLvl1.css';
-
 const ENTRIES_PER_PAGE = 15;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-
 export default function RopLvl1() {
 	const location = useLocation();
 	const navigate = useNavigate();
-	const projectState = location.state; // { pid_po, project_name }
-
+	const projectState = location.state;
 	const [entries, setEntries] = useState([]);
 	const [showForm, setShowForm] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
@@ -34,6 +31,11 @@ export default function RopLvl1() {
 	const [lvl2Items, setLvl2Items] = useState({});
 	const [showLvl1Dropdown, setShowLvl1Dropdown] = useState(false);
 
+	// New state for calculated prices
+	const [calculatedPackagePrice, setCalculatedPackagePrice] = useState(0);
+	const [calculatedTotalPrice, setCalculatedTotalPrice] = useState(0);
+
+
 	useEffect(() => {
 		fetchEntries();
 	}, []);
@@ -42,19 +44,52 @@ export default function RopLvl1() {
 		const fetchDetailsForSelectedLvl1 = async () => {
 			const newLvl2Details = {};
 			for (const item of selectedLvl1Items) {
-				try {
-					const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${item.id}`);
-					if (!res.ok) throw new Error('Failed to fetch Level 2 items');
-					const data = await res.json();
-					newLvl2Details[item.id] = data;
-				} catch (err) {
-					newLvl2Details[item.id] = [];
+				// Only fetch if details aren't already loaded
+				if (!lvl2Details[item.id]) {
+					try {
+						const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${item.id}`);
+						if (!res.ok) throw new Error('Failed to fetch Level 2 items');
+						const data = await res.json();
+						newLvl2Details[item.id] = data;
+					} catch (err) {
+						newLvl2Details[item.id] = [];
+					}
+				} else {
+					// Use existing details
+					newLvl2Details[item.id] = lvl2Details[item.id];
 				}
 			}
-			setLvl2Details(newLvl2Details);
+			setLvl2Details(prev => ({ ...prev, ...newLvl2Details }));
 		};
-		fetchDetailsForSelectedLvl1();
+		if (selectedLvl1Items.length > 0) {
+			fetchDetailsForSelectedLvl1();
+		}
 	}, [selectedLvl1Items]);
+
+	// Effect to calculate prices when dependencies change
+	useEffect(() => {
+		const calculatePrices = () => {
+			let packagePrice = 0;
+			selectedLvl1Items.forEach(item => {
+				const lvl2s = lvl2Details[item.id] || [];
+				const quantity = parseFloat(item.quantity);
+
+				if (!isNaN(quantity) && quantity > 0 && lvl2s.length > 0) {
+					const sumOfLvl2Prices = lvl2s.reduce((sum, lvl2) => sum + (lvl2.price || 0), 0);
+					packagePrice += sumOfLvl2Prices * quantity;
+				}
+			});
+
+			setCalculatedPackagePrice(packagePrice);
+
+			const totalQuantity = parseFloat(formData.quantity);
+			const totalPrice = !isNaN(totalQuantity) && totalQuantity > 0 ? packagePrice * totalQuantity : 0;
+			setCalculatedTotalPrice(totalPrice);
+		};
+
+		calculatePrices();
+	}, [selectedLvl1Items, lvl2Details, formData.quantity]);
+
 
 	const fetchEntries = async () => {
 		try {
@@ -94,6 +129,8 @@ export default function RopLvl1() {
 		setEditId(null);
 		setIsEditing(false);
 		setShowForm(false);
+		setCalculatedPackagePrice(0); // Reset prices
+		setCalculatedTotalPrice(0); // Reset prices
 	};
 
 	const handleSubmit = async (e) => {
@@ -113,6 +150,7 @@ export default function RopLvl1() {
 			end_date: formData.end_date || null,
 			quantity: formData.quantity ? parseInt(formData.quantity) : null,
 			lvl1_ids: selectedLvl1Items,
+			price: calculatedPackagePrice, // Send the calculated package unit price
 		};
 
 		try {
@@ -129,7 +167,7 @@ export default function RopLvl1() {
 
 			setSuccess('ROP Package created successfully!');
 			resetForm();
-			fetchEntries(); // This might not be needed if the table only shows Lvl1 items
+			fetchEntries();
 		} catch (err) {
 			setError(err.message);
 		}
@@ -139,11 +177,11 @@ export default function RopLvl1() {
 		setSelectedLvl1Items(prev => {
 			const itemExists = prev.find(i => i.id === item.id);
 			if (itemExists) {
-				// Remove item if it's already selected
+
 				return prev.filter(i => i.id !== item.id);
 			} else {
-				// Add new item with a default quantity
-				return [...prev, { id: item.id, quantity: '' }];
+
+				return [...prev, { id: item.id, quantity: '1' }]; // Default quantity to 1
 			}
 		});
 	};
@@ -234,31 +272,23 @@ export default function RopLvl1() {
 						<div className="mini-stat-value">{avgLEPerItem.toLocaleString()}</div>
 						<div className="mini-stat-label">Avg LE/Item</div>
 					</div>
-				</div>
-
-				<div className="stats-row">
+				</div><div className="stats-row">
 					<div className="mini-stat-card card-purple">
 						<div className="stat-icon">🎯</div>
 						<div className="mini-stat-value">{avgQuantityPerItem.toLocaleString()}</div>
 						<div className="mini-stat-label">Avg Qty/Item</div>
-					</div>
-
-					<div className="mini-stat-card card-teal">
+					</div><div className="mini-stat-card card-teal">
 						<div className="stat-icon">💲</div>
 						<div className="mini-stat-value">{avgPrice}</div>
 						<div className="mini-stat-label">Avg Price</div>
-					</div>
-
-					<div className="mini-stat-card card-blue">
+					</div><div className="mini-stat-card card-blue">
 						<div className="stat-icon">🏆</div>
 						<div className="mini-stat-value">{highestLEItem.item_name?.substring(0, 12) || '-'}</div>
 						<div className="mini-stat-extra">
 							{highestLEItem.le ? `${highestLEItem.le.toLocaleString()} LE` : ''}
 						</div>
 						<div className="mini-stat-label">Top Item</div>
-					</div>
-
-					<div className="mini-stat-card card-warning">
+					</div><div className="mini-stat-card card-warning">
 						<div className="stat-icon">🌍</div>
 						<div className="mini-stat-value">{topRegion.region}</div>
 						<div className="mini-stat-extra">{topRegion.count} items</div>
@@ -266,8 +296,6 @@ export default function RopLvl1() {
 					</div>
 				</div>
 			</div>
-
-			{/* Chart Dashboard Section */}
 			<div className="dashboard-chart-section">
 				<div className="chart-card">
 					<h3 className="chart-title">📊 Project Overview</h3>
@@ -287,7 +315,6 @@ export default function RopLvl1() {
 					<div className="progress-bar">
 						<div className="progress-fill" style={{ width: `${Math.min((totalLE / 100000) * 100, 100)}%` }}></div>
 					</div>
-
 					<div className="metric-row">
 						<span className="metric-label">Quantity Target</span>
 						<span className="metric-value">{totalQuantity.toLocaleString()} Units</span>
@@ -296,17 +323,14 @@ export default function RopLvl1() {
 						<div className="progress-fill" style={{ width: `${Math.min((totalQuantity / 1000) * 100, 100)}%` }}></div>
 					</div>
 				</div>
-
 				<div className="chart-card">
 					<h3 className="chart-title">📅 Timeline Analysis</h3>
-
 					<div className="metric-row">
 						<span className="metric-label">Project Start</span>
 						<span className="metric-value">
 							{earliestStart ? earliestStart.toLocaleDateString() : 'Not Set'}
 						</span>
 					</div>
-
 					<div className="metric-row">
 						<span className="metric-label">Project End</span>
 						<span className="metric-value">
@@ -336,8 +360,6 @@ export default function RopLvl1() {
 					</div>
 				</div>
 			</div>
-
-			{/* Modal Form */}
 			{showForm && (
 				<div className="dashboard-modal">
 					<div className="dashboard-modal-content" style={{ minWidth: 900, maxWidth: 1300, margin: '0 auto', overflowX: 'hidden' }}>
@@ -349,12 +371,8 @@ export default function RopLvl1() {
 								className="dashboard-modal-close"
 								onClick={() => setShowForm(false)}
 								type="button"
-							>
-								✕
-							</button>
-						</div>
-
-						<form className="dashboard-form" onSubmit={handleSubmit} style={{ minWidth: 820, maxWidth: 1200, margin: '0 auto', fontSize: '1.1em' }}>
+							>✕</button>
+						</div><form className="dashboard-form" onSubmit={handleSubmit} style={{ minWidth: 820, maxWidth: 1200, margin: '0 auto', fontSize: '1.1em' }}>
 							<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 18, width: '100%' }}>
 								<input
 									type="text"
@@ -490,10 +508,7 @@ export default function RopLvl1() {
 										})}
 									</div>
 								)}
-							</div>
-
-
-							<div className="form-group">
+							</div><div className="form-group">
 								<label>Associated SI Items:</label>
 								<div style={{ border: '1px solid #ccc', padding: '10px', maxHeight: '150px', overflowY: 'auto' }}>
 									{selectedLvl1Items.length === 0 ? (
@@ -510,7 +525,7 @@ export default function RopLvl1() {
 															</li>
 														))
 													) : (
-														<li>No Lvl2 items found for this entry.</li>
+														<li>Loading Lvl2 items...</li>
 													)}
 												</ul>
 											</div>
@@ -519,6 +534,23 @@ export default function RopLvl1() {
 								</div>
 							</div>
 
+							{/* === NEW: Price Display Section === */}
+							<div className="form-group" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px', textAlign: 'right' }}>
+								<div style={{ fontSize: '1.3em', marginBottom: '8px' }}>
+									<strong style={{ color: '#39439fff', marginRight: '10px' }}>Package Price:</strong>
+									<strong style={{ color: '#000000ff' }}>
+										{calculatedPackagePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cur}
+									</strong>
+								</div>
+								<div style={{ fontSize: '1.3em' }}>
+									<strong style={{ color: '#39439fff', marginRight: '10px' }}>Total Price:</strong>
+									<strong style={{ color:'#000000ff' }}>
+										{calculatedTotalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cur}
+									</strong>
+								</div>
+							</div>
+
+
 							<button type="submit">
 								🚀 Create Package
 							</button>
@@ -526,23 +558,17 @@ export default function RopLvl1() {
 					</div>
 				</div>
 			)}
-
-			{/* Data Table Section */}
 			<div className="dashboard-content-section">
 				<div className="dashboard-section-header">
 					📋 Detailed Entry Management
 				</div>
-
 				<div className="dashboard-table-container" style={{ overflowX: 'hidden' }}>
 					{entries.length > 0 ? (
 						<table className="dashboard-table">
 							<thead>
 								<tr>
 									<th></th>
-									<th></th>
-
-									{/* Removed ID column */}
-									<th style={{ textAlign: 'center' }}>Product Number</th>
+									<th></th><th style={{ textAlign: 'center' }}>Product Number</th>
 									<th style={{ textAlign: 'center' }}>Item Name</th>
 									<th style={{ textAlign: 'center' }}>Quantity</th>
 									<th style={{ textAlign: 'center' }}>Unit Price</th>
@@ -566,7 +592,6 @@ export default function RopLvl1() {
 													{expandedRows[entry.id] ? '▼' : '▶'}
 												</button>
 											</td>
-											{/* Removed ID cell */}
 											<td>{entry.product_number || '-'}</td>
 											<td><strong>{entry.item_name}</strong></td>
 											<td>{entry.total_quantity?.toLocaleString() || '-'}</td>
@@ -584,8 +609,6 @@ export default function RopLvl1() {
 														<table style={{ width: '100%', borderCollapse: 'collapse' }}>
 															<thead>
 																<tr>
-
-																	{/* Removed ID column in expanded table */}
 																	<th style={{ textAlign: 'center' }}>Product Number</th>
 																	<th style={{ textAlign: 'center' }}>Item Name</th>
 																	<th style={{ textAlign: 'center' }}>Quantity</th>
@@ -596,7 +619,6 @@ export default function RopLvl1() {
 															<tbody>
 																{(lvl2Items[entry.id] || []).map(lvl2 => (
 																	<tr key={lvl2.id}>
-																		{/* Removed ID cell in expanded table */}
 																		<td>{lvl2.product_number || '-'}</td>
 																		<td>{lvl2.item_name}</td>
 																		<td>{lvl2.total_quantity?.toLocaleString() || '-'}</td>
@@ -627,7 +649,7 @@ export default function RopLvl1() {
 					)}
 				</div>
 
-				{/* Pagination */}
+
 				{totalPages > 1 && (
 					<div className="dashboard-pagination">
 						{Array.from({ length: totalPages }, (_, i) => (

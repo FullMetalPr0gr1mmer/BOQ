@@ -21,13 +21,10 @@ export default function RopPackage() {
   const [savingPkgId, setSavingPkgId] = useState(null);
   const [editingQuantityCol, setEditingQuantityCol] = useState({});
   const [savingQuantityColPkgId, setSavingQuantityColPkgId] = useState(null);
-  // Check if any monthly quantity changed for a package
   const isMonthlyChanged = (pkg, monthlyQuantities) => {
     const edits = editingMonthly[pkg.id] || {};
     return Object.keys(edits).some(idx => String(edits[idx]) !== String(monthlyQuantities[idx]));
   };
-
-  // Check if quantity column changed for a package
   const isQuantityColChanged = (pkg) => {
     return editingQuantityCol[pkg.id] !== undefined && String(editingQuantityCol[pkg.id]) !== String(pkg.quantity);
   };
@@ -124,6 +121,26 @@ export default function RopPackage() {
 
       setSuccess("Package updated successfully!");
       fetchPackages();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // New delete function
+  const handleDeletePackage = async (packageId) => {
+    if (!window.confirm("Are you sure you want to delete this package?")) {
+      return;
+    }
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-package/${packageId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to delete package");
+      }
+      setSuccess("Package deleted successfully!");
+      fetchPackages(); // Refresh packages after successful deletion
     } catch (err) {
       setError(err.message);
     }
@@ -280,12 +297,10 @@ export default function RopPackage() {
         updatedPkg.start_date = newDate.format("YYYY-MM-DD");
         updatedPkg.end_date = newDate.clone().add(duration, "days").format("YYYY-MM-DD");
       } else if (type === "start") {
-        // Prevent end date before start date
         if (moment(pkg.end_date).isAfter(newDate)) {
           updatedPkg.start_date = newDate.format("YYYY-MM-DD");
         }
       } else if (type === "end") {
-        // Prevent start date after end date
         if (moment(pkg.start_date).isBefore(newDate)) {
           updatedPkg.end_date = newDate.format("YYYY-MM-DD");
         }
@@ -297,7 +312,6 @@ export default function RopPackage() {
     const onMouseUp = () => {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
-      // Persist the updated start/end dates to backend
       handleUpdatePackage(pkg.id, updatedPkg);
     };
 
@@ -324,10 +338,12 @@ export default function RopPackage() {
           <table className="gantt-table">
             <thead>
               <tr>
+                <th style={{ width: "fit-content" }}></th>
                 <th style={{ width: "150px" }}>Package Name</th>
                 <th style={{ width: "100px" }}>Start Date</th>
                 <th style={{ width: "100px" }}>End Date</th>
                 <th>Quantity</th>
+                
                 <th className="gantt-header-cell">
                   <div
                     className="timeline-header"
@@ -366,6 +382,14 @@ export default function RopPackage() {
                 return (
                   <>
                     <tr key={pkg.id}>
+                      <td style={{ cursor: 'pointer', color: '#d32f2f',margin: '0' }}>
+                        <span
+                          onClick={() => handleDeletePackage(pkg.id)}
+                          style={{ cursor: 'pointer', color: '#d32f2f',margin: '0' }}
+                        >
+                          🗑️
+                        </span>
+                      </td>
                       <td>
                         <div className="package-name-cell">
                           <button className="expand-btn" onClick={() => toggleRow(pkg.id)}>
@@ -406,20 +430,7 @@ export default function RopPackage() {
                           disabled={savingQuantityColPkgId === pkg.id}
                         />
                       </td>
-                    {isQuantityColChanged(pkg) && (
-                      <tr>
-                        <td colSpan={5}>
-                          <button
-                            className="stylish-btn"
-                            style={{ marginTop: 8, float: 'left' }}
-                            onClick={() => handleSaveQuantityCol(pkg)}
-                            disabled={savingQuantityColPkgId === pkg.id}
-                          >
-                            {savingQuantityColPkgId === pkg.id ? 'Saving...' : 'Save Quantity'}
-                          </button>
-                        </td>
-                      </tr>
-                    )}
+                      
                       <td className="gantt-chart-cell">
                         <div
                           className="gantt-bar-container"
@@ -442,16 +453,13 @@ export default function RopPackage() {
                                 height: '24px',
                               }}
                             >
-                              {/* Left pointer: affects start date only */}
                               <div
                                 className="resize-pointer left"
                                 style={{ position: 'absolute', left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '24px', cursor: 'ew-resize', background: '#388e3c', borderRadius: '50%', border: '2px solid #fff', zIndex: 2 }}
                                 title="Drag to change start date"
                                 onMouseDown={(e) => handleBarDrag(e, pkg, "start")}
                               ></div>
-                              {/* Bar content */}
                               <span className="gantt-quantity-label" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 1 }}>{pkg.quantity}</span>
-                              {/* Right pointer: affects end date only */}
                               <div
                                 className="resize-pointer right"
                                 style={{ position: 'absolute', right: '-8px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '24px', cursor: 'ew-resize', background: '#1976d2', borderRadius: '50%', border: '2px solid #fff', zIndex: 2 }}
@@ -509,22 +517,21 @@ export default function RopPackage() {
                     </tr>
                     {expandedRows[pkg.id] && (
                       <tr className="expanded-row">
-                        <td colSpan="5">
+                        <td colSpan="6">
                           <div className="sub-table-container">
-                            <h4>ROP Lvl1 Items</h4>
+                            <h4>PCI Items (Cost : {pkg.price.toLocaleString()})</h4>
                             <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}>
                               <thead>
                                 <tr>
-                                  <th style={{ width: 'auto', whiteSpace: 'nowrap' }}>Item Name</th>
+                                  <th style={{ width:'fit-content', whiteSpace: 'nowrap' }}>Item Name</th>
                                   <th style={{ width: 'auto', whiteSpace: 'nowrap' }}>Quantity</th>
-                                  <th style={{ width: '32px' }}></th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {pkg.lvl1_items.length > 0 ? (
                                   pkg.lvl1_items.map((item, index) => (
                                     <tr key={index}>
-                                      <td style={{ width: 'auto', whiteSpace: 'nowrap', fontSize: '0.95em' }}>{item.name || item}</td>
+                                      <td style={{ width:'fit-content', whiteSpace: 'nowrap', fontSize: '0.95em' }}>{item.name || item}</td>
                                       <td style={{ width: 'auto', whiteSpace: 'nowrap' }}>
                                         <input
                                           type="number"
@@ -532,7 +539,7 @@ export default function RopPackage() {
                                           min={0}
                                           style={{ width: 'auto', minWidth: 24, padding: '1px 2px', borderRadius: 3, border: '1px solid #ccc', fontSize: '0.95em' }}
                                           onChange={e => handleQuantityChange(pkg.id, index, e.target.value)}
-                                          disabled={savingPkgId === pkg.id}
+                                          disabled= {true} //{savingPkgId === pkg.id}
                                         />
                                       </td>
                                     </tr>
@@ -544,7 +551,7 @@ export default function RopPackage() {
                                 )}
                               </tbody>
                             </table>
-                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: 8 }}>
+                            <div style={{ visibility:'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: 8 }}>
                               <button
                                 className="stylish-btn"
                                 style={{ marginTop: 0 }}
@@ -563,7 +570,7 @@ export default function RopPackage() {
               })}
               {packages.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="empty-state">
+                  <td colSpan="6" className="empty-state">
                     No ROP Packages found.
                   </td>
                 </tr>
