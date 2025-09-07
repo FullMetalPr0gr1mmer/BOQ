@@ -1,0 +1,5 @@
+Site_IP,Item Description,L1 Category,Vendor Part Number,Type,Category,UOM,Total Qtts,Discounted unit price,SN,SW Number
+10.74.124.41 - ABBS2161 + 10.74.124.40 - ABBS0162,EBAND 2+0  6Gbps 0.3/0.6m,"MW links (HW,SW,Services,Passive)",-----------------,Hardware,MW,Link,140,4908608.07,-----------------,-----------------
+10.74.124.41 - ABBS2161 + 10.74.124.40 - ABBS0162,EBAND 2+0  6Gbps 0.3/0.6m,"MW links (HW,SW,Services,Passive)",-----------------,Hardware,MW,Link,2000,97.68,-----------------,-----------------
+10.74.124.41 - ABBS2161 + 10.74.124.40 - ABBS0162,EBAND 2+0  6Gbps 0.3/0.6m,"MW links (HW,SW,Services,Passive)",-----------------,Service,MW,Link,8723,897987.0,-----------------,-----------------
+10.74.124.41 - ABBS2161 + 10.74.124.40 - ABBS0162,Dismantling service,"MW links (HW,SW,Services,Passive)",-----------------,Hardware,MW,Link,2000,2000.0,-----------------,-----------------

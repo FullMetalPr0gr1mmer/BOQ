@@ -213,111 +213,181 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
 
     output = StringIO()
     writer = csv.writer(output)
+    if site_type == "A":
+        # Fetch site name
+        site_name = ""
+        try:
+            site = db.query(Site).filter(Site.site_id == site_ip).first()
+            if site:
+                site_name = site.site_name
+        except Exception:
+            pass
+        site_display = f"{site_ip} - {site_name}" if site_name else site_ip
 
-    # Fetch site name
-    site_name = ""
-    try:
-        site = db.query(Site).filter(Site.site_id == site_ip).first()
-        if site:
-            site_name = site.site_name
-    except Exception:
-        pass
-    site_display = f"{site_ip} - {site_name}" if site_name else site_ip
+        # Helper to map service types
+        def get_service_type_name(service_types):
+            if not service_types: return ""
+            type_mapping = {"1": "Software", "2": "Hardware", "3": "Service"}
+            return ", ".join([type_mapping.get(str(st).strip(), str(st).strip()) for st in service_types])
 
-    # Helper to map service types
-    def get_service_type_name(service_types):
-        if not service_types: return ""
-        type_mapping = {"1": "Software", "2": "Hardware", "3": "Service"}
-        return ", ".join([type_mapping.get(str(st).strip(), str(st).strip()) for st in service_types])
+        # CSV Headers
+        headers = ["Site_IP", "Item Description", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
+                   "Total Qtts", "Discounted unit price", "SN", "SW Number"]
+        writer.writerow(headers)
 
-    # CSV Headers
-    headers = ["Site_IP", "Item Description", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
-               "Total Qtts", "Discounted unit price", "SN", "SW Number"]
-    writer.writerow(headers)
+        outdoor_idx = 0
+        indoor_idx = 0
+        antenna_processed = False  # ✅ Add flag to track if antenna item has been processed
+        parents_printed=False
+        for lvl3 in lvl3_rows:
+            if not parents_printed:
+                parents_printed = True
+                for parent in lvl3_rows:
+                # Parent row
+                    writer.writerow([
+                        site_display,
+                        parent.item_name,
+                        "MW links (HW,SW,Services,Passive)",
+                        "-----------------",  # Vendor Part Number
+                        get_service_type_name(parent.service_type),
+                        "MW",
+                        "Link",
+                        "1",
+                        parent.total_price or "",
+                        "-----------------",  # SN
+                        "-----------------"
+                    ])
 
-    outdoor_idx = 0
-    indoor_idx = 0
-    antenna_processed = False  # ✅ Add flag to track if antenna item has been processed
+            for item in lvl3.items:
+                item_desc_upper = (item.item_details or item.item_name or "").upper()
+                inventory_item = {}
 
-    for lvl3 in lvl3_rows:
+                # Handle OUTDOOR items
+                if "OUTDOOR" in item_desc_upper:
+                    if outdoor_idx < len(outdoor_inventory):
+                        inventory_item = outdoor_inventory[outdoor_idx]
+                        outdoor_idx += 1
+                    else:
+                        continue  # Skip if no inventory left
 
-        # Parent row
-        writer.writerow([
-            site_display,
-            lvl3.item_name,
-            "MW links (HW,SW,Services,Passive)",
-            "-----------------",  # Vendor Part Number
-            get_service_type_name(lvl3.service_type),
-            "MW",
-            "Link",
-            lvl3.total_quantity or "",
-            lvl3.total_price or "",
-            "-----------------",  # SN
-            "-----------------"
-        ])
+                    vendor_part = inventory_item.get("part_no", "")
+                    serial_no = inventory_item.get("serial_no", "")
 
-        for item in lvl3.items:
-            item_desc_upper = (item.item_details or item.item_name or "").upper()
-            inventory_item = {}
+                # Handle INDOOR items
+                elif "INDOOR" in item_desc_upper:
+                    if indoor_idx < len(indoor_inventory):
+                        inventory_item = indoor_inventory[indoor_idx]
+                        indoor_idx += 1
+                    else:
+                        continue
 
-            # Handle OUTDOOR items
-            if "OUTDOOR" in item_desc_upper:
-                if outdoor_idx < len(outdoor_inventory):
-                    inventory_item = outdoor_inventory[outdoor_idx]
-                    outdoor_idx += 1
+                    vendor_part = inventory_item.get("part_no", "")
+                    serial_no = inventory_item.get("serial_no", "")
+
+                # Handle ANTENNA items - ✅ Only process the first one
+                elif "ANTENNA" in item_desc_upper:
+                    if antenna_processed:
+                        continue  # Skip if we've already processed one antenna item
+
+                    antenna_processed = True  # Mark as processed
+                    vendor_part = "XXXXXXXX"
+                    serial_no = "XXXXXXXX"
+                    item.quantity = "1"
+
                 else:
-                    continue  # Skip if no inventory left
+                    vendor_part = "----------- "
+                    serial_no = "--------------"
 
-                vendor_part = inventory_item.get("part_no", "")
-                serial_no = inventory_item.get("serial_no", "")
+                writer.writerow([
+                    site_display,
+                    item.item_details or item.item_name,
+                    "MW links (HW,SW,Services,Passive)",
+                    vendor_part,
+                    get_service_type_name(item.service_type),
+                    "MW",
+                    item.uom or "1",
+                    "1",
+                    item.price or "------------",
+                    serial_no,
+                    inventory_item.get("software_no", "") if inventory_item else "------------",
 
-            # Handle INDOOR items
-            elif "INDOOR" in item_desc_upper:
-                if indoor_idx < len(indoor_inventory):
-                    inventory_item = indoor_inventory[indoor_idx]
-                    indoor_idx += 1
-                else:
-                    continue
+                ])
+    if site_type == "B":
+        # Fetch site name
+        site_name = ""
+        try:
+            site = db.query(Site).filter(Site.site_id == site_ip).first()
+            if site:
+                site_name = site.site_name
+        except Exception:
+            pass
+        site_display = f"{site_ip} - {site_name}" if site_name else site_ip
 
-                vendor_part = inventory_item.get("part_no", "")
-                serial_no = inventory_item.get("serial_no", "")
+        # Helper to map service types
+        def get_service_type_name(service_types):
+            if not service_types: return ""
+            type_mapping = {"1": "Software", "2": "Hardware", "3": "Service"}
+            return ", ".join([type_mapping.get(str(st).strip(), str(st).strip()) for st in service_types])
 
-            # Handle ANTENNA items - ✅ Only process the first one
-            elif "ANTENNA" in item_desc_upper:
-                if antenna_processed:
-                    continue  # Skip if we've already processed one antenna item
+        outdoor_idx = 0
+        indoor_idx = 0
+        antenna_processed = False  # ✅ Add flag to track if antenna item has been processed
+        for lvl3 in lvl3_rows:
 
-                antenna_processed = True  # Mark as processed
-                vendor_part = "XXXXXXXX"
-                serial_no = "XXXXXXXX"
+            for item in lvl3.items:
+                item_desc_upper = (item.item_details or item.item_name or "").upper()
+                inventory_item = {}
 
-                # Fill NE/FE sizes
-                if site_type == "A":
-                    item.quantity = getattr(lld_row, "ne_ant_size", "")
-                elif site_type == "B":
-                    item.quantity = getattr(lld_row, "fe_ant_size", "")
-                if not item.quantity:
-                    item.quantity = "XXXXXXXX"
+                if("OUTDOOR" in item_desc_upper) or ("INDOOR" in item_desc_upper) or ("ANTENNA" in item_desc_upper):
+                    if "OUTDOOR" in item_desc_upper:
+                        if outdoor_idx < len(outdoor_inventory):
+                            inventory_item = outdoor_inventory[outdoor_idx]
+                            outdoor_idx += 1
+                        else:
+                            continue  # Skip if no inventory left
 
-            else:
-                vendor_part = "----------- "
-                serial_no = "--------------"
+                        vendor_part = inventory_item.get("part_no", "")
+                        serial_no = inventory_item.get("serial_no", "")
 
-            writer.writerow([
-                site_display,
-                item.item_details or item.item_name,
-                "MW links (HW,SW,Services,Passive)",
-                vendor_part,
-                get_service_type_name(item.service_type),
-                "MW",
-                item.uom or "1",
-                item.quantity or "----------",
-                item.price or "------------",
-                serial_no,
-                inventory_item.get("software_no", "") if inventory_item else "------------",
+                # Handle INDOOR items
+                    elif "INDOOR" in item_desc_upper:
+                        if indoor_idx < len(indoor_inventory):
+                            inventory_item = indoor_inventory[indoor_idx]
+                            indoor_idx += 1
+                        else:
+                            continue
 
-            ])
+                        vendor_part = inventory_item.get("part_no", "")
+                        serial_no = inventory_item.get("serial_no", "")
 
+                # Handle ANTENNA items - ✅ Only process the first one
+                    elif "ANTENNA" in item_desc_upper:
+                        if antenna_processed:
+                            continue  # Skip if we've already processed one antenna item
+
+                        antenna_processed = True  # Mark as processed
+                        vendor_part = "XXXXXXXX"
+                        serial_no = "XXXXXXXX"
+                        item.quantity = "1"
+
+                    else:
+                        vendor_part = "----------- "
+                        serial_no = "--------------"
+
+                    writer.writerow([
+                        site_display,
+                        item.item_details or item.item_name,
+                        "MW links (HW,SW,Services,Passive)",
+                        vendor_part,
+                        get_service_type_name(item.service_type),
+                        "MW",
+                        item.uom or "1",
+                        "1",
+                        item.price or "------------",
+                        serial_no,
+                        inventory_item.get("software_no", "") if inventory_item else "------------",
+
+                    ])
     csv_string = output.getvalue()
     output.close()
     return csv_string
@@ -341,7 +411,7 @@ def generate_boq(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
     csv_site_b = _generate_site_csv_content(site_b_ip, lvl3_rows, outdoor_inv_b, indoor_inv_b, db, lld_row, "B")
 
     # Combine CSVs
-    combined_csv = csv_site_a + "\n" + csv_site_b
+    combined_csv = csv_site_a + csv_site_b
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"BOQ_SiteA-{site_a_ip}_SiteB-{site_b_ip}_{linked_ip}_{timestamp}.csv"
     filepath = f"./downloads/{filename}"
