@@ -1,13 +1,41 @@
 from typing import List, Optional
 
-from fastapi import Form
-from pydantic import BaseModel,EmailStr
-from sqlalchemy import Integer, DateTime
+from pydantic import BaseModel
+
 
 class AddSite(BaseModel):
+    """
+    Schema for adding or updating a site.
+    """
     site_id: str
     site_name: str
     pid_po: str
+
+    class Config:
+        from_attributes = True
+
+class SiteOut(BaseModel):
+    """
+    Schema for returning site data with internal ID.
+    """
+    id: int
+    site_id: str
+    site_name: str
+    project_id: str
+
+    class Config:
+        from_attributes = True
+
+class SitesResponse(BaseModel):
+    records: List[AddSite]
+    total: int
+
+
+class UploadResponse(BaseModel):
+    inserted: int
+    message: str
+
+
 class CreateInventory(BaseModel):
     site_id: str
     site_name: str

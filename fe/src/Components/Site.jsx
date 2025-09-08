@@ -1,250 +1,196 @@
-import React, { useEffect, useState } from 'react';
-import '../css/Project.css';
+import React, { useState, useEffect, useRef } from "react";
+import "../css/Site.css"; // We'll create this CSS file
 
-const SITES_PER_PAGE = 5;
+const ROWS_PER_PAGE = 50;
+const VITE_API_URL = import.meta.env.VITE_API_URL;
 
 export default function Site() {
-  const [sites, setSites] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingSiteId, setEditingSiteId] = useState(null);
-
-  const [projectId, setProjectId] = useState('');
-  const [siteName, setSiteName] = useState('');
-  const [siteId, setSiteId] = useState('');
-
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const VITE_API_URL = import.meta.env.VITE_API_URL;
+  const fetchAbort = useRef(null);
+
+  const fetchSites = async (page = 1, search = "") => {
+    try {
+      if (fetchAbort.current) fetchAbort.current.abort();
+      const controller = new AbortController();
+      fetchAbort.current = controller;
+
+      setLoading(true);
+      setError("");
+      const skip = (page - 1) * ROWS_PER_PAGE;
+      const params = new URLSearchParams();
+      params.set("skip", String(skip));
+      params.set("limit", String(ROWS_PER_PAGE));
+      if (search.trim()) params.set("search", search.trim());
+
+      const res = await fetch(`${VITE_API_URL}/sites?${params.toString()}`, {
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch site records");
+      
+      const { records, total } = await res.json();
+
+      setRows(
+        (records || []).map((r) => ({
+          id: r.id,
+          site_id: r.site_id,
+          site_name: r.site_name,
+          
+        }))
+      );
+      
+      setTotal(total || 0);
+      setCurrentPage(page);
+    } catch (err) {
+      if (err.name !== "AbortError") setError(err.message || "Failed to fetch site records");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetchSites();
+    fetchSites(1, "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchSites = async () => {
+  const onSearchChange = (e) => {
+    const v = e.target.value;
+    setSearchTerm(v);
+    fetchSites(1, v);
+  };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    setSuccess("");
+    const formData = new FormData();
+    formData.append("file", file);
     try {
-      const res = await fetch(`${VITE_API_URL}/get-site`);
-      if (!res.ok) throw new Error('Failed to fetch sites');
-      const data = await res.json();
-      setSites(data);
-    } catch (err) {
-      setError(err.message || 'Failed to fetch sites');
-    }
-  };
-
-  const openCreateForm = () => {
-    clearForm();
-    setShowForm(true);
-    setIsEditing(false);
-  };
-
-  const openEditForm = (site) => {
-    setEditingSiteId(site.site_id);
-    setSiteId(site.site_id);
-    setSiteName(site.site_name);
-    setProjectId(site.project_id);
-    setIsEditing(true);
-    setShowForm(true);
-    setSuccess('');
-    setError('');
-  };
-
-  const clearForm = () => {
-    setProjectId('');
-    setSiteName('');
-    setSiteId('');
-    setEditingSiteId(null);
-    setIsEditing(false);
-    setShowForm(false);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    try {
-      if (isEditing) {
-        // Update (only site_name and project_id allowed by backend)
-        const res = await fetch(`${VITE_API_URL}/update-site/${editingSiteId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            site_id: siteId,       // backend expects full AddSite shape
-            site_name: siteName,
-            pid_po: projectId
-          })
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.detail || 'Failed to update site');
-        }
-        setSuccess('Site updated successfully');
-      } else {
-        // Create
-        const res = await fetch(`${VITE_API_URL}/add-site`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            site_id: siteId,
-            site_name: siteName,
-            pid_po: projectId
-          })
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.detail || 'Failed to create site');
-        }
-        setSuccess('Site created successfully');
-      }
-
-      clearForm();
-      fetchSites();
-    } catch (err) {
-      setError(err.message || 'Operation failed');
-    }
-  };
-
-  const handleDelete = async (site) => {
-    if (!window.confirm(`Delete site ${site.site_id} — ${site.site_name}?`)) return;
-    try {
-      const res = await fetch(`${VITE_API_URL}/delete-site/${site.site_id}`, {
-        method: 'DELETE'
+      const res = await fetch(`${VITE_API_URL}/sites/upload-csv`, {
+        method: "POST",
+        body: formData,
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || 'Failed to delete site');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to upload sites CSV");
       }
-      setSuccess('Site deleted');
-      fetchSites();
+      const result = await res.json();
+      setSuccess(`Upload successful! ${result.inserted} sites inserted.`);
+      fetchSites(1, searchTerm);
     } catch (err) {
-      setError(err.message || 'Delete failed');
+      setError(err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
     }
   };
 
-  const paginatedSites = sites.slice(
-    (currentPage - 1) * SITES_PER_PAGE,
-    currentPage * SITES_PER_PAGE
-  );
-  const totalPages = Math.ceil(sites.length / SITES_PER_PAGE);
+  const totalPages = Math.ceil(total / ROWS_PER_PAGE);
 
   return (
-    <div className="project-container">
-      <div className="header-row">
-        <h2>Sites</h2>
-        <button className="new-project-btn" onClick={openCreateForm}>
-          + New Site
-        </button>
+    <div className="site-container">
+      {/* Header & Upload */}
+      <div className="site-header-row">
+        <h2>Site Records</h2>
+        <label className={`upload-btn ${uploading ? 'disabled' : ''}`}>
+          📤 Upload Sites CSV
+          <input
+            type="file"
+            accept=".csv"
+            style={{ display: "none" }}
+            disabled={uploading}
+            onChange={handleUpload}
+          />
+        </label>
       </div>
 
-      {showForm && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.3)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: '12px', padding: '1.2rem',
-            minWidth: '420px', boxShadow: '0 6px 30px rgba(0,0,0,0.2)'
-          }}>
-            <form className="project-form" onSubmit={handleSubmit}>
-              <div>
-                <button
-                  style={{ width: 'fit-content', padding: '0.4rem', float: 'right' }}
-                  className="stylish-btn danger"
-                  onClick={() => setShowForm(false)}
-                  type="button"
-                >X</button>
-              </div>
+      {/* Search */}
+      <div className="site-search-container">
+        <input
+          type="text"
+          placeholder="Filter by Site ID, Site Name"
+          value={searchTerm}
+          onChange={onSearchChange}
+          className="search-input"
+        />
+        {searchTerm && (
+          <button
+            onClick={() => {
+              setSearchTerm("");
+              fetchSites(1, "");
+            }}
+            className="clear-btn"
+          >
+            Clear
+          </button>
+        )}
+      </div>
 
-              <input
-                type="text"
-                placeholder="Project pid_po"
-                value={projectId}
-                onChange={e => setProjectId(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Site Name"
-                value={siteName}
-                onChange={e => setSiteName(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Site ID"
-                value={siteId}
-                onChange={e => setSiteId(e.target.value)}
-                required
-                disabled={isEditing} // cannot change site_id while editing
-              />
+      {/* Messages */}
+      {error && <div className="site-message error">{error}</div>}
+      {success && <div className="site-message success">{success}</div>}
+      {loading && <div className="loading-message">Loading site records...</div>}
 
-              <button style={{ width: '100%' }} type="submit" className="stylish-btn">
-                {isEditing ? 'Update Site' : 'Save Site'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {error && <div className="error">{error}</div>}
-      {success && <div className="success">{success}</div>}
-
-      <div className="project-table-container">
-        <table className="project-table">
+      {/* Table */}
+      <div className="site-table-container">
+        <table className="site-table">
           <thead>
             <tr>
               <th>Site ID</th>
               <th>Site Name</th>
-              <th>Project ID</th>
-              <th style={{ width: '120px' }}>Actions</th>
+              
             </tr>
           </thead>
           <tbody>
-            {paginatedSites.map((site, i) => (
-              <tr key={site.site_id}>
-                <td>{site.site_id}</td>
-                <td>{site.site_name}</td>
-                <td>{site.project_id}</td>
-                <td style={{ textAlign: 'center', width: '120px' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                    <button
-                      className="stylish-btn"
-                      style={{ width: '46%' }}
-                      onClick={() => openEditForm(site)}
-                    >
-                      Details
-                    </button>
-                    <button
-                      className="stylish-btn danger"
-                      style={{ width: '46%' }}
-                      onClick={() => handleDelete(site)}
-                    >
-                      Delete
-                    </button>
-                  </div>
+            {rows.length === 0 && !loading ? (
+              <tr>
+                <td colSpan={3} className="no-results">
+                  No results
                 </td>
               </tr>
-            ))}
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.site_id}</td>
+                  <td>{row.site_name}</td>
+                 
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="pagination">
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              className={i + 1 === currentPage ? 'active-page' : ''}
-              onClick={() => setCurrentPage(i + 1)}
-            >
-              {i + 1}
-            </button>
-          ))}
+        <div className="site-pagination">
+          <button
+            className="pagination-btn"
+            disabled={currentPage === 1}
+            onClick={() => fetchSites(currentPage - 1, searchTerm)}
+          >
+            Prev
+          </button>
+          <span className="pagination-info">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            className="pagination-btn"
+            disabled={currentPage === totalPages}
+            onClick={() => fetchSites(currentPage + 1, searchTerm)}
+          >
+            Next
+          </button>
         </div>
       )}
     </div>
