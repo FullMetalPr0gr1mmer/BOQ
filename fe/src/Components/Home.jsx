@@ -17,12 +17,16 @@ export default function Home({ setActiveSection }) {
         <p>Choose a project to get started.</p>
       </div>
       <div className="cards-wrapper">
-        <div 
-          className="home-card card-link" 
-          onClick={() => handleCardClick('/project', 'boq')}
-        >
-          <h2>Microwave BOQ</h2>
-          <p>Access and manage Microwave Bill of Quantities data. 📊</p>
+        <div className="home-card card-link boq-card-split">
+          <div className="card-half" onClick={() => handleCardClick('/project', 'boq')}>
+            <h2>Microwave BOQ</h2>
+            <p>Access and manage Microwave Bill of Quantities data. 📊</p>
+          </div>
+          <div className="card-divider"></div>
+          <div className="card-half" onClick={() => handleCardClick('/ran-lld', 'ran-boq')}>
+            <h2>RAN BOQ</h2>
+            <p>Access and manage RAN Bill of Quantities data. 📶</p>
+          </div>
         </div>
         <div 
           className="home-card card-link" 

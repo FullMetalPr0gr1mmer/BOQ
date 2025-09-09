@@ -150,7 +150,8 @@ export default function RopLvl1() {
 			end_date: formData.end_date || null,
 			quantity: formData.quantity ? parseInt(formData.quantity) : null,
 			lvl1_ids: selectedLvl1Items,
-			price: calculatedPackagePrice, // Send the calculated package unit price
+			price: calculatedPackagePrice,// Send the calculated package unit price
+			lead_time:formData.lead_time? parseInt(formData.lead_time) : null 
 		};
 
 		try {
@@ -405,6 +406,13 @@ export default function RopLvl1() {
 									onChange={e => setFormData({ ...formData, quantity: e.target.value })}
 									style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
 								/>
+								<input
+									type="number"
+									placeholder="Lead Time (days)"
+									value={formData.lead_time || ''}
+									onChange={e => setFormData({ ...formData, lead_time: e.target.value })}
+									style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
+								/>
 							</div>
 							<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 12 }}>
 								<label style={{ fontWeight: 500, marginRight: 8 }}>Start Date:</label>
@@ -426,6 +434,7 @@ export default function RopLvl1() {
 							</div>
 
 							<div className="form-group" style={{ position: 'relative' }}>
+
 								<label htmlFor="lvl1-select">Select PCI Items:</label>
 								<div
 									className="custom-dropdown-select"
@@ -441,7 +450,7 @@ export default function RopLvl1() {
 										alignItems: 'center',
 										fontSize: '1.1em',
 										minWidth: 320,
-										maxWidth: 520,
+										maxWidth: '100%',
 									}}
 								>
 									{selectedLvl1Items.length > 0
@@ -506,9 +515,11 @@ export default function RopLvl1() {
 												</div>
 											);
 										})}
+
 									</div>
 								)}
-							</div><div className="form-group">
+							</div>
+							<div className="form-group">
 								<label>Associated SI Items:</label>
 								<div style={{ border: '1px solid #ccc', padding: '10px', maxHeight: '150px', overflowY: 'auto' }}>
 									{selectedLvl1Items.length === 0 ? (
@@ -544,7 +555,7 @@ export default function RopLvl1() {
 								</div>
 								<div style={{ fontSize: '1.3em' }}>
 									<strong style={{ color: '#39439fff', marginRight: '10px' }}>Total Price:</strong>
-									<strong style={{ color:'#000000ff' }}>
+									<strong style={{ color: '#000000ff' }}>
 										{calculatedTotalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cur}
 									</strong>
 								</div>

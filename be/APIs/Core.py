@@ -136,3 +136,8 @@ def _sa_row_to_dict(obj) -> Dict[str, Any]:
         else:
             out[k] = v
     return out
+def safe_int(value, default=0):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default

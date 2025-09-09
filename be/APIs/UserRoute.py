@@ -5,10 +5,10 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import validate_email
 
 from APIs.Core import get_db, pwd_context, authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from APIs.LogRoute import create_log
+from APIs.BOQ.LogRoute import create_log
 from Database.session import Session
 from Models.User import User
-from Schemas.LogSchema import LogCreate
+from Schemas.BOQ.LogSchema import LogCreate
 from Schemas.UserSchema import CreateUser
 
 userRoute = APIRouter(tags=["Users"])

@@ -3,7 +3,7 @@ import '../css/header.css';
 
 const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Generation', 'LLD', 'Dismantling', 'LogOut'];
 const leAutomationTabs = ['ROP Project', 'ROP Package', 'LogOut'];
-
+const ranBoqTabs=['Ran LLD','Ran Level3','Ran Inventory','LogOut']
 export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,6 +14,9 @@ export default function Header({ onLogout, activeSection, user }) {
   }
 
   let tabs = activeSection === 'le-automation' ? leAutomationTabs : boqTabs;
+  if (activeSection==='ran-boq'){
+    tabs =ranBoqTabs
+  }
   // Add Logs tab for admin users in BOQ
   if (activeSection === 'boq' && user?.role === 'admin' && !tabs.includes('Logs')) {
     tabs = [...tabs.slice(0, -1), 'Logs', tabs[tabs.length - 1]]; // Insert before LogOut

@@ -93,3 +93,95 @@
     justify-content: center;
   }
 }
+.card-link {
+  text-decoration: none;
+  color: inherit;
+  width: 100%;
+}
+
+/* Original styling for all cards */
+.home-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 2rem; /* Revert padding for other cards */
+  box-shadow: var(--shadow-card);
+  transition: transform 0.3s ease, box-shadow 0.3s ease; /* Revert transform transition */
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.home-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-hover);
+}
+
+.home-card h2 {
+  color: var(--primary-color);
+  font-size: 1.75rem;
+  font-weight: 500;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.home-card p {
+  color: #555;
+  font-size: 1rem;
+}
+
+/* New specific styling for the BOQ split card */
+.boq-card-split {
+  padding: 0; /* Remove padding for the split card */
+  display: flex; /* Make it a flex container */
+  flex-direction: column;
+}
+
+.boq-card-split:hover {
+  transform: translateY(0); /* Override the general hover effect */
+  box-shadow: var(--shadow-card);
+}
+
+.card-half {
+  padding: 2rem;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+  cursor: pointer;
+  flex-grow: 1;
+}
+
+.card-half h2,
+.card-half p {
+  margin-bottom: 0;
+}
+
+.card-half:hover {
+  transform: translateY(-5px);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.card-divider {
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.1);
+  margin: 0 2rem;
+}
+
+/* --- Responsive Layout (Revised) --- */
+@media (min-width: 768px) {
+  .cards-wrapper {
+    flex-direction: row;
+    justify-content: center;
+  }
+  .boq-card-split {
+    flex-direction: row; /* Switch to horizontal layout for the split card */
+  }
+  .boq-card-split:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-hover);
+  }
+  .card-half {
+    padding: 2rem;
+  }
+  .card-divider {
+    width: 1px;
+    height: auto;
+    margin: 2rem 0;
+  }
+}

@@ -320,3 +320,9 @@
     width: 360px;
   }
 }
+.actions-cell {
+  display: flex;
+  gap: 8px; /* Adds space between the buttons */
+  align-items: center;
+  justify-content: flex-start;
+}

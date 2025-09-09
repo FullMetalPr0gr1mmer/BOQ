@@ -231,3 +231,16 @@
     color: #999;
     padding: 20px;
 }
+.monthly-quantity-cell {
+    display: flex;
+    flex-direction: column; 
+    align-items: center; 
+    padding-bottom: 10px; 
+}
+
+.monthly-cost-label {
+    font-size: 0.6rem;
+    color: #004d9c; 
+    margin-top: 7px;
+    white-space: nowrap; 
+}

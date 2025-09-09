@@ -9,6 +9,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
+from Database.session import Base
+
 # Load environment variables from the .env file
 load_dotenv()
 
@@ -25,23 +27,25 @@ if config.config_file_name is not None:
 # --- Your Project's Models ---
 # The path is relative to the directory where alembic is run (which should be 'be' in your case).
 # Import your Base object.
-from Database.session import Base
+from Models.BOQ.Project import *
+from Models.BOQ.Levels import *
+from Models.BOQ.BOQReference import *
+from Models.BOQ.Dismantling import *
+from Models.BOQ.Inventory import *
+from Models.BOQ.Log import *
+from Models.BOQ.LLD import *
+from Models.BOQ.Site import *
 
-from Models.BOQReference import BOQReference
+from Models.LE.ROPProject import *
+from Models.LE.RopPackages import *
+from Models.LE.ROPLvl1 import *
+from Models.LE.ROPLvl2 import *
 
-from Models.LLD import LLD
-from Models.Inventory import *
-from Models.Levels import *
-from Models.Site import *
-from Models.Dismantling import *
+
 from Models.User import *
-from Models.BOQReference import *
-from Models.Project import *
-from Models.Log import *
-from Models.ROPLvl1 import *
-from Models.ROPLvl2 import *
-from Models.RopPackages import *
-from Models.ROPProject import *
+from Models.RAN.RAN_LLD import *
+from Models.RAN.RANLvl3 import *
+from Models.RAN.RANInventory import *
 
 
 # Set the target_metadata to the metadata attribute of your Base object.
