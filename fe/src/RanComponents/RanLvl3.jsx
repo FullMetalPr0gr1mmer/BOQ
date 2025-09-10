@@ -185,7 +185,7 @@ export default function RANLvl3() {
 
   const onCreateChange = (key, value) => {
     let convertedValue = value;
-    if (key === 'total_quantity' || key === 'key') {
+    if (key === 'total_quantity' ) {
       convertedValue = parseInt(value, 10);
       if (isNaN(convertedValue)) {
         convertedValue = '';
@@ -251,7 +251,7 @@ export default function RANLvl3() {
 
   const onEditChange = (key, value) => {
     let convertedValue = value;
-    if (key === 'total_quantity' || key === 'key') {
+    if (key === 'total_quantity' ) {
       convertedValue = parseInt(value, 10);
       if (isNaN(convertedValue)) {
         convertedValue = '';
@@ -589,7 +589,7 @@ export default function RANLvl3() {
                         </select>
                       ) : (
                         <input
-                          type={['total_quantity', 'key'].includes(key) ? 'number' : ['total_price'].includes(key) ? 'number' : 'text'}
+                          type={['total_quantity'].includes(key) ? 'number' : ['total_price'].includes(key) ? 'number' : 'text'}
                           step={key === 'total_price' ? '0.01' : undefined}
                           value={createForm[key] !== null && createForm[key] !== undefined ? createForm[key] : ''}
                           onChange={e => onCreateChange(key, e.target.value)}
@@ -646,7 +646,7 @@ export default function RANLvl3() {
                         </select>
                       ) : (
                         <input
-                          type={['total_quantity', 'key'].includes(key) ? 'number' : ['total_price'].includes(key) ? 'number' : 'text'}
+                          type={['total_quantity'].includes(key) ? 'number' : ['total_price'].includes(key) ? 'number' : 'text'}
                           step={key === 'total_price' ? '0.01' : undefined}
                           value={editForm[key] !== null && editForm[key] !== undefined ? editForm[key] : ''}
                           onChange={e => onEditChange(key, e.target.value)}

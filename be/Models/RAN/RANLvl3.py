@@ -16,7 +16,7 @@ class RANLvl3(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(String(200), ForeignKey("projects.pid_po"), index=True)
     item_name = Column(String(200), index=True)
-    key = Column(Integer, nullable=True)  # New 'key' attribute
+    key = Column(String(200), nullable=True)  # New 'key' attribute
     _service_type = Column('service_type', String, default='[]')
     uom = Column(String(200), index=True)
     total_quantity = Column(Integer, nullable=True)

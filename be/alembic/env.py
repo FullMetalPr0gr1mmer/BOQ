@@ -40,7 +40,7 @@ from Models.LE.ROPProject import *
 from Models.LE.RopPackages import *
 from Models.LE.ROPLvl1 import *
 from Models.LE.ROPLvl2 import *
-
+from Models.User import *
 
 from Models.User import *
 from Models.RAN.RAN_LLD import *

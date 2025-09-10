@@ -7,7 +7,7 @@ class RANSiteBase(BaseModel):
     new_antennas: Optional[str] =None
     total_antennas: Optional[int] =None
     technical_boq: Optional[str] = None
-    key:Optional[int] = None
+    key:Optional[str] = None
 
 class RANSiteCreate(RANSiteBase):
     pass

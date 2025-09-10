@@ -38,7 +38,7 @@ class ItemsForRANLvl3InDB(ItemsForRANLvl3Base):
 class RANLvl3Base(BaseModel):
     project_id: str
     item_name: str
-    key: Optional[int] = None
+    key: Optional[str] = None
     service_type: List[str] = Field(default_factory=list)
     uom: str
     total_quantity: Optional[int] = None

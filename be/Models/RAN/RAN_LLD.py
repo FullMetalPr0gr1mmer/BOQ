@@ -10,4 +10,4 @@ class RAN_LLD(Base):
     new_antennas = Column(String, nullable=True)
     total_antennas = Column(Integer, nullable=True)
     technical_boq = Column(String(255), nullable=True)
-    key = Column(Integer,nullable=True)
+    key = Column(String(200),nullable=True)
