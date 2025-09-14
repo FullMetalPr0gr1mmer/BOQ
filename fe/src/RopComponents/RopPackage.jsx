@@ -1,664 +1,740 @@
-import { useEffect, useState } from "react"; 
-import DatePicker from "react-datepicker"; 
-import "react-datepicker/dist/react-datepicker.css"; 
-import { useLocation } from "react-router-dom"; 
-import "../css/RopPackage.css"; 
-import moment from "moment"; 
+import { useEffect, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { useLocation } from "react-router-dom";
+import "../css/RopPackage.css";
+import moment from "moment";
 
-const VITE_API_URL = import.meta.env.VITE_API_URL; 
-const MONTH_WIDTH = 60; // width of 1 month column in px 
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+const MONTH_WIDTH = 60; // width of 1 month column in px
 
-export default function RopPackage() { 
-  const location = useLocation(); 
-  const projectState = location.state; 
+export default function RopPackage() {
+  const location = useLocation();
+  const projectState = location.state;
 
-  const [packages, setPackages] = useState([]); 
-  const [error, setError] = useState(""); 
-  const [success, setSuccess] = useState(""); 
-  const [expandedRows, setExpandedRows] = useState({}); 
-  const [timeline, setTimeline] = useState([]); 
-  const [editingQuantities, setEditingQuantities] = useState({}); 
-  const [savingPkgId, setSavingPkgId] = useState(null); 
-  const [editingQuantityCol, setEditingQuantityCol] = useState({}); 
-  const [savingQuantityColPkgId, setSavingQuantityColPkgId] = useState(null); 
-  const isMonthlyChanged = (pkg, monthlyQuantities) => { 
-    const edits = editingMonthly[pkg.id] || {}; 
-    return Object.keys(edits).some(idx => String(edits[idx]) !== String(monthlyQuantities[idx])); 
-  }; 
-  const isQuantityColChanged = (pkg) => { 
-    return editingQuantityCol[pkg.id] !== undefined && String(editingQuantityCol[pkg.id]) !== String(pkg.quantity); 
-  }; 
-  const handleQuantityColChange = (pkgId, value) => { 
-    setEditingQuantityCol(prev => ({ 
-      ...prev, 
-      [pkgId]: value 
-    })); 
-  }; 
+  const [packages, setPackages] = useState([]);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [expandedRows, setExpandedRows] = useState({});
+  const [timeline, setTimeline] = useState([]);
+  const [editingQuantities, setEditingQuantities] = useState({});
+  const [savingPkgId, setSavingPkgId] = useState(null);
+  const [editingQuantityCol, setEditingQuantityCol] = useState({});
+  const [savingQuantityColPkgId, setSavingQuantityColPkgId] = useState(null);
+  const isMonthlyChanged = (pkg, monthlyQuantities) => {
+    const edits = editingMonthly[pkg.id] || {};
+    return Object.keys(edits).some(idx => String(edits[idx]) !== String(monthlyQuantities[idx]));
+  };
+  const isQuantityColChanged = (pkg) => {
+    return editingQuantityCol[pkg.id] !== undefined && String(editingQuantityCol[pkg.id]) !== String(pkg.quantity);
+  };
+  const handleQuantityColChange = (pkgId, value) => {
+    setEditingQuantityCol(prev => ({
+      ...prev,
+      [pkgId]: value
+    }));
+  };
 
-  const handleSaveQuantityCol = async (pkg) => { 
-    setSavingQuantityColPkgId(pkg.id); 
-    try { 
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, { 
-        method: "PUT", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ quantity: Number(editingQuantityCol[pkg.id]) }) 
-      }); 
-      if (!res.ok) throw new Error("Failed to save quantity"); 
-      setSuccess("Quantity updated!"); 
-      setEditingQuantityCol(prev => ({ ...prev, [pkg.id]: undefined })); 
-      fetchPackages(); 
-    } catch (err) { 
-      setError(err.message); 
-    } finally { 
-      setSavingQuantityColPkgId(null); 
-    } 
-  }; 
-  const [editingMonthly, setEditingMonthly] = useState({}); 
-  const [savingMonthlyPkgId, setSavingMonthlyPkgId] = useState(null); 
+  const handleSaveQuantityCol = async (pkg) => {
+    setSavingQuantityColPkgId(pkg.id);
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: Number(editingQuantityCol[pkg.id]) })
+      });
+      if (!res.ok) throw new Error("Failed to save quantity");
+      setSuccess("Quantity updated!");
+      setEditingQuantityCol(prev => ({ ...prev, [pkg.id]: undefined }));
+      fetchPackages();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingQuantityColPkgId(null);
+    }
+  };
+  const [editingMonthly, setEditingMonthly] = useState({});
+  const [savingMonthlyPkgId, setSavingMonthlyPkgId] = useState(null);
 
-  useEffect(() => { 
-    fetchPackages(); 
-  }, []); 
+  useEffect(() => {
+    fetchPackages();
+  }, []);
 
-  useEffect(() => { 
-    if (packages.length > 0) { 
-      calculateTimeline(); 
-    } 
-  }, [packages]); 
+  useEffect(() => {
+    if (packages.length > 0) {
+      calculateTimeline();
+    }
+  }, [packages]);
 
-  const fetchPackages = async () => { 
-    try { 
-      const url = VITE_API_URL + "/rop-package/"; 
-      const res = await fetch(url); 
-      if (!res.ok) throw new Error("Failed to fetch packages"); 
-      const data = await res.json(); 
-      setPackages(data); 
-    } catch (err) { 
-      setError(err.message); 
-    } 
-  }; 
+  const fetchPackages = async () => {
+    try {
+      const url = VITE_API_URL + "/rop-package/";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch packages");
+      const data = await res.json();
+      setPackages(data);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
-  const calculateTimeline = () => { 
-    if (packages.length === 0) { 
-      setTimeline([]); 
-      return; 
-    } 
+  const calculateTimeline = () => {
+    if (packages.length === 0) {
+      setTimeline([]);
+      return;
+    }
 
-    const allStartDates = packages.map((p) => moment(p.start_date)); 
-    const allEndDates = packages.map((p) => moment(p.end_date)); 
+    const allStartDates = packages.map((p) => moment(p.start_date));
 
-    const minDate = moment.min(allStartDates.filter((d) => d.isValid())); 
-    const maxDate = moment.max(allEndDates.filter((d) => d.isValid())); 
+    // Determine the timeline's extent by considering both package end dates
+    // and their payment dates shifted by the lead time.
+    const allPossibleEndDates = [];
+    packages.forEach(p => {
+        const endDate = moment(p.end_date);
+        if (endDate.isValid()) {
+            // The timeline must at least extend to the package's own end date.
+            allPossibleEndDates.push(endDate);
 
-    if (!minDate.isValid() || !maxDate.isValid()) { 
-      setTimeline([]); 
-      return; 
-    } 
+            // It must also extend to the final payment date after shifting.
+            const leadTimeMonths = p.lead_time ? Math.floor(p.lead_time / 30) : 0;
+            if (leadTimeMonths > 0) {
+                // Approximate the last payment month by adding the shift to the package end date.
+                allPossibleEndDates.push(endDate.clone().add(leadTimeMonths, 'months'));
+            }
+        }
+    });
 
-    const months = []; 
-    let currentDate = minDate.clone().startOf("month"); 
-    const endDate = maxDate.clone().endOf("month"); 
+    const minDate = moment.min(allStartDates.filter((d) => d.isValid()));
+    const maxDate = allPossibleEndDates.length > 0 ? moment.max(allPossibleEndDates.filter((d) => d && d.isValid())) : null;
 
-    while (currentDate.isSameOrBefore(endDate)) { 
-      months.push(currentDate.clone()); 
-      currentDate.add(1, "month"); 
-    } 
-    setTimeline(months); 
-  }; 
+    if (!minDate.isValid() || !maxDate || !maxDate.isValid()) {
+      setTimeline([]);
+      return;
+    }
 
-  const handleUpdatePackage = async (packageId, updatedData) => { 
-    try { 
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${packageId}`, { 
-        method: "PUT", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify(updatedData), 
-      }); 
+    const months = [];
+    let currentDate = minDate.clone().startOf("month");
+    const endDate = maxDate.clone().endOf("month");
 
-      if (!res.ok) { 
-        const err = await res.json(); 
-        throw new Error(err.detail || "Failed to update package"); 
-      } 
+    while (currentDate.isSameOrBefore(endDate)) {
+      months.push(currentDate.clone());
+      currentDate.add(1, "month");
+    }
+    setTimeline(months);
+  };
 
-      setSuccess("Package updated successfully!"); 
-      fetchPackages(); 
-    } catch (err) { 
-      setError(err.message); 
-    } 
-  }; 
+  const handleUpdatePackage = async (packageId, updatedData) => {
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-package/update/${packageId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedData),
+      });
 
-  // New delete function 
-  const handleDeletePackage = async (packageId) => { 
-    if (!window.confirm("Are you sure you want to delete this package?")) { 
-      return; 
-    } 
-    try { 
-      const res = await fetch(`${VITE_API_URL}/rop-package/${packageId}`, { 
-        method: "DELETE", 
-      }); 
-      if (!res.ok) { 
-        const err = await res.json(); 
-        throw new Error(err.detail || "Failed to delete package"); 
-      } 
-      setSuccess("Package deleted successfully!"); 
-      fetchPackages(); // Refresh packages after successful deletion 
-    } catch (err) { 
-      setError(err.message); 
-    } 
-  }; 
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to update package");
+      }
 
-  const getBarProperties = (pkg) => { 
-    const barStart = moment(pkg.start_date); 
-    const barEnd = moment(pkg.end_date); 
-    const timelineStart = timeline[0]; 
+      setSuccess("Package updated successfully!");
+      fetchPackages();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
-    if (!barStart.isValid() || !barEnd.isValid() || !timelineStart) { 
-      return { left: 0, width: 0 }; 
-    } 
+  // New delete function
+  const handleDeletePackage = async (packageId) => {
+    if (!window.confirm("Are you sure you want to delete this package?")) {
+      return;
+    }
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-package/${packageId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to delete package");
+      }
+      setSuccess("Package deleted successfully!");
+      fetchPackages(); // Refresh packages after successful deletion
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
-    const totalDays = moment(timeline[timeline.length - 1]) 
-      .endOf("month") 
-      .diff(timelineStart, "days"); 
+  const getBarProperties = (pkg) => {
+    const barStart = moment(pkg.start_date);
+    const barEnd = moment(pkg.end_date);
+    const timelineStart = timeline[0];
 
-    const startDayOffset = barStart.diff(timelineStart, "days"); 
-    const barDays = barEnd.diff(barStart, "days"); 
+    if (!barStart.isValid() || !barEnd.isValid() || !timelineStart) {
+      return { left: 0, width: 0 };
+    }
 
-    const left = (startDayOffset / totalDays) * (timeline.length * MONTH_WIDTH); 
-    const width = (barDays / totalDays) * (timeline.length * MONTH_WIDTH); 
+    const totalDays = moment(timeline[timeline.length - 1])
+      .endOf("month")
+      .diff(timelineStart, "days");
 
-    return { left, width }; 
-  }; 
+    const startDayOffset = barStart.diff(timelineStart, "days");
+    const barDays = barEnd.diff(barStart, "days");
 
-  const getMonthlyQuantities = (pkg) => { 
-    if (!pkg.quantity || !pkg.start_date || !pkg.end_date || timeline.length === 0) { 
-      return []; 
-    } 
+    const left = (startDayOffset / totalDays) * (timeline.length * MONTH_WIDTH);
+    const width = (barDays / totalDays) * (timeline.length * MONTH_WIDTH);
 
-    const quantities = new Array(timeline.length).fill(null); 
-    const pkgStart = moment(pkg.start_date); 
-    const pkgEnd = moment(pkg.end_date); 
+    return { left, width };
+  };
 
-    let totalQuantity = pkg.quantity; 
-    let monthsWithQuantity = 0; 
+  const getMonthlyQuantities = (pkg) => {
+    if (!pkg.quantity || !pkg.start_date || !pkg.end_date || timeline.length === 0) {
+      return [];
+    }
 
-    for (let i = 0; i < timeline.length; i++) { 
-      const monthStart = timeline[i].clone().startOf("month"); 
-      const monthEnd = timeline[i].clone().endOf("month"); 
+    const quantities = new Array(timeline.length).fill(null);
+    const pkgStart = moment(pkg.start_date);
+    const pkgEnd = moment(pkg.end_date);
 
-      if (pkgStart.isSameOrBefore(monthEnd) && pkgEnd.isSameOrAfter(monthStart)) { 
-        monthsWithQuantity++; 
-      } 
-    } 
+    let totalQuantity = pkg.quantity;
+    let monthsWithQuantity = 0;
 
-    const baseQuantity = monthsWithQuantity > 0 ? Math.floor(totalQuantity / monthsWithQuantity) : 0; 
-    let remainder = monthsWithQuantity > 0 ? totalQuantity % monthsWithQuantity : 0; 
+    for (let i = 0; i < timeline.length; i++) {
+      const monthStart = timeline[i].clone().startOf("month");
+      const monthEnd = timeline[i].clone().endOf("month");
 
-    for (let i = 0; i < timeline.length; i++) { 
-      const monthStart = timeline[i].clone().startOf("month"); 
-      const monthEnd = timeline[i].clone().endOf("month"); 
+      if (pkgStart.isSameOrBefore(monthEnd) && pkgEnd.isSameOrAfter(monthStart)) {
+        monthsWithQuantity++;
+      }
+    }
 
-      if (pkgStart.isSameOrBefore(monthEnd) && pkgEnd.isSameOrAfter(monthStart)) { 
-        let monthlyQty = baseQuantity; 
-        if (remainder > 0) { 
-          monthlyQty += 1; 
-          remainder--; 
-        } 
-        quantities[i] = monthlyQty; 
-      } 
-    } 
-    return quantities; 
-  }; 
+    const baseQuantity = monthsWithQuantity > 0 ? Math.floor(totalQuantity / monthsWithQuantity) : 0;
+    let remainder = monthsWithQuantity > 0 ? totalQuantity % monthsWithQuantity : 0;
 
-  const toggleRow = (id) => { 
-    setExpandedRows((prev) => ({ 
-      ...prev, 
-      [id]: !prev[id], 
-    })); 
-  }; 
+    for (let i = 0; i < timeline.length; i++) {
+      const monthStart = timeline[i].clone().startOf("month");
+      const monthEnd = timeline[i].clone().endOf("month");
 
-  const handleQuantityChange = (pkgId, itemIdx, value) => { 
-    setEditingQuantities(prev => ({ 
-      ...prev, 
-      [pkgId]: { 
-        ...(prev[pkgId] || {}), 
-        [itemIdx]: value 
-      } 
-    })); 
-  }; 
+      if (pkgStart.isSameOrBefore(monthEnd) && pkgEnd.isSameOrAfter(monthStart)) {
+        let monthlyQty = baseQuantity;
+        if (remainder > 0) {
+          monthlyQty += 1;
+          remainder--;
+        }
+        quantities[i] = monthlyQty;
+      }
+    }
+    return quantities;
+  };
 
-  const handleSaveQuantities = async (pkg) => { 
-    setSavingPkgId(pkg.id); 
-    const updatedLvl1 = pkg.lvl1_items.map((item, idx) => ({ 
-      id: item.id, 
-      quantity: Number(editingQuantities[pkg.id]?.[idx] ?? item.quantity) 
-    })); 
-    try { 
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, { 
-        method: "PUT", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ lvl1_ids: updatedLvl1 }) 
-      }); 
-      if (!res.ok) throw new Error("Failed to save quantities"); 
-      setSuccess("Quantities updated!"); 
-      setEditingQuantities(prev => ({ ...prev, [pkg.id]: {} })); 
-      fetchPackages(); 
-    } catch (err) { 
-      setError(err.message); 
-    } finally { 
-      setSavingPkgId(null); 
-    } 
-  }; 
+  // Modified function to get payment shifted monthly quantities based on lead time
+  const getPaymentShiftedQuantities = (pkg) => {
+    const monthlyQuantities = getMonthlyQuantities(pkg);
+    if (!pkg.lead_time || monthlyQuantities.length === 0) {
+      return monthlyQuantities;
+    }
 
-  const handleMonthlyChange = (pkgId, idx, value) => { 
-    setEditingMonthly(prev => ({ 
-      ...prev, 
-      [pkgId]: { 
-        ...(prev[pkgId] || {}), 
-        [idx]: value 
-      } 
-    })); 
-  }; 
+    const shiftedQuantities = new Array(timeline.length).fill(null);
+    const leadTimeMonths = Math.floor(pkg.lead_time / 30); // Convert days to months using floor
 
-  const handleSaveMonthly = async (pkg, timeline) => { 
-    setSavingMonthlyPkgId(pkg.id); 
-    const monthlyArr = timeline.map((_, idx) => Number(editingMonthly[pkg.id]?.[idx] ?? getMonthlyQuantities(pkg)[idx] ?? 0)); 
-    const totalQty = monthlyArr.reduce((sum, v) => sum + (Number(v) || 0), 0); 
-    try { 
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, { 
-        method: "PUT", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ quantity: totalQty }) 
-      }); 
-      if (!res.ok) throw new Error("Failed to save monthly quantities"); 
-      setSuccess("Monthly quantities updated!"); 
-      setEditingMonthly(prev => ({ ...prev, [pkg.id]: {} })); 
-      fetchPackages(); 
-    } catch (err) { 
-      setError(err.message); 
-    } finally { 
-      setSavingMonthlyPkgId(null); 
-    } 
-  }; 
+    for (let i = 0; i < monthlyQuantities.length; i++) {
+      if (monthlyQuantities[i] !== null) {
+        const shiftedIndex = i + leadTimeMonths;
+        // Allow shifting even beyond timeline length - just don't show if out of bounds
+        if (shiftedIndex < timeline.length) {
+          shiftedQuantities[shiftedIndex] = monthlyQuantities[i];
+        }
+        // If shiftedIndex >= timeline.length, the cost simply won't be displayed
+        // but the logic is preserved for potential timeline extension
+      }
+    }
 
-  // Dragging and resizing 
-  const handleBarDrag = (e, pkg, type) => { 
-    e.preventDefault(); 
-    const timelineStart = timeline[0]; 
-    let updatedPkg = { ...pkg }; 
+    return shiftedQuantities;
+  };
 
-    const onMouseMove = (moveEvent) => { 
-      const tableRect = e.target.closest(".gantt-chart-cell").getBoundingClientRect(); 
-      const offsetX = moveEvent.clientX - tableRect.left; 
-      const totalDays = moment(timeline[timeline.length - 1]).endOf("month").diff(timelineStart, "days"); 
-      const days = Math.round((offsetX / (timeline.length * MONTH_WIDTH)) * totalDays); 
-      const newDate = timelineStart.clone().add(days, "days"); 
+  const toggleRow = (id) => {
+    setExpandedRows((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
-      if (type === "move") { 
-        const duration = moment(pkg.end_date).diff(moment(pkg.start_date), "days"); 
-        updatedPkg.start_date = newDate.format("YYYY-MM-DD"); 
-        updatedPkg.end_date = newDate.clone().add(duration, "days").format("YYYY-MM-DD"); 
-      } else if (type === "start") { 
-        if (moment(pkg.end_date).isAfter(newDate)) { 
-          updatedPkg.start_date = newDate.format("YYYY-MM-DD"); 
-        } 
-      } else if (type === "end") { 
-        if (moment(pkg.start_date).isBefore(newDate)) { 
-          updatedPkg.end_date = newDate.format("YYYY-MM-DD"); 
-        } 
-      } 
+  const handleQuantityChange = (pkgId, itemIdx, value) => {
+    setEditingQuantities(prev => ({
+      ...prev,
+      [pkgId]: {
+        ...(prev[pkgId] || {}),
+        [itemIdx]: value
+      }
+    }));
+  };
 
-      setPackages((prev) => prev.map((p) => (p.id === pkg.id ? updatedPkg : p))); 
-    }; 
+  const handleSaveQuantities = async (pkg) => {
+    setSavingPkgId(pkg.id);
+    const updatedLvl1 = pkg.lvl1_items.map((item, idx) => ({
+      id: item.id,
+      quantity: Number(editingQuantities[pkg.id]?.[idx] ?? item.quantity)
+    }));
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lvl1_ids: updatedLvl1 })
+      });
+      if (!res.ok) throw new Error("Failed to save quantities");
+      setSuccess("Quantities updated!");
+      setEditingQuantities(prev => ({ ...prev, [pkg.id]: {} }));
+      fetchPackages();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingPkgId(null);
+    }
+  };
 
-    const onMouseUp = () => { 
-      document.removeEventListener("mousemove", onMouseMove); 
-      document.removeEventListener("mouseup", onMouseUp); 
-      handleUpdatePackage(pkg.id, updatedPkg); 
-    }; 
+  const handleMonthlyChange = (pkgId, idx, value) => {
+    setEditingMonthly(prev => ({
+      ...prev,
+      [pkgId]: {
+        ...(prev[pkgId] || {}),
+        [idx]: value
+      }
+    }));
+  };
 
-    document.addEventListener("mousemove", onMouseMove); 
-    document.addEventListener("mouseup", onMouseUp); 
-  }; 
-    // New function to calculate payment details 
-    const getPaymentDetails = (pkg) => { 
-      const { start_date, lead_time, quantity, price } = pkg; 
-      if (!start_date || !lead_time || !quantity || !price || timeline.length === 0) { 
-        return { 
-          paymentOf: "N/A", 
-          paymentDate: "N/A", 
-          paymentAmount: "N/A", 
-        }; 
-      } 
-       
-      const monthlyQuantities = getMonthlyQuantities(pkg); 
+  const handleSaveMonthly = async (pkg, timeline) => {
+    setSavingMonthlyPkgId(pkg.id);
+    const monthlyArr = timeline.map((_, idx) => Number(editingMonthly[pkg.id]?.[idx] ?? getMonthlyQuantities(pkg)[idx] ?? 0));
+    const totalQty = monthlyArr.reduce((sum, v) => sum + (Number(v) || 0), 0);
+    try {
+      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: totalQty })
+      });
+      if (!res.ok) throw new Error("Failed to save monthly quantities");
+      setSuccess("Monthly quantities updated!");
+      setEditingMonthly(prev => ({ ...prev, [pkg.id]: {} }));
+      fetchPackages();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingMonthlyPkgId(null);
+    }
+  };
 
-      // Find the first month in the timeline with a non-zero quantity 
-      let firstMonthIndex = -1; 
-      for (let i = 0; i < monthlyQuantities.length; i++) { 
-        if (monthlyQuantities[i] > 0) { 
-          firstMonthIndex = i; 
-          break; 
-        } 
-      } 
+  // Dragging and resizing
+  const handleBarDrag = (e, pkg, type) => {
+    e.preventDefault();
+    const timelineStart = timeline[0];
+    let updatedPkg = { ...pkg };
 
-      if (firstMonthIndex === -1) { 
-        return { 
-          paymentOf: "N/A", 
-          paymentDate: "N/A", 
-          paymentAmount: "N/A", 
-        }; 
-      } 
-       
-      const firstPaymentMonth = timeline[firstMonthIndex]; 
-      const paymentDate = moment(start_date).add(lead_time, 'days'); 
-      const monthlyQuantity = monthlyQuantities[firstMonthIndex]; 
-      const paymentAmount = monthlyQuantity * price; 
-       
-      return { 
-        paymentOf: firstPaymentMonth.format("MMMM/YYYY"), 
-        paymentDate: paymentDate.format("YYYY-MM-DD"), 
-        paymentAmount: paymentAmount.toLocaleString(), 
-      }; 
-    }; 
+    const onMouseMove = (moveEvent) => {
+      const tableRect = e.target.closest(".gantt-chart-cell").getBoundingClientRect();
+      const offsetX = moveEvent.clientX - tableRect.left;
+      const totalDays = moment(timeline[timeline.length - 1]).endOf("month").diff(timelineStart, "days");
+      const days = Math.round((offsetX / (timeline.length * MONTH_WIDTH)) * totalDays);
+      const newDate = timelineStart.clone().add(days, "days");
 
-  return ( 
-    <div className="dashboard-container"> 
-      <div className="dashboard-header"> 
-        <div> 
-          <h1 className="dashboard-title">ROP Packages</h1> 
-          <p className="dashboard-subtitle">Gantt Chart and Package Management</p> 
-        </div> 
-      </div> 
+      if (type === "move") {
+        const duration = moment(pkg.end_date).diff(moment(pkg.start_date), "days");
+        updatedPkg.start_date = newDate.format("YYYY-MM-DD");
+        updatedPkg.end_date = newDate.clone().add(duration, "days").format("YYYY-MM-DD");
+      } else if (type === "start") {
+        if (moment(pkg.end_date).isAfter(newDate)) {
+          updatedPkg.start_date = newDate.format("YYYY-MM-DD");
+        }
+      } else if (type === "end") {
+        if (moment(pkg.start_date).isBefore(newDate)) {
+          updatedPkg.end_date = newDate.format("YYYY-MM-DD");
+        }
+      }
 
-      {error && <div className="dashboard-alert dashboard-alert-error">⚠️ {error}</div>} 
-      {success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>} 
+      setPackages((prev) => prev.map((p) => (p.id === pkg.id ? updatedPkg : p)));
+    };
 
-      <div className="dashboard-content-section"> 
-        <div className="dashboard-section-header">📋 Package Timeline</div> 
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      handleUpdatePackage(pkg.id, updatedPkg);
+    };
 
-        <div className="gantt-table-container"> 
-          <table className="gantt-table"> 
-            <thead> 
-              <tr> 
-                <th style={{ width: "fit-content" }}></th> 
-                <th style={{ width: "150px" }}>Package Name</th> 
-                <th style={{ width: "100px" }}>Start Date</th> 
-                <th style={{ width: "100px" }}>End Date</th> 
-                <th>Quantity</th> 
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
 
-                <th className="gantt-header-cell"> 
-                  <div 
-                    className="timeline-header" 
-                    style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: `repeat(${timeline.length}, 1fr)`, 
-                      alignItems: 'center', 
-                      minWidth: '400px', 
-                      position: 'relative', 
-                    }} 
-                  > 
-                    {timeline.map((month, index) => ( 
-                      <span key={index} className="timeline-month-header" style={{ textAlign: 'center', fontWeight: 'bold', position: 'relative' }}> 
-                        {month.format("MMM YY")} 
-                        {index < timeline.length - 1 && ( 
-                          <span style={{ 
-                            position: 'absolute', 
-                            right: 0, 
-                            top: '10%', 
-                            height: '80%', 
-                            width: '1px', 
-                            background: '#ccc', 
-                            zIndex: 1, 
-                          }} /> 
-                        )} 
-                      </span> 
-                    ))} 
-                  </div> 
-                </th> 
-              </tr> 
-            </thead> 
-            <tbody> 
-              {packages.map((pkg) => { 
-                const barProps = getBarProperties(pkg); 
-                const monthlyQuantities = getMonthlyQuantities(pkg); 
-                const paymentDetails = getPaymentDetails(pkg); 
-                return ( 
-                  <> 
-                    <tr key={pkg.id}> 
-                      <td style={{ cursor: 'pointer', color: '#d32f2f', margin: '0' }}> 
-                        <span 
-                          onClick={() => handleDeletePackage(pkg.id)} 
-                          style={{ cursor: 'pointer', color: '#d32f2f', margin: '0' }} 
-                        > 
-                          🗑️ 
-                        </span> 
-                      </td> 
-                      <td> 
-                        <div className="package-name-cell"> 
-                          <button className="expand-btn" onClick={() => toggleRow(pkg.id)}> 
-                            {expandedRows[pkg.id] ? "▼" : "▶"} 
-                          </button> 
-                          <span>{pkg.package_name}</span> 
-                        </div> 
-                      </td> 
-                      <td> 
-                        <DatePicker 
-                          selected={pkg.start_date ? moment(pkg.start_date).toDate() : null} 
-                          onChange={(date) => 
-                            handleUpdatePackage(pkg.id, { ...pkg, start_date: moment(date).format("YYYY-MM-DD") }) 
-                          } 
-                          dateFormat="yyyy-MM-dd" 
-                          customInput={<input style={{ width: '100px' }} readOnly />} 
-                          calendarIcon 
-                        /> 
-                      </td> 
-                      <td> 
-                        <DatePicker 
-                          selected={pkg.end_date ? moment(pkg.end_date).toDate() : null} 
-                          onChange={(date) => 
-                            handleUpdatePackage(pkg.id, { ...pkg, end_date: moment(date).format("YYYY-MM-DD") }) 
-                          } 
-                          dateFormat="yyyy-MM-dd" 
-                          customInput={<input style={{ width: '100px' }} readOnly />} 
-                          calendarIcon 
-                        /> 
-                      </td> 
-                      <td style={{ minWidth: 120 }}> 
-                        <input 
-                          type="number" 
-                          value={editingQuantityCol[pkg.id] !== undefined ? editingQuantityCol[pkg.id] : pkg.quantity} 
-                          min={0} 
-                          style={{ width: 80, padding: '2px 6px', borderRadius: 4, border: '1px solid #ccc' }} 
-                          onChange={e => handleQuantityColChange(pkg.id, e.target.value)} 
-                          disabled={savingQuantityColPkgId === pkg.id} 
-                        /> 
-                      </td> 
+  // Modified function to calculate payment details with updated logic
+  const getPaymentDetails = (pkg) => {
+    const { start_date, lead_time, quantity, price } = pkg;
+    if (!start_date || !lead_time || !quantity || !price || timeline.length === 0) {
+      return {
+        paymentOf: "N/A",
+        paymentDate: "N/A",
+        paymentAmount: "N/A",
+      };
+    }
 
-                      <td className="gantt-chart-cell"> 
-                        <div 
-                          className="gantt-bar-container" 
-                          style={{ 
-                            position: 'relative', 
-                            display: 'grid', 
-                            gridTemplateColumns: `repeat(${timeline.length}, 1fr)`, 
-                            minWidth: '400px', 
-                            alignItems: 'center', 
-                          }} 
-                        > 
-                          {pkg.start_date && pkg.end_date && ( 
-                            <div 
-                              className="gantt-bar" 
-                              style={{ 
-                                position: 'absolute', 
-                                left: `${barProps.left}px`, 
-                                width: `${barProps.width}px`, 
-                                top: '8px', 
-                                height: '24px', 
-                              }} 
-                            > 
-                              <div 
-                                className="resize-pointer left" 
-                                style={{ position: 'absolute', left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '24px', cursor: 'ew-resize', background: '#388e3c', borderRadius: '50%', border: '2px solid #fff', zIndex: 2 }} 
-                                title="Drag to change start date" 
-                                onMouseDown={(e) => handleBarDrag(e, pkg, "start")} 
-                              ></div> 
-                              <span className="gantt-quantity-label" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 1 }}>{pkg.quantity}</span> 
-                              <div 
-                                className="resize-pointer right" 
-                                style={{ position: 'absolute', right: '-8px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '24px', cursor: 'ew-resize', background: '#1976d2', borderRadius: '50%', border: '2px solid #fff', zIndex: 2 }} 
-                                title="Drag to change end date" 
-                                onMouseDown={(e) => handleBarDrag(e, pkg, "end")} 
-                              ></div> 
-                            </div> 
-                          )} 
-                        </div> 
-                        <div 
-                          className="monthly-quantities-row" 
-                          style={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: `repeat(${timeline.length}, 1fr)`, 
-                            minWidth: '400px', 
-                            alignItems: 'center', 
-                            position: 'relative', 
-                          }} 
-                        > 
-                          {monthlyQuantities.map((qty, index) => ( 
-                            <div 
-                              key={index} 
-                              className="monthly-quantity-cell" 
-                              style={{ 
-                                textAlign: 'center', 
-                                position: 'relative', 
-                                visibility: qty === null ? 'hidden' : 'visible' 
-                              }} 
-                            > 
-                              <input 
-                                type="number" 
-                                value={editingMonthly[pkg.id]?.[index] ?? qty ?? ''} 
-                                min={0} 
-                                style={{ width: 60, padding: '2px 6px', borderRadius: 4, border: '1px solid #ccc' }} 
-                                onChange={e => handleMonthlyChange(pkg.id, index, e.target.value)} 
-                                disabled= {qty === null || savingMonthlyPkgId === pkg.id} 
-                              /> 
-                              {/* New addition starts here */} 
-                               
-                              {qty !== null && ( 
-                                <div className="monthly-cost-label" > 
-                                  {`${(qty * pkg.price).toLocaleString()}`} 
-                                </div> 
-                              )} 
-                              {/* New addition ends here */} 
-                              {index < timeline.length - 1 && ( 
-                                <span style={{ 
-                                  position: 'absolute', 
-                                  right: 0, 
-                                  top: '10%', 
-                                  height: '80%', 
-                                  width: '1px', 
-                                  background: '#eee', 
-                                  zIndex: 1, 
-                                }} /> 
-                              )} 
-                            </div> 
-                          ))} 
-                        </div> 
-                        {isMonthlyChanged(pkg, monthlyQuantities) && ( 
-                          <button 
-                            className="stylish-btn" 
-                            style={{ marginTop: 8, float: 'right' }} 
-                            onClick={() => handleSaveMonthly(pkg, timeline)} 
-                            disabled={savingMonthlyPkgId === pkg.id} 
-                          > 
-                            {savingMonthlyPkgId === pkg.id ? 'Saving...' : 'Save Monthly Quantities'} 
-                          </button> 
-                        )} 
-                      </td> 
-                    </tr> 
-                    {expandedRows[pkg.id] && ( 
-                      <tr className="expanded-row"> 
-                        <td colSpan="6"> 
-                          <div className="sub-table-container" style={{ display: 'flex', gap: '20px' }}> 
-                            <div className="pci-items-table"> 
-                              <h4>PCI Items (Cost : {pkg.price.toLocaleString()})</h4> 
-                              <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}> 
-                                <thead> 
-                                  <tr> 
-                                    <th style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>Item Name</th> 
-                                    <th style={{ width: 'auto', whiteSpace: 'nowrap' }}>Quantity</th> 
-                                  </tr> 
-                                </thead> 
-                                <tbody> 
-                                  {pkg.lvl1_items.length > 0 ? ( 
-                                    pkg.lvl1_items.map((item, index) => ( 
-                                      <tr key={index}> 
-                                        <td style={{ width: 'fit-content', whiteSpace: 'nowrap', fontSize: '0.95em' }}>{item.name || item}</td> 
-                                        <td style={{ width: 'auto', whiteSpace: 'nowrap' }}> 
-                                          <input 
-                                            type="number" 
-                                            value={editingQuantities[pkg.id]?.[index] ?? item.quantity ?? ''} 
-                                            min={0} 
-                                            style={{ width: 'auto', minWidth: 24, padding: '1px 2px', borderRadius: 3, border: '1px solid #ccc', fontSize: '0.95em' }} 
-                                            onChange={e => handleQuantityChange(pkg.id, index, e.target.value)} 
-                                            disabled={true} //{savingPkgId === pkg.id} 
-                                          /> 
-                                        </td> 
-                                      </tr> 
-                                    )) 
-                                  ) : ( 
-                                    <tr> 
-                                      <td colSpan={2}>No Lvl1 items found for this package.</td> 
-                                    </tr> 
-                                  )} 
-                                </tbody> 
-                              </table> 
-                              <div style={{ visibility: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: 8 }}> 
-                                <button 
-                                  className="stylish-btn" 
-                                  style={{ marginTop: 0 }} 
-                                  onClick={() => handleSaveQuantities(pkg)} 
-                                  disabled={savingPkgId === pkg.id} 
-                                > 
-                                  {savingPkgId === pkg.id ? 'Saving...' : 'Save Quantities'} 
-                                </button> 
-                              </div> 
-                            </div> 
-                            {/* NEW PAYMENT DETAILS TABLE */} 
-                            <div className="payment-details-table"> 
-                              <h4>Payment Details</h4> 
-                              <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}> 
-                                <tbody> 
-                                  <tr> 
-                                    <td style={{ fontWeight: 'bold' }}>Payment of:</td> 
-                                    <td>{paymentDetails.paymentOf}</td> 
-                                  </tr> 
-                                  <tr> 
-                                    <td style={{ fontWeight: 'bold' }}>Payment Date:</td> 
-                                    <td>{paymentDetails.paymentDate}</td> 
-                                  </tr> 
-                                  <tr> 
-                                    <td style={{ fontWeight: 'bold' }}>Payment Amount:</td> 
-                                    <td>{paymentDetails.paymentAmount}</td> 
-                                  </tr> 
-                                </tbody> 
-                              </table> 
-                            </div> 
-                          </div> 
-                        </td> 
-                      </tr> 
-                    )} 
-                  </> 
-                ); 
-              })} 
-              {packages.length === 0 && ( 
-                <tr> 
-                  <td colSpan="6" className="empty-state"> 
-                    No ROP Packages found. 
-                  </td> 
-                </tr> 
-              )} 
-            </tbody> 
-          </table> 
-        </div> 
-      </div> 
-    </div> 
-  ); 
+    const monthlyQuantities = getMonthlyQuantities(pkg);
+    const currentDate = moment(); // Today's date
+
+    // Find the first month in the timeline with a non-zero quantity
+    let firstMonthIndex = -1;
+    for (let i = 0; i < monthlyQuantities.length; i++) {
+      if (monthlyQuantities[i] > 0) {
+        firstMonthIndex = i;
+        break;
+      }
+    }
+
+    if (firstMonthIndex === -1) {
+      return {
+        paymentOf: "N/A",
+        paymentDate: "N/A",
+        paymentAmount: "N/A",
+      };
+    }
+
+    // Calculate the initial payment date based on start date + lead time
+    let paymentDate = moment(start_date).add(lead_time, 'days');
+    let paymentMonthIndex = firstMonthIndex;
+    let monthlyQuantity = monthlyQuantities[firstMonthIndex];
+
+    // If the payment date is in the past (due), move to the next month with quantity
+    while (paymentDate.isBefore(currentDate, 'day') && paymentMonthIndex < monthlyQuantities.length - 1) {
+      // Find next month with quantity
+      let nextMonthIndex = -1;
+      for (let i = paymentMonthIndex + 1; i < monthlyQuantities.length; i++) {
+        if (monthlyQuantities[i] > 0) {
+          nextMonthIndex = i;
+          break;
+        }
+      }
+
+      if (nextMonthIndex === -1) {
+        // No more months with quantity, keep current details
+        break;
+      }
+
+      // Update to next month's details
+      paymentMonthIndex = nextMonthIndex;
+      monthlyQuantity = monthlyQuantities[nextMonthIndex];
+      // Calculate payment date for this month (start of month + lead time offset within month)
+      paymentDate = timeline[paymentMonthIndex].clone().startOf('month').add(lead_time % 30, 'days');
+    }
+
+    const paymentMonth = timeline[paymentMonthIndex];
+    const paymentAmount = monthlyQuantity * price;
+
+    return {
+      paymentOf: paymentMonth.format("MMMM/YYYY"),
+      paymentDate: paymentDate.format("YYYY-MM-DD"),
+      paymentAmount: paymentAmount.toLocaleString(),
+    };
+  };
+
+  return (
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <div>
+          <h1 className="dashboard-title">ROP Packages</h1>
+          <p className="dashboard-subtitle">Gantt Chart and Package Management</p>
+        </div>
+      </div>
+
+      {error && <div className="dashboard-alert dashboard-alert-error">⚠️ {error}</div>}
+      {success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>}
+
+      <div className="dashboard-content-section">
+        <div className="dashboard-section-header">📋 Package Timeline</div>
+
+        <div className="gantt-table-container">
+          <table className="gantt-table">
+            <thead>
+              <tr>
+                <th style={{ width: "fit-content" }}></th>
+                <th style={{ width: "150px" }}>Package Name</th>
+                <th style={{ width: "100px" }}>Start Date</th>
+                <th style={{ width: "100px" }}>End Date</th>
+                <th>Quantity</th>
+
+                <th className="gantt-header-cell">
+                  <div
+                    className="timeline-header"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${timeline.length}, 1fr)`,
+                      alignItems: 'center',
+                      minWidth: '400px',
+                      position: 'relative',
+                    }}
+                  >
+                    {timeline.map((month, index) => (
+                      <span key={index} className="timeline-month-header" style={{ textAlign: 'center', fontWeight: 'bold', position: 'relative' }}>
+                        {month.format("MMM YY")}
+                        {index < timeline.length - 1 && (
+                          <span style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: '10%',
+                            height: '80%',
+                            width: '1px',
+                            background: '#ccc',
+                            zIndex: 1,
+                          }} />
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {packages.map((pkg) => {
+                const barProps = getBarProperties(pkg);
+                const monthlyQuantities = getMonthlyQuantities(pkg);
+                const paymentShiftedQuantities = getPaymentShiftedQuantities(pkg);
+                const paymentDetails = getPaymentDetails(pkg);
+                return (
+                  <>
+                    <tr key={pkg.id}>
+                      <td style={{ cursor: 'pointer', color: '#d32f2f', margin: '0' }}>
+                        <span
+                          onClick={() => handleDeletePackage(pkg.id)}
+                          style={{ cursor: 'pointer', color: '#d32f2f', margin: '0' }}
+                        >
+                          🗑️
+                        </span>
+                      </td>
+                      <td>
+                        <div className="package-name-cell">
+                          <button className="expand-btn" onClick={() => toggleRow(pkg.id)}>
+                            {expandedRows[pkg.id] ? "▼" : "▶"}
+                          </button>
+                          <span>{pkg.package_name}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <DatePicker
+                          selected={pkg.start_date ? moment(pkg.start_date).toDate() : null}
+                          onChange={(date) =>
+                            handleUpdatePackage(pkg.id, { ...pkg, start_date: moment(date).format("YYYY-MM-DD") })
+                          }
+                          dateFormat="yyyy-MM-dd"
+                          customInput={<input style={{ width: '100px' }} readOnly />}
+                          calendarIcon
+                        />
+                      </td>
+                      <td>
+                        <DatePicker
+                          selected={pkg.end_date ? moment(pkg.end_date).toDate() : null}
+                          onChange={(date) =>
+                            handleUpdatePackage(pkg.id, { ...pkg, end_date: moment(date).format("YYYY-MM-DD") })
+                          }
+                          dateFormat="yyyy-MM-dd"
+                          customInput={<input style={{ width: '100px' }} readOnly />}
+                          calendarIcon
+                        />
+                      </td>
+                      <td style={{ minWidth: 120 }}>
+                        <input
+                          type="number"
+                          value={editingQuantityCol[pkg.id] !== undefined ? editingQuantityCol[pkg.id] : pkg.quantity}
+                          min={0}
+                          style={{ width: 80, padding: '2px 6px', borderRadius: 4, border: '1px solid #ccc' }}
+                          onChange={e => handleQuantityColChange(pkg.id, e.target.value)}
+                          disabled={savingQuantityColPkgId === pkg.id}
+                        />
+                      </td>
+
+                      <td className="gantt-chart-cell">
+                        <div
+                          className="gantt-bar-container"
+                          style={{
+                            position: 'relative',
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${timeline.length}, 1fr)`,
+                            minWidth: '400px',
+                            alignItems: 'center',
+                          }}
+                        >
+                          {pkg.start_date && pkg.end_date && (
+                            <div
+                              className="gantt-bar"
+                              style={{
+                                position: 'absolute',
+                                left: `${barProps.left}px`,
+                                width: `${barProps.width}px`,
+                                top: '8px',
+                                height: '24px',
+                              }}
+                            >
+                              <div
+                                className="resize-pointer left"
+                                style={{ position: 'absolute', left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '24px', cursor: 'ew-resize', background: '#388e3c', borderRadius: '50%', border: '2px solid #fff', zIndex: 2 }}
+                                title="Drag to change start date"
+                                onMouseDown={(e) => handleBarDrag(e, pkg, "start")}
+                              ></div>
+                              <span className="gantt-quantity-label" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 1 }}>{pkg.quantity}</span>
+                              <div
+                                className="resize-pointer right"
+                                style={{ position: 'absolute', right: '-8px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '24px', cursor: 'ew-resize', background: '#1976d2', borderRadius: '50%', border: '2px solid #fff', zIndex: 2 }}
+                                title="Drag to change end date"
+                                onMouseDown={(e) => handleBarDrag(e, pkg, "end")}
+                              ></div>
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          className="monthly-quantities-row"
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${timeline.length}, 1fr)`,
+                            minWidth: '400px',
+                            alignItems: 'center',
+                            position: 'relative',
+                          }}
+                        >
+                          {monthlyQuantities.map((qty, index) => (
+                            <div
+                              key={index}
+                              className="monthly-quantity-cell"
+                              style={{
+                                textAlign: 'center',
+                                position: 'relative',
+                                // ✨ FIX: Only hide the cell if BOTH the original qty AND the shifted qty are null
+                                visibility: (qty === null && paymentShiftedQuantities[index] === null) ? 'hidden' : 'visible'
+                              }}
+                            >
+                              <input
+                                type="number"
+                                value={editingMonthly[pkg.id]?.[index] ?? qty ?? ''}
+                                min={0}
+                                style={{ width: 60, padding: '2px 6px', borderRadius: 4, border: '1px solid #ccc' }}
+                                onChange={e => handleMonthlyChange(pkg.id, index, e.target.value)}
+                                // We also need to make the input invisible if there's no original quantity
+                                disabled= {savingMonthlyPkgId === pkg.id}
+                                hidden={qty === null}
+                              />
+                              {/* This logic for displaying cost is already correct */}
+                              {paymentShiftedQuantities[index] !== null && (
+                                <div className="monthly-cost-label" >
+                                  {`${(paymentShiftedQuantities[index] * pkg.price).toLocaleString()}`}
+                                </div>
+                              )}
+                              {index < timeline.length - 1 && (
+                                <span style={{
+                                  position: 'absolute',
+                                  right: 0,
+                                  top: '10%',
+                                  height: '80%',
+                                  width: '1px',
+                                  background: '#eee',
+                                  zIndex: 1,
+                                }} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {isMonthlyChanged(pkg, monthlyQuantities) && (
+                          <button
+                            className="stylish-btn"
+                            style={{ marginTop: 8, float: 'right' }}
+                            onClick={() => handleSaveMonthly(pkg, timeline)}
+                            disabled={savingMonthlyPkgId === pkg.id}
+                          >
+                            {savingMonthlyPkgId === pkg.id ? 'Saving...' : 'Save Monthly Quantities'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {expandedRows[pkg.id] && (
+                      <tr className="expanded-row">
+                        <td colSpan="6">
+                          <div className="sub-table-container" style={{ display: 'flex', gap: '20px' }}>
+                            <div className="pci-items-table">
+                              <h4>PCI Items (Cost : {pkg.price.toLocaleString()})</h4>
+                              <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}>
+                                <thead>
+                                  <tr>
+                                    <th style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>Item Name</th>
+                                    <th style={{ width: 'auto', whiteSpace: 'nowrap' }}>Quantity</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {pkg.lvl1_items.length > 0 ? (
+                                    pkg.lvl1_items.map((item, index) => (
+                                      <tr key={index}>
+                                        <td style={{ width: 'fit-content', whiteSpace: 'nowrap', fontSize: '0.95em' }}>{item.name || item}</td>
+                                        <td style={{ width: 'auto', whiteSpace: 'nowrap' }}>
+                                          <input
+                                            type="number"
+                                            value={editingQuantities[pkg.id]?.[index] ?? item.quantity ?? ''}
+                                            min={0}
+                                            style={{ width: 'auto', minWidth: 24, padding: '1px 2px', borderRadius: 3, border: '1px solid #ccc', fontSize: '0.95em' }}
+                                            onChange={e => handleQuantityChange(pkg.id, index, e.target.value)}
+                                            disabled={true} //{savingPkgId === pkg.id}
+                                          />
+                                        </td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={2}>No Lvl1 items found for this package.</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                              <div style={{ visibility: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: 8 }}>
+                                <button
+                                  className="stylish-btn"
+                                  style={{ marginTop: 0 }}
+                                  onClick={() => handleSaveQuantities(pkg)}
+                                  disabled={savingPkgId === pkg.id}
+                                >
+                                  {savingPkgId === pkg.id ? 'Saving...' : 'Save Quantities'}
+                                </button>
+                              </div>
+                            </div>
+                            {/* NEW PAYMENT DETAILS TABLE */}
+                            <div className="payment-details-table">
+                              <h4>Payment Details</h4>
+                              <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}>
+                                <tbody>
+                                  <tr>
+                                    <td style={{ fontWeight: 'bold' }}>Payment of:</td>
+                                    <td>{paymentDetails.paymentOf}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={{ fontWeight: 'bold' }}>Payment Date:</td>
+                                    <td>{paymentDetails.paymentDate}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={{ fontWeight: 'bold' }}>Payment Amount:</td>
+                                    <td>{paymentDetails.paymentAmount}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={{ fontWeight: 'bold' }}>Lead Time:</td>
+                                    <td>{pkg.lead_time}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+              {packages.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="empty-state">
+                    No ROP Packages found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }

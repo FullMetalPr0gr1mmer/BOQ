@@ -22,23 +22,34 @@ import Home from './Components/Home';
 import RANLLD from './RanComponents/RanLLD';
 import RANLvl3 from './RanComponents/RanLvl3';
 import RANInventory from './RanComponents/RanInventory';
+
 function App() {
-  const [auth, setAuth] = useState(null); // { token, user }
+  const [auth, setAuth] = useState({
+    token: localStorage.getItem('token'),
+    user: null
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('boq');
 
+  const handleLogin = ({ token, user }) => {
+    localStorage.setItem('token', token);
+    setAuth({ token, user });
+  };
+
   const logout = () => {
-    setAuth(null);
+    localStorage.removeItem('token');
+    setAuth({ token: null, user: null });
   };
 
   return (
     <Router>
-      {!auth ? (
-        <AuthForm onLogin={setAuth} />
+      {/* Check if a token exists in state to determine what to render */}
+      {!auth.token ? (
+        // Pass the function reference, NOT the result of calling it
+        <AuthForm onLogin={handleLogin} />
       ) : (
         <>
           <Header onLogout={logout} activeSection={activeSection} user={auth.user} />
-          {/* Logs is now only rendered via route, not fixed in header */}
           <div className="main-content">
             <Routes>
               <Route path="/project" element={<Project />} />
@@ -59,23 +70,21 @@ function App() {
               <Route path="/ran-lld" element={<RANLLD />} />
               <Route path="/ran-level3" element={<RANLvl3 />} />
               <Route path="/ran-inventory" element={<RANInventory />} />
-
-              <Route path="*" element={<Home setActiveSection={setActiveSection} />} /></Routes>
+              <Route path="*" element={<Home setActiveSection={setActiveSection} />} />
+            </Routes>
           </div>
 
-          {/* ☰ Sidebar Toggle */}
           <button className="hamburger" onClick={() => setSidebarOpen(!sidebarOpen)}>
             ☰
           </button>
 
-          {/* Sidebar */}
           <Sidebar
             isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
             onSelect={(section) => {
               if (section === 'logout') {
                 logout();
-              } else if (section === 'boq' || section === 'le-automation' || section=== 'ran-boq') {
+              } else if (section === 'boq' || section === 'le-automation' || section === 'ran-boq') {
                 setActiveSection(section);
               }
               setSidebarOpen(false);

@@ -4,7 +4,7 @@ from typing import List, Optional
 import csv
 import io
 
-from APIs.Core import get_db, safe_int
+from APIs.Core import safe_int, get_db
 from Schemas.RAN.RANInventorySchema import (
     RANInventoryCreate,
     RANInventoryInDB,

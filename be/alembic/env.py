@@ -9,11 +9,32 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from Database.session import Base
-
 # Load environment variables from the .env file
 load_dotenv()
 
+from Models.BOQ.BOQReference import *
+from Models.BOQ.Dismantling import *
+from Models.BOQ.Inventory import *
+from Models.BOQ.Levels import *
+from Models.BOQ.LLD import *
+from Models.BOQ.Site import *
+from Models.BOQ.Project import *
+
+
+from Models.Admin.User import *
+from Models.Admin.AuditLog import *
+
+
+from Models.LE.ROPLvl1 import *
+from Models.LE.ROPLvl2 import *
+from Models.LE.RopPackages import *
+from Models.LE.ROPProject import *
+
+
+
+from Models.RAN.RAN_LLD import *
+from Models.RAN.RANLvl3 import *
+from Models.RAN.RANInventory import *
 # Add your project's root directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -27,24 +48,7 @@ if config.config_file_name is not None:
 # --- Your Project's Models ---
 # The path is relative to the directory where alembic is run (which should be 'be' in your case).
 # Import your Base object.
-from Models.BOQ.Project import *
-from Models.BOQ.Levels import *
-from Models.BOQ.BOQReference import *
-from Models.BOQ.Dismantling import *
-from Models.BOQ.Inventory import *
-from Models.BOQ.Log import *
-from Models.BOQ.LLD import *
-from Models.BOQ.Site import *
 
-from Models.LE.ROPProject import *
-from Models.LE.RopPackages import *
-from Models.LE.ROPLvl1 import *
-from Models.LE.ROPLvl2 import *
-from Models.User import *
-
-from Models.User import *
-from Models.RAN.RAN_LLD import *
-from Models.RAN.RANLvl3 import *
 from Models.RAN.RANInventory import *
 
 

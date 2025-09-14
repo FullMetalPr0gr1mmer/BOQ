@@ -4,11 +4,12 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import validate_email
 from sqlalchemy.orm import Session
-from APIs.Core import get_db, pwd_context, authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from Schemas.UserSchema import CreateUser
-from Models.User import User, Role
-from APIs.BOQ.LogRoute import create_log
-from Schemas.BOQ.LogSchema import LogCreate
+from APIs.Core import pwd_context, authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_db
+from Schemas.Admin.UserSchema import CreateUser
+from Models.Admin.User import User, Role
+
+#from APIs.BOQ.LogRoute import create_log
+#from Schemas.Admin.LogSchema import LogCreate
 
 userRoute = APIRouter(tags=["Users"])
 
@@ -38,8 +39,8 @@ async def register(user: CreateUser, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    log_create = LogCreate(user=user.username, log="User registered")
-    create_log(log_create, db=db)
+    # log_create = LogCreate(user=user.username, log="User registered")
+    # create_log(log_create, db=db)
 
     return {"msg": "Registration successful"}
 
@@ -51,8 +52,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
 
-    log_create = LogCreate(user=form_data.username, log="New login")
-    create_log(log_create, db=db)
+    # log_create = LogCreate(user=form_data.username, log="New login")
+    # create_log(log_create, db=db)
 
     access_token = create_access_token(
         data={"sub": user.username, "role": user.role.name},

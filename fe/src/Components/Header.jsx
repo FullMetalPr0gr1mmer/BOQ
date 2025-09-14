@@ -18,7 +18,7 @@ export default function Header({ onLogout, activeSection, user }) {
     tabs =ranBoqTabs
   }
   // Add Logs tab for admin users in BOQ
-  if (activeSection === 'boq' && user?.role === 'admin' && !tabs.includes('Logs')) {
+  if (activeSection === 'boq' && user?.role === 'senior_admin' && !tabs.includes('Logs')) {
     tabs = [...tabs.slice(0, -1), 'Logs', tabs[tabs.length - 1]]; // Insert before LogOut
   }
 

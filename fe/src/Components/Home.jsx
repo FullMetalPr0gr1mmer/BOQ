@@ -33,7 +33,7 @@ export default function Home({ setActiveSection }) {
           onClick={() => handleCardClick('/rop-project', 'le-automation')}
         >
           <h2>LE-Automation</h2>
-          <p>Explore and manage Link Estimation automation projects. ⚙️</p>
+          <p>Explore and manage Latest Estimation automation projects. ⚙️</p>
         </div>
       </div>
     </div>

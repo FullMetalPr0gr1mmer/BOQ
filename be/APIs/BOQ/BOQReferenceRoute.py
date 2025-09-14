@@ -2,7 +2,10 @@ from typing import Optional
 from fastapi import UploadFile, File, status
 from fastapi import Query
 from sqlalchemy import or_, func
-from APIs.Core import get_db, _parse_interface_name, _sa_row_to_dict
+from sqlalchemy.sql.functions import current_user
+
+from APIs.BOQ.ProjectRoute import get_project, get_project_for_boq
+from APIs.Core import _parse_interface_name, _sa_row_to_dict, get_db, get_current_user
 from Schemas.BOQ.BOQReferenceSchema import BOQReferenceOut
 from Models.BOQ.LLD import LLD
 from Models.BOQ.Levels import Lvl3
@@ -200,7 +203,7 @@ def process_boq_data(site_a_ip: str, site_b_ip: str, linked_ip: str, db: Session
 
 
 def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory: List[Dict],
-                               indoor_inventory: List[Dict], db: Session, lld_row: LLD, site_type: str) -> str:
+                               indoor_inventory: List[Dict], db: Session, lld_row: LLD, site_type: str,code: Optional[str] = None) -> str:
     """Generate CSV content for a site with repeated OUTDOOR/INDOOR items and antenna handling."""
 
     output = StringIO()
@@ -221,6 +224,10 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
             if not service_types: return ""
             type_mapping = {"1": "Software", "2": "Hardware", "3": "Service"}
             return ", ".join([type_mapping.get(str(st).strip(), str(st).strip()) for st in service_types])
+        project=get_project_for_boq(lvl3_rows[0].project_id,db=db)
+        writer.writerow([" ", " ", " ", " ", " ", "MW BOQ"," ", " ", " ", " ", " "])
+        writer.writerow(["Project Name:",project.project_name," "," "," "," ","PO Number:",project.po," "," "," ",])
+        writer.writerow(["MW Code:", code," "," "," "," ","Region:", lld_row.region," "," "," ",])
 
         # CSV Headers
         headers = ["Site_IP", "Item Description", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
@@ -399,7 +406,7 @@ def generate_boq(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
     )
 
     # Generate CSVs
-    csv_site_a = _generate_site_csv_content(site_a_ip, lvl3_rows, outdoor_inv_a, indoor_inv_a, db, lld_row, "A")
+    csv_site_a = _generate_site_csv_content(site_a_ip, lvl3_rows, outdoor_inv_a, indoor_inv_a, db, lld_row, "A",linked_ip)
     csv_site_b = _generate_site_csv_content(site_b_ip, lvl3_rows, outdoor_inv_b, indoor_inv_b, db, lld_row, "B")
 
     # Combine CSVs
@@ -408,9 +415,7 @@ def generate_boq(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_
     filename = f"BOQ_SiteA-{site_a_ip}_SiteB-{site_b_ip}_{linked_ip}_{timestamp}.csv"
     filepath = f"./downloads/{filename}"
 
-    os.makedirs("./downloads", exist_ok=True)
-    with open(filepath, 'w', newline='', encoding='utf-8') as f:
-        f.write(combined_csv)
+    
 
     return {
         "status": "success",

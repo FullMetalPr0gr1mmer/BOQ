@@ -10,7 +10,7 @@ from sqlalchemy.orm import joinedload
 
 from Models.RAN.RANInventory import RANInventory
 from Models.RAN.RANLvl3 import RANLvl3
-from APIs.Core import get_db, safe_int
+from APIs.Core import safe_int, get_db
 from Models.RAN.RAN_LLD import RAN_LLD
 from Schemas.RAN.RAN_LLDSchema import RANSiteCreate, RANSiteOut, RANSiteUpdate, PaginatedRANSites
 
@@ -296,7 +296,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             "NA",
             parent.item_name,  # Model Name / Description
             "NA",  # Serial number for parents is always NA
-            parent.total_quantity if parent.total_quantity is not None else 0,
+            1,#parent.total_quantity if parent.total_quantity is not None else 0,
             "-------------"
         ]
         writer.writerow(parent_row)

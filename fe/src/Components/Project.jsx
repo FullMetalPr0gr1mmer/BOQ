@@ -1,6 +1,5 @@
-
 import { useEffect, useState } from 'react';
-import '../css/Project.css';
+import '../css/Dismantling.css';
 
 const PROJECTS_PER_PAGE = 1;
 
@@ -14,8 +13,20 @@ export default function Project() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [authError, setAuthError] = useState('');
 
     const VITE_API_URL = import.meta.env.VITE_API_URL;
+
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+        return { 'Content-Type': 'application/json' };
+    };
 
     useEffect(() => {
         fetchProjects();
@@ -23,40 +34,53 @@ export default function Project() {
 
     const fetchProjects = async () => {
         try {
-            const res = await fetch(`${VITE_API_URL}/get_project`);
+            const res = await fetch(`${VITE_API_URL}/get_project`, {
+                method: 'GET',
+                headers: getAuthHeaders()
+            });
+
+            if (res.status === 401 || res.status === 403) {
+                const err = await res.json();
+                setAuthError(err.detail || "You are not authorized to view projects.");
+                setProjects([]);
+                return;
+            }
+
             const data = await res.json();
             setProjects(data);
-        } catch {
+        } catch (err) {
             setError('Failed to fetch projects');
         }
     };
 
-    // Handle create or update submission
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
-        const projectData = {
-            po,
-            project_name: projectName,
-            pid
-        };
+        setAuthError('');
+        
+        const projectData = { po, project_name: projectName, pid };
+
         try {
             let res;
             if (editingProject) {
                 res = await fetch(`${VITE_API_URL}/update_project/${editingProject.pid + editingProject.po}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ project_name: projectName }), // only send project_name
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ project_name: projectName }),
                 });
-            }
-            else {
-                // Create new
+            } else {
                 res = await fetch(`${VITE_API_URL}/create_project`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify(projectData),
                 });
+            }
+
+            if (res.status === 401 || res.status === 403) {
+                const err = await res.json();
+                setAuthError(err.detail || 'You are not authorized to perform this action.');
+                return;
             }
 
             if (!res.ok) {
@@ -71,8 +95,7 @@ export default function Project() {
             setError(err.message);
         }
     };
-
-    // Clear form & editing state
+    
     const clearForm = () => {
         setPo('');
         setPid('');
@@ -81,7 +104,6 @@ export default function Project() {
         setShowForm(false);
     };
 
-    // Start editing a project - prefill form
     const handleEditClick = (proj) => {
         setEditingProject(proj);
         setPo(proj.po);
@@ -90,21 +112,33 @@ export default function Project() {
         setShowForm(true);
     };
 
-    // Delete project
     const handleDelete = async (proj) => {
         if (!window.confirm(`Delete project ${proj.pid} - ${proj.project_name}?`)) return;
+
         try {
-            const res = await fetch(`${VITE_API_URL}/delete_project/${proj.pid  + proj.po}`, {
+            const res = await fetch(`${VITE_API_URL}/delete_project/${proj.pid + proj.po}`, {
                 method: 'DELETE',
+                headers: getAuthHeaders(),
             });
-            if (!res.ok) throw new Error('Failed to delete project');
+
+            if (res.status === 401 || res.status === 403) {
+                const err = await res.json();
+                setAuthError(err.detail || 'You are not authorized to delete this project.');
+                return;
+            }
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || 'Failed to delete project');
+            }
+
             setSuccess('Project deleted successfully!');
             fetchProjects();
         } catch (err) {
             setError(err.message);
         }
     };
-
+    
     const paginatedProjects = projects.slice(
         (currentPage - 1) * PROJECTS_PER_PAGE,
         currentPage * PROJECTS_PER_PAGE
@@ -112,48 +146,41 @@ export default function Project() {
     const totalPages = Math.ceil(projects.length / PROJECTS_PER_PAGE);
 
     return (
-        <div className="project-container">
-            <div className="header-row">
+        <div className="dismantling-container">
+            <div className="dismantling-header-row">
                 <h2>Projects</h2>
-                <button className="new-project-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
+                <button 
+                    className="upload-btn" 
+                    onClick={() => { clearForm(); setShowForm(!showForm); }}>
                     {showForm ? 'Cancel' : '+ New Project'}
                 </button>
             </div>
-
+            
+            {error && <div className="dismantling-message error">{error}</div>}
+            {success && <div className="dismantling-message success">{success}</div>}
+            
+            {authError && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <span className="modal-close-btn" onClick={() => setAuthError('')}>&times;</span>
+                        <div className="modal-body">
+                            <p>{authError}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
             {showForm && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(0,0,0,0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        background: '#fff',
-                        borderRadius: '12px',
-                        padding: '2rem',
-                        minWidth: '500px',
-                        boxShadow: '0 4px 32px #00bcd44a',
-                        maxHeight: '80vh',
-                        overflowY: 'auto'
-                    }}>
+                <div className="modal-overlay">
+                    <div className="modal-content">
                         <form className="project-form" onSubmit={handleSubmit}>
                             <div>
-                                <button style={{
-                                    width: 'fit-content',
-                                    padding: '0.4rem',
-                                    float: 'right'
-                                }}
-                                    className="stylish-btn danger" onClick={() => setShowForm(false)} type="button">
-                                    X
+                                <button className="modal-close-btn" onClick={() => setShowForm(false)} type="button">
+                                    &times;
                                 </button>
                             </div>
                             <input
+                                className="search-input"
                                 type="text"
                                 placeholder="Purchase Order"
                                 value={po}
@@ -162,6 +189,7 @@ export default function Project() {
                                 disabled={!!editingProject}
                             />
                             <input
+                                className="search-input"
                                 type="text"
                                 placeholder="Project Name"
                                 value={projectName}
@@ -169,6 +197,7 @@ export default function Project() {
                                 required
                             />
                             <input
+                                className="search-input"
                                 type="text"
                                 placeholder="Project ID"
                                 value={pid}
@@ -176,19 +205,16 @@ export default function Project() {
                                 required
                                 disabled={!!editingProject}
                             />
-                            <button style={{ width: '100%' }} type="submit" className="stylish-btn">
+                            <button className="upload-btn" type="submit">
                                 {editingProject ? 'Update' : 'Save'}
                             </button>
                         </form>
                     </div>
                 </div>
             )}
-
-            {error && <div className="error">{error}</div>}
-            {success && <div className="success">{success}</div>}
-
-            <div className="project-table-container">
-                <table className="project-table">
+            
+            <div className="dismantling-table-container">
+                <table className="dismantling-table">
                     <thead>
                         <tr>
                             <th>Project ID</th>
@@ -203,18 +229,16 @@ export default function Project() {
                                 <td>{proj.pid}</td>
                                 <td>{proj.project_name}</td>
                                 <td>{proj.po}</td>
-                                <td style={{ textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                <td>
+                                    <div className="actions-cell">
                                         <button
-                                            className="stylish-btn"
-                                            style={{ width: '46%' }}
+                                            className="pagination-btn"
                                             onClick={() => handleEditClick(proj)}
                                         >
                                             Details
                                         </button>
                                         <button
-                                            className="stylish-btn danger"
-                                            style={{ width: '46%' }}
+                                            className="clear-btn"
                                             onClick={() => handleDelete(proj)}
                                         >
                                             Delete
@@ -226,13 +250,13 @@ export default function Project() {
                     </tbody>
                 </table>
             </div>
-
+            
             {totalPages > 1 && (
-                <div className="pagination">
+                <div className="dismantling-pagination">
                     {Array.from({ length: totalPages }, (_, i) => (
                         <button
                             key={i}
-                            className={i + 1 === currentPage ? 'active-page' : ''}
+                            className={`pagination-btn ${i + 1 === currentPage ? 'active-page' : ''}`}
                             onClick={() => setCurrentPage(i + 1)}
                         >
                             {i + 1}
