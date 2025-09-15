@@ -82,3 +82,8 @@ class Lvl3Out(Lvl3Base):
 
     class Config:
         orm_mode = True
+
+
+class PaginatedLvl3Response(BaseModel):
+    total: int
+    records: List[Lvl3Out]

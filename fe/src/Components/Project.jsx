@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import '../css/Dismantling.css';
 
-const PROJECTS_PER_PAGE = 1;
+const PROJECTS_PER_PAGE = 5;
 
 export default function Project() {
     const [projects, setProjects] = useState([]);
@@ -160,10 +160,10 @@ export default function Project() {
             {success && <div className="dismantling-message success">{success}</div>}
             
             {authError && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <span className="modal-close-btn" onClick={() => setAuthError('')}>&times;</span>
-                        <div className="modal-body">
+                <div className="">
+                    <div className="">
+                        <span className="" onClick={() => setAuthError('')}>&times;</span>
+                        <div className="">
                             <p>{authError}</p>
                         </div>
                     </div>
@@ -174,7 +174,10 @@ export default function Project() {
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <form className="project-form" onSubmit={handleSubmit}>
-                            <div>
+                            <div className="modal-header-row" style={{ justifyContent: 'space-between' }}>
+                                <h3 className="modal-title">
+                                    {editingProject ? `Editing Project: '${editingProject.project_name}'` : 'New Project'}
+                                </h3>
                                 <button className="modal-close-btn" onClick={() => setShowForm(false)} type="button">
                                     &times;
                                 </button>
@@ -217,19 +220,19 @@ export default function Project() {
                 <table className="dismantling-table">
                     <thead>
                         <tr>
-                            <th>Project ID</th>
-                            <th>Project Name</th>
-                            <th>Purchase Order</th>
-                            <th>Actions</th>
+                            <th style={{ textAlign: 'center' }}>Project ID</th>
+                            <th style={{ textAlign: 'center' }}>Project Name</th>
+                            <th style={{ textAlign: 'center' }}>Purchase Order</th>
+                            <th style={{ textAlign: 'center' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {paginatedProjects.map((proj, index) => (
                             <tr key={index}>
-                                <td>{proj.pid}</td>
-                                <td>{proj.project_name}</td>
-                                <td>{proj.po}</td>
-                                <td>
+                                <td style={{ textAlign: 'center' }}>{proj.pid}</td>
+                                <td style={{ textAlign: 'center' }}>{proj.project_name}</td>
+                                <td style={{ textAlign: 'center' }}>{proj.po}</td>
+                                <td style={{ textAlign: 'center' }}>
                                     <div className="actions-cell">
                                         <button
                                             className="pagination-btn"

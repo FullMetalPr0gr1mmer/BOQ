@@ -97,7 +97,7 @@ def create_ran_inventory(
     return db_raninventory
 
 
-@RANInventoryRouter.get("/", response_model=PaginatedRANInventoryResponse)
+@RANInventoryRouter.get("", response_model=PaginatedRANInventoryResponse)
 def get_all_ran_inventory_records(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=200),

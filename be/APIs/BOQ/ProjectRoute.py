@@ -168,6 +168,8 @@ def update_project(
     - admin: Can update only projects they have "edit" or "all" permission for
     - user: Cannot update projects
     """
+    print('///////////////////////////////////////////////////')
+    print(update_data)
     # Users cannot update projects
     if current_user.role.name == "user":
         raise HTTPException(
@@ -190,12 +192,10 @@ def update_project(
     try:
         if update_data.project_name:
             project.project_name = update_data.project_name
-        if update_data.pid:
-            project.pid = update_data.pid
-        if update_data.po:
-            project.po = update_data.po
+
+
             # Update pid_po if pid or po changed
-            project.pid_po = project.pid + project.po
+
 
         db.commit()
         db.refresh(project)

@@ -1,13 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
-import '../css/Project.css';
+import '../css/Dismantling.css';
 
 const ROWS_PER_PAGE = 100;
 const VITE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Helper functions to parse and stringify CSV data
+// --- Helper Functions (No changes here) ---
+const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+        return { 'Content-Type': 'application/json' };
+    };
+
+const getAuthHeadersForFormData = () => {
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 const parseCSV = (csvString) => {
   if (!csvString) return [];
-  // Handles cases where a cell might contain a comma by splitting only on commas not inside quotes
   const lines = csvString.split('\n');
   return lines.map(line => {
     const regex = /(".*?"|[^",]+)(?=\s*,|\s*$)/g;
@@ -19,7 +38,6 @@ const parseCSV = (csvString) => {
 const stringifyCSV = (data) => {
   return data.map(row => 
     row.map(field => {
-      // Add quotes around fields containing a comma or a quote
       const fieldStr = String(field || '');
       if (fieldStr.includes(',') || fieldStr.includes('"')) {
         return `"${fieldStr.replace(/"/g, '""')}"`;
@@ -29,8 +47,8 @@ const stringifyCSV = (data) => {
   ).join('\n');
 };
 
-
 export default function BOQGeneration() {
+  // --- State Variables ---
   const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -42,12 +60,43 @@ export default function BOQGeneration() {
   const [linkedIp, setLinkedIp] = useState('');
   const [generating, setGenerating] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  
-  // State to hold the editable CSV data as a 2D array ([ [row1-cell1, row1-cell2], [row2-cell1, ...] ])
+  const [showForm, setShowForm] = useState(false);
+  const [editingRow, setEditingRow] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [editableCsvData, setEditableCsvData] = useState([]);
+
+  // --- NEW: State for project selection ---
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+
+  const [formData, setFormData] = useState({
+    linkid: '',
+    InterfaceName: '',
+    SiteIPA: '',
+    SiteIPB: '',
+    pid_po: '', // NEW: To hold the project ID
+  });
 
   const fetchAbort = useRef(null);
 
+  // --- NEW: Function to fetch user's projects ---
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch(`${VITE_API_URL}/get_project`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Could not fetch projects');
+      const data = await res.json();
+      setProjects(data || []);
+      // Optionally, auto-select the first project
+      if (data && data.length > 0) {
+        setSelectedProject(data[0].pid_po);
+      }
+    } catch (err) {
+      setError('Failed to load projects. Please ensure you have project access.');
+      console.error(err);
+    }
+  };
+
+  // --- Data Fetching ---
   const fetchReferences = async (page = 1, search = '') => {
     try {
       if (fetchAbort.current) fetchAbort.current.abort();
@@ -55,31 +104,53 @@ export default function BOQGeneration() {
       fetchAbort.current = controller;
       setLoading(true);
       setError('');
+
       const skip = (page - 1) * ROWS_PER_PAGE;
-      const params = new URLSearchParams({ skip, limit: ROWS_PER_PAGE });
+      const params = new URLSearchParams({ skip: skip.toString(), limit: ROWS_PER_PAGE.toString() });
       if (search.trim()) params.set('search', search.trim());
-      
-      const res = await fetch(`${VITE_API_URL}/boq/references?${params.toString()}`, { signal: controller.signal });
-      if (!res.ok) throw new Error('Failed to fetch references');
+
+      const url = `${VITE_API_URL}/boq/references?${params.toString()}`;
+      const res = await fetch(url, { 
+        signal: controller.signal,
+        method: 'GET',
+        headers: getAuthHeaders()
+      });
+
+      if (!res.ok) {
+        let errorMessage = 'Failed to fetch references';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
       const data = await res.json();
-      
       setRows((data.items || []).map(r => ({
+        id: r.id,
         linkedIp: r.linkid,
         interfaceName: r.InterfaceName,
         siteA: r.SiteIPA,
         siteB: r.SiteIPB,
+        pid_po: r.pid_po, // Store project ID for context
       })));
       setTotal(data.total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== 'AbortError') setError(err.message || 'Failed to fetch');
+      if (err.name !== 'AbortError') {
+        setError(err.message || 'Failed to fetch');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    fetchProjects(); // Fetch projects on component mount
     fetchReferences(1, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onSearchChange = (e) => {
@@ -87,21 +158,46 @@ export default function BOQGeneration() {
     setSearchTerm(v);
     fetchReferences(1, v);
   };
-  
+
+  // --- MODIFIED: Handle Upload to include project_id ---
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Check if a project is selected
+    if (!selectedProject) {
+      setError("Please select a project before uploading.");
+      e.target.value = ''; // Clear file input
+      return;
+    }
+
     setUploading(true);
     setError('');
     setSuccess('');
-    const formData = new FormData();
-    formData.append('file', file);
+
+    const formDataLocal = new FormData();
+    formDataLocal.append('file', file);
+
     try {
-      const res = await fetch(`${VITE_API_URL}/boq/upload-reference`, { method: 'POST', body: formData });
+      // Append project_id as a query parameter
+      const url = `${VITE_API_URL}/boq/upload-reference?project_id=${selectedProject}`;
+      const res = await fetch(url, { 
+        method: 'POST', 
+        body: formDataLocal,
+        headers: getAuthHeadersForFormData()
+      });
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Upload failed');
+        let errorMessage = 'Upload failed';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
+
       const result = await res.json();
       setSuccess(`Upload successful! ${result.rows_inserted} rows inserted.`);
       fetchReferences(1, searchTerm);
@@ -113,26 +209,38 @@ export default function BOQGeneration() {
     }
   };
 
-  const handleGenerateRow = async (row) => {
-    if (!row || !row.linkedIp) {
+  // --- Unchanged Functions ---
+  const handleGenerateRow = async (row) => { /* ... no changes needed ... */ 
+        if (!row || !row.linkedIp) {
       setError('Selected row is invalid');
       return;
     }
+
     setGenerating(true);
     setError('');
     setLinkedIp(row.linkedIp);
 
     try {
-      const res = await fetch(`${VITE_API_URL}/boq/generate-boq`, {
+      const url = `${VITE_API_URL}/boq/generate-boq`;
+      const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(row),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ siteA: row.siteA, siteB: row.siteB, linkedIp: row.linkedIp }),
       });
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to generate BOQ');
+        let errorMessage = 'Failed to generate BOQ';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
+
       const data = await res.json();
+
       if (data.csv_content) {
         setEditableCsvData(parseCSV(data.csv_content));
         setShowModal(true);
@@ -145,31 +253,24 @@ export default function BOQGeneration() {
       setGenerating(false);
     }
   };
-  
-  // Handlers for editing the 2D array data
-  const handleCellChange = (rowIndex, cellIndex, value) => {
-    const updatedData = editableCsvData.map((row, rIdx) => 
+  const handleCellChange = (rowIndex, cellIndex, value) => { /* ... no changes needed ... */ 
+      const updatedData = editableCsvData.map((row, rIdx) => 
       rIdx === rowIndex ? row.map((cell, cIdx) => (cIdx === cellIndex ? value : cell)) : row
     );
     setEditableCsvData(updatedData);
   };
-
-  const handleAddRow = () => {
-    const numColumns = editableCsvData[0]?.length || 1;
+  const handleAddRow = () => { /* ... no changes needed ... */ 
+      const numColumns = editableCsvData[0]?.length || 1;
     const newRow = Array(numColumns).fill('----------------');
-    // Add new row after the header
     const updatedData = [editableCsvData[0], ...editableCsvData.slice(1), newRow];
     setEditableCsvData(updatedData);
   };
-
-  const handleDeleteRow = (rowIndexToDelete) => {
-    // Prevent deleting the header row
-    if (rowIndexToDelete === 0) return; 
+  const handleDeleteRow = (rowIndexToDelete) => { /* ... no changes needed ... */ 
+      if (rowIndexToDelete === 0) return; 
     setEditableCsvData(editableCsvData.filter((_, index) => index !== rowIndexToDelete));
   };
-
-  const downloadCSV = () => {
-    if (!editableCsvData.length) return;
+  const downloadCSV = () => { /* ... no changes needed ... */ 
+      if (!editableCsvData.length) return;
     const csvContent = stringifyCSV(editableCsvData);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -181,51 +282,218 @@ export default function BOQGeneration() {
     document.body.removeChild(link);
   };
 
+  // --- MODIFIED: Create / Edit / Delete to handle project_id ---
+  const openCreateModal = () => {
+    if (!selectedProject) {
+      setError('Please select a project to create a new reference.');
+      return;
+    }
+    setFormData({
+      linkid: '',
+      InterfaceName: '',
+      SiteIPA: '',
+      SiteIPB: '',
+      pid_po: selectedProject, // Set the project ID for the new record
+    });
+    setEditingRow(null);
+    setShowForm(true);
+    setError('');
+    setSuccess('');
+  };
+
+  const openEditModal = async (row) => {
+    if (!row || !row.id) {
+      setError('Cannot edit: missing id');
+      return;
+    }
+    setEditingRow(row);
+    try {
+      setLoading(true);
+      const res = await fetch(`${VITE_API_URL}/boq/reference/${row.id}`, {
+        method: 'GET',
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to fetch reference');
+      }
+      const data = await res.json();
+      setFormData({
+        linkid: data.linkid || '',
+        InterfaceName: data.InterfaceName || '',
+        SiteIPA: data.SiteIPA || '',
+        SiteIPB: data.SiteIPB || '',
+        pid_po: data.pid_po || '', // Make sure to get the project_id
+      });
+      setShowForm(true);
+      setError('');
+      setSuccess('');
+    } catch (err) {
+      setError(err.message || 'Failed to load reference for editing');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const closeFormModal = () => { /* ... no changes needed ... */ 
+      setShowForm(false);
+    setEditingRow(null);
+    setFormData({
+      linkid: '',
+      InterfaceName: '',
+      SiteIPA: '',
+      SiteIPB: '',
+      pid_po: '',
+    });
+    setError('');
+    setSuccess('');
+  };
+
+  const handleFormInputChange = (e) => { /* ... no changes needed ... */ 
+      const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  // No changes needed here, as formData now includes pid_po
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+    try {
+      if (editingRow) {
+        const url = `${VITE_API_URL}/boq/reference/${editingRow.id}`;
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(formData),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Failed to update reference');
+        }
+        setSuccess('Reference updated successfully!');
+      } else {
+        const url = `${VITE_API_URL}/boq/reference`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(formData),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Failed to create reference');
+        }
+        setSuccess('Reference created successfully!');
+      }
+      fetchReferences(currentPage, searchTerm);
+      setTimeout(() => closeFormModal(), 1200);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (row) => { /* ... no changes needed ... */ 
+        if (!row || !row.id) return;
+    if (!confirm(`Are you sure you want to delete reference "${row.linkedIp}"?`)) return;
+    try {
+      const res = await fetch(`${VITE_API_URL}/boq/reference/${row.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to delete reference');
+      }
+      setSuccess('Reference deleted successfully!');
+      fetchReferences(currentPage, searchTerm);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const totalPages = Math.ceil(total / ROWS_PER_PAGE);
   const csvHeaders = editableCsvData[0] || [];
   const csvBody = editableCsvData.slice(1);
 
+  // --- JSX Rendering with new Project Selector ---
   return (
-    <div className="project-container">
-      {/* --- Main Page UI (Unchanged) --- */}
-      <div className="header-row" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>BOQ Generation</h2>
-        <label className="new-project-btn" style={{ width: 220, cursor: uploading ? 'not-allowed' : 'pointer' }}>
-          📤 Upload Reference
-          <input type="file" accept=".csv" style={{ display: 'none' }} disabled={uploading} onChange={handleUpload} />
-        </label>
+    <div className="dismantling-container">
+      <div className="dismantling-header-row">
+        <h2>BOQ Generation</h2>
+        {/* NEW: Project Selector */}
+        <div className="project-selector-container">
+          
+        </div>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <button 
+            className="upload-btn" 
+            onClick={openCreateModal}
+            disabled={!selectedProject} // Disable if no project is selected
+            title={!selectedProject ? "Select a project first" : "Create a new reference"}
+          >
+            + New Reference
+          </button>
+          <label className={`upload-btn ${uploading || !selectedProject ? 'disabled' : ''}`}
+            title={!selectedProject ? "Select a project first" : "Upload a reference CSV"}
+          >
+            📤 Upload Reference
+            <input type="file" accept=".csv" style={{ display: 'none' }} disabled={uploading || !selectedProject} onChange={handleUpload} />
+          </label>
+        </div>
       </div>
-      <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+
+      <div className="dismantling-search-container">
         <input
           type="text"
           placeholder="Type to filter (linkid / interface / site IP)..."
           value={searchTerm}
           onChange={onSearchChange}
-          style={{ padding: 8, borderRadius: 6, border: '1px solid #dbe3f4', width: 360 }}
+          className="search-input"
         />
         {searchTerm && (
-          <button onClick={() => { setSearchTerm(''); fetchReferences(1, ''); }} style={{ padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}>
-            Clear
-          </button>
+          <button onClick={() => { setSearchTerm(''); fetchReferences(1, ''); }} className="clear-btn">Clear</button>
         )}
+        
+          <select
+            id="project-select"
+            className="search-input"
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+           
+          >
+            <option value="">-- Select a Project --</option>
+            {projects.map((p) => (
+              <option key={p.pid_po} value={p.pid_po}>
+                {p.project_name} ({p.pid_po})
+              </option>
+            ))}
+          </select>
       </div>
-      {error && <div className="error" style={{ marginTop: 10 }}>{error}</div>}
-      {success && <div className="success" style={{ marginTop: 10 }}>{success}</div>}
-      {loading && <div style={{ marginTop: 10 }}>Loading references...</div>}
-      <div className="project-table-container" style={{ marginTop: 16 }}>
-        <table className="project-table">
+
+      {error && <div className="dismantling-message error">{error}</div>}
+      {success && <div className="dismantling-message success">{success}</div>}
+      {loading && <div className="loading-message">Loading references...</div>}
+
+      {/* --- Table and Modals (No structural changes, only logic behind them is updated) --- */}
+      <div className="dismantling-table-container">
+        {/* ... table jsx ... */}
+         <table className="dismantling-table">
           <thead>
             <tr>
-              <th></th>
-              <th>Linked-IP</th>
-              <th>Interface Name</th>
-              <th>Site-A IP</th>
-              <th>Site-B IP</th>
+              <th style={{ textAlign: 'center' }}></th>
+              <th style={{ textAlign: 'center' }}>Linked-IP</th>
+              <th style={{ textAlign: 'center' }}>Interface Name</th>
+              <th style={{ textAlign: 'center' }}>Site-A IP</th>
+              <th style={{ textAlign: 'center' }}>Site-B IP</th>
+              <th style={{ textAlign: 'center', width: '110px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 16 }}>No results</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 16 }}>No results</td></tr>
             ) : (
               rows.map((row, idx) => (
                 <tr key={idx}>
@@ -239,82 +507,74 @@ export default function BOQGeneration() {
                       ▼
                     </button>
                   </td>
-                  <td>{row.linkedIp}</td>
-                  <td>{row.interfaceName}</td>
-                  <td>{row.siteA}</td>
-                  <td>{row.siteB}</td>
+                  <td style={{ textAlign: 'center' }}>{row.linkedIp}</td>
+                  <td style={{ textAlign: 'center' }}>{row.interfaceName}</td>
+                  <td style={{ textAlign: 'center' }}>{row.siteA}</td>
+                  <td style={{ textAlign: 'center' }}>{row.siteB}</td>
+                  <td style={{ textAlign: 'center', width: '110px' }}>
+                    <div className="actions-cell">
+                      <button className="pagination-btn" onClick={() => openEditModal(row)}>Details</button>
+                      <button className="clear-btn" onClick={() => handleDelete(row)}>Delete</button>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
       {totalPages > 1 && (
-        <div className="pagination" style={{ marginTop: 12 }}>
-            <button disabled={currentPage === 1} onClick={() => fetchReferences(currentPage - 1, searchTerm)}>Prev</button>
-            <span style={{ margin: '0 8px' }}>Page {currentPage} of {totalPages}</span>
-            <button disabled={currentPage === totalPages} onClick={() => fetchReferences(currentPage + 1, searchTerm)}>Next</button>
+        <div className="dismantling-pagination">
+        {/* ... pagination jsx ... */}
+         <button className="pagination-btn" disabled={currentPage === 1} onClick={() => fetchReferences(currentPage - 1, searchTerm)}>Prev</button>
+          <span className="pagination-info">Page {currentPage} of {totalPages}</span>
+          <button className="pagination-btn" disabled={currentPage === totalPages} onClick={() => fetchReferences(currentPage + 1, searchTerm)}>Next</button>
         </div>
       )}
 
-      {/* --- Enhanced Editable Modal (Styled like the new template) --- */}
       {showModal && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', padding: 24, borderRadius: 8, width: '95%', height: '90%', display: 'flex', flexDirection: 'column' }}>
-            
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
-              <h3 style={{ margin: 0 }}>Edit BOQ Data for {linkedIp}</h3>
-              <button onClick={() => setShowModal(false)} style={{ fontSize: 18, cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px' }}>
-                ✖
-              </button>
+        <div className="modal-overlay">
+        {/* ... editable CSV modal jsx ... */}
+                <div className="modal-content" style={{ maxWidth: '1200px', width: '100%', maxHeight: '90vh', overflow: 'auto', padding: '24px' }}>
+            <div className="modal-header-row" style={{ justifyContent: 'space-between' }}>
+              <h3 className="modal-title">Edit BOQ Data for {linkedIp}</h3>
+              <button className="modal-close-btn" onClick={() => setShowModal(false)} type="button">&times;</button>
             </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexShrink: 0 }}>
-              <button onClick={handleAddRow} style={{ padding: '8px 16px', borderRadius: 6, cursor: 'pointer', background: '#4CAF50', color: 'white', border: 'none' }}>
-                ➕ Add Row
-              </button>
-              <button onClick={downloadCSV} style={{ padding: '8px 16px', borderRadius: 6, cursor: 'pointer', background: '#2196F3', color: 'white', border: 'none' }}>
-                ⬇ Download CSV
-              </button>
-               <span style={{ color: '#666', alignSelf: 'center' }}>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <button className="upload-btn" onClick={handleAddRow}>➕ Add Row</button>
+              <button className="upload-btn" onClick={downloadCSV}>⬇ Download CSV</button>
+              <span style={{ color: '#666', alignSelf: 'center' }}>
                 {csvBody.filter(row => row.join('').trim() !== '').length} rows
               </span>
             </div>
-
-            {/* Editable Table Container */}
-            <div style={{ flex: 1, overflow: 'auto', border: '1px solid #ddd', borderRadius: 6 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1200px' }}>
-                <thead style={{ background: '#f5f5f5', position: 'sticky', top: 0, zIndex: 1 }}>
+            <div className="dismantling-table-container" style={{ overflow: 'auto' }}>
+              <table className="dismantling-table" style={{ minWidth: '400px', fontSize: '12px' }}>
+                <thead>
                   <tr>
-                    <th style={{ padding: '12px 8px', border: '1px solid #ddd', textAlign: 'left', minWidth: '80px' }}>Action</th>
+                    <th style={{ padding: '4px 2px', fontSize: '12px', textAlign: 'center' }}>Action</th>
                     {csvHeaders.map((header, index) => (
-                      <th key={index} style={{ padding: '12px 8px', border: '1px solid #ddd', textAlign: 'left', minWidth: '200px', whiteSpace: 'nowrap' }}>
-                        {header}
-                      </th>
+                      <th key={index} style={{ padding: '4px 2px', fontSize: '12px', textAlign: 'center' }}>{header}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {csvBody.length === 0 ? (
-                    <tr><td colSpan={csvHeaders.length + 1} style={{ textAlign: 'center', padding: 20 }}>No data rows.</td></tr>
+                    <tr><td colSpan={csvHeaders.length + 1} className="no-results" style={{ textAlign: 'center' }}>No data rows.</td></tr>
                   ) : (
                     csvBody.map((row, rowIndex) => (
-                      // Filter out empty rows that might come from the BE
                       row.join("").trim() && <tr key={rowIndex}>
-                        <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
-                           <button onClick={() => handleDeleteRow(rowIndex + 1)} style={{ background: '#f44336', color: 'white', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: '12px'}} title="Remove row">
-                            🗑
-                          </button>
+                        <td style={{ textAlign: 'center', padding: '2px' }}>
+                          <button className="clear-btn" style={{ background: 'transparent' }} onClick={() => handleDeleteRow(rowIndex + 1)} title="Remove row">🗑</button>
                         </td>
                         {row.map((cell, cellIndex) => (
-                          <td key={cellIndex} style={{ padding: '4px', border: '1px solid #ddd' }}>
+                          <td key={cellIndex} style={{ padding: '2px', textAlign: 'center' }}>
                             <input
                               type="text"
                               value={cell}
                               onChange={(e) => handleCellChange(rowIndex + 1, cellIndex, e.target.value)}
-                              style={{ width: '100%', border: 'none', padding: '8px', background: 'transparent', fontSize: '14px' }}
+                              className="search-input"
+                              style={{ fontSize: '12px', padding: '2px', textAlign: 'center' }}
                             />
                           </td>
                         ))}
@@ -324,8 +584,64 @@ export default function BOQGeneration() {
                 </tbody>
               </table>
             </div>
-
           </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="modal-overlay">
+        {/* ... create/edit modal jsx ... */}
+                 <div className="modal-content">
+           <form className="project-form" onSubmit={handleFormSubmit}>
+             <div className="modal-header-row" style={{ justifyContent: 'space-between' }}>
+               <h3 className="modal-title">
+                 {editingRow ? `Editing Reference: '${editingRow.linkedIp}'` : 'New Reference'}
+               </h3>
+               <button className="modal-close-btn" onClick={closeFormModal} type="button">&times;</button>
+             </div>
+
+             {error && <div className="dismantling-message error">{error}</div>}
+             {success && <div className="dismantling-message success">{success}</div>}
+
+             {/* The project context is now handled by the global selector */}
+             <input
+              className="search-input"
+              type="text"
+              name="linkid"
+              placeholder="Linked ID (linkid)"
+              value={formData.linkid}
+              onChange={handleFormInputChange}
+              required
+            />
+             <input
+              className="search-input"
+              type="text"
+              name="InterfaceName"
+              placeholder="Interface Name"
+              value={formData.InterfaceName}
+              onChange={handleFormInputChange}
+            />
+             <input
+              className="search-input"
+              type="text"
+              name="SiteIPA"
+              placeholder="Site A IP (SiteIPA)"
+              value={formData.SiteIPA}
+              onChange={handleFormInputChange}
+            />
+             <input
+              className="search-input"
+              type="text"
+              name="SiteIPB"
+              placeholder="Site B IP (SiteIPB)"
+              value={formData.SiteIPB}
+              onChange={handleFormInputChange}
+            />
+             <button className="upload-btn" type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : (editingRow ? 'Update' : 'Save')}
+            </button>
+           </form>
+         </div>
         </div>
       )}
     </div>

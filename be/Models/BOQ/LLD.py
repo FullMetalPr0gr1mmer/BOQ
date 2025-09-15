@@ -29,4 +29,5 @@ class LLD(Base):
     losr_approval=Column(String(100),index=True)
     initial_lb=Column(String(100),index=True)
     flb=Column(String(100),index=True)
+    pid_po=Column(String(200),ForeignKey('projects.pid_po'),index=True)
 

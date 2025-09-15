@@ -17,6 +17,8 @@ export default function Header({ onLogout, activeSection, user }) {
   if (activeSection==='ran-boq'){
     tabs =ranBoqTabs
   }
+  // Hide Level1 tab
+  tabs = tabs.filter(tab => tab !== 'Level1');
   // Add Logs tab for admin users in BOQ
   if (activeSection === 'boq' && user?.role === 'senior_admin' && !tabs.includes('Logs')) {
     tabs = [...tabs.slice(0, -1), 'Logs', tabs[tabs.length - 1]]; // Insert before LogOut

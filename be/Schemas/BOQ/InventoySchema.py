@@ -21,13 +21,13 @@ class SiteOut(BaseModel):
     id: int
     site_id: str
     site_name: str
-    project_id: str
+    pid_po: str
 
     class Config:
         from_attributes = True
 
 class SitesResponse(BaseModel):
-    records: List[AddSite]
+    records: List[SiteOut]
     total: int
 
 
@@ -55,6 +55,7 @@ class CreateInventory(BaseModel):
     license_points_consumed : Optional[str]
     alarm_status : Optional[str]
     Aggregated_alarm_status : Optional[str]
+    pid_po : Optional[str]=None
 class GetInventory(CreateInventory):
     id:int
 class Config:

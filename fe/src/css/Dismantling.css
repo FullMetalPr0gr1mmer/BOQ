@@ -292,6 +292,35 @@
   white-space: nowrap;
 }
 
+/* --- Modal Styles --- */
+.modal-header-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 2.2rem;
+  color: #d32f2f;
+  font-weight: bold;
+  cursor: pointer;
+  margin-right: 1rem;
+  margin-left: 0;
+  align-self: flex-start;
+}
+
+.modal-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #124191;
+  margin: 0;
+  flex: 1;
+  text-align: left;
+}
+
 /* --- Responsive Design --- */
 @media (min-width: 768px) {
   .dismantling-container {

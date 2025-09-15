@@ -23,14 +23,14 @@ const initialLvl3State = {
     uom: '',
     total_quantity: '',
     total_price: '',
-    service_type: [],
+    service_type: '',
 };
 
 const initialItemState = {
     item_name: '',
     item_details: '',
     vendor_part_number: '',
-    service_type: [],
+    service_type: '',
     category: '',
     uom: '',
     quantity: '',
@@ -71,19 +71,9 @@ export default function Lvl3() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleMultiSelectChange = (e) => {
-        const selectedValues = Array.from(e.target.selectedOptions, option => option.value);
-        setFormData(prev => ({ ...prev, service_type: selectedValues }));
-    };
-
     const handleItemChange = (e) => {
         const { name, value } = e.target;
         setItemFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleItemMultiSelectChange = (e) => {
-        const selectedValues = Array.from(e.target.selectedOptions, option => option.value);
-        setItemFormData(prev => ({ ...prev, service_type: selectedValues }));
     };
 
     const handleAddItem = (lvl3Id) => {
@@ -95,7 +85,9 @@ export default function Lvl3() {
     const handleEditItem = (lvl3Id, item) => {
         setItemFormData({
             ...item,
-            service_type: (item.service_type || []).map(name => SERVICE_VALUES[name])
+            service_type: (item.service_type && item.service_type.length > 0) 
+                ? (SERVICE_VALUES[item.service_type[0]] || item.service_type[0]) 
+                : ''
         });
         setEditingItemData({ lvl3Id, itemId: item.id });
         setShowItemForm(true);
@@ -110,6 +102,7 @@ export default function Lvl3() {
             ...itemFormData,
             quantity: parseInt(itemFormData.quantity, 10),
             price: parseFloat(itemFormData.price),
+            service_type: itemFormData.service_type ? [itemFormData.service_type] : []
         };
 
         const { lvl3Id, itemId } = editingItemData;
@@ -169,6 +162,7 @@ export default function Lvl3() {
             ...formData,
             total_quantity: parseInt(formData.total_quantity, 10),
             total_price: parseFloat(formData.total_price),
+            service_type: formData.service_type ? [formData.service_type] : [],
             items: [] // Ensure no items are sent on Lvl3 create/update
         };
 
@@ -200,6 +194,7 @@ export default function Lvl3() {
             setError(err.message);
         }
     };
+
 const handleUploadCSV = (lvl3Id, parentItemName) => async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -342,7 +337,9 @@ const handleUploadCSV = (lvl3Id, parentItemName) => async (e) => {
             uom: entry.uom,
             total_quantity: entry.total_quantity,
             total_price: entry.total_price,
-            service_type: (entry.service_type || []).map(name => SERVICE_VALUES[name]),
+            service_type: (entry.service_type && entry.service_type.length > 0) 
+                ? (SERVICE_VALUES[entry.service_type[0]] || entry.service_type[0])
+                : '',
         });
         setShowForm(true);
     };
@@ -369,175 +366,208 @@ const handleUploadCSV = (lvl3Id, parentItemName) => async (e) => {
     const totalPages = Math.ceil(entries.length / ENTRIES_PER_PAGE);
 
     return (
-        <div className="project-container">
-            <div className="header-row">
-                <h2>Lvl3 Entries</h2>
-                <button className="new-project-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
-                    {showForm ? 'Cancel' : '+ New Entry'}
-                </button>
-            </div>
+                <div className="dismantling-container">
+                            {/* Create/Edit Modal */}
+                                                    {showForm && (
+                                                        <div className="modal-overlay">
+                                                            <div className="modal-content">
+                                                                <form className="project-form" onSubmit={handleSubmit}>
+                                                                    <div className="modal-header-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                                        <h3 className="modal-title">
+                                                                            {editingEntry ? `Editing item : '${formData.item_name}'` : 'New Level 3 Item'}
+                                                                        </h3>
+                                                                        <button className="modal-close-btn" onClick={clearForm} type="button">&times;</button>
+                                                                    </div>
+                                                                    <input type="text" name="project_id" placeholder="Project ID" value={formData.project_id} onChange={handleChange} required disabled={!!editingEntry} />
+                                                                    <input type="text" name="project_name" placeholder="Project Name" value={formData.project_name} onChange={handleChange} required />
+                                                                    <input type="text" name="item_name" placeholder="Item Name" value={formData.item_name} onChange={handleChange} required />
+                                                                    <input type="text" name="uom" placeholder="UOM" value={formData.uom} onChange={handleChange} required />
+                                                                    <input type="number" name="total_quantity" placeholder="Total Quantity" value={formData.total_quantity} onChange={handleChange}  />
+                                                                    <input type="number" name="total_price" placeholder="Total Price" value={formData.total_price} onChange={handleChange} required />
+                                                                    <select name="service_type" value={formData.service_type || ''} onChange={handleChange} required>
+                                                                        <option value="">Select Service Type</option>
+                                                                        <option value="1">Software</option>
+                                                                        <option value="2">Hardware</option>
+                                                                        <option value="3">Service</option>
+                                                                    </select>
+                                                                    <button style={{ width: '100%', marginTop: '1rem' }} type="submit" className="stylish-btn">
+                                                                        {editingEntry ? 'Update' : 'Save'}
+                                                                    </button>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                    )}
 
-            {showForm && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <form className="project-form" onSubmit={handleSubmit}>
-                            <button className="close-btn stylish-btn danger" onClick={clearForm} type="button">X</button>
-                            <h3>{editingEntry ? 'Edit Lvl3 Entry' : 'New Lvl3 Entry'}</h3>
-                            <input type="text" name="project_id" placeholder="Project ID" value={formData.project_id} onChange={handleChange} required disabled={!!editingEntry} />
-                            <input type="text" name="project_name" placeholder="Project Name" value={formData.project_name} onChange={handleChange} required />
-                            <input type="text" name="item_name" placeholder="Item Name" value={formData.item_name} onChange={handleChange} required />
-                            <input type="text" name="uom" placeholder="UOM" value={formData.uom} onChange={handleChange} required />
-                            <input type="number" name="total_quantity" placeholder="Total Quantity" value={formData.total_quantity} onChange={handleChange}  />
-                            <input type="number" name="total_price" placeholder="Total Price" value={formData.total_price} onChange={handleChange} required />
-                            <select multiple name="service_type" value={formData.service_type} onChange={handleMultiSelectChange}>
-                                <option value="1">Software</option>
-                                <option value="2">Hardware</option>
-                                <option value="3">Service</option>
-                            </select>
-
-                            <button style={{ width: '100%', marginTop: '1rem' }} type="submit" className="stylish-btn">
-                                {editingEntry ? 'Update' : 'Save'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {showItemForm && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <form className="project-form" onSubmit={handleSaveItem}>
-                            <button className="close-btn stylish-btn danger" onClick={() => setShowItemForm(false)} type="button">X</button>
-                            <h3>{editingItemData?.itemId ? 'Edit Item' : 'Add New Item'}</h3>
-                            <input type="text" name="item_name" placeholder="Item Name" value={itemFormData.item_name} onChange={handleItemChange} required />
-                            <input type="text" name="item_details" placeholder="Item Details" value={itemFormData.item_details} onChange={handleItemChange} />
-                            <input type="text" name="vendor_part_number" placeholder="Vendor Part Number" value={itemFormData.vendor_part_number} onChange={handleItemChange} />
-                            <input type="text" name="category" placeholder="Category" value={itemFormData.category} onChange={handleItemChange} />
-                            <input type="text" name="uom" placeholder="UOM" value={itemFormData.uom} onChange={handleItemChange} />
-                            <input type="number" name="quantity" placeholder="Quantity" value={itemFormData.quantity} onChange={handleItemChange} required />
-                            <input type="number" name="price" placeholder="Price" value={itemFormData.price} onChange={handleItemChange} required />
-                            <select multiple name="service_type" value={itemFormData.service_type} onChange={handleItemMultiSelectChange}>
-                                <option value="1">Software</option>
-                                <option value="2">Hardware</option>
-                                <option value="3">Service</option>
-                            </select>
-                            <button style={{ width: '100%', marginTop: '1rem' }} type="submit" className="stylish-btn">
-                                Save Item
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {error && <div className="error">{error}</div>}
-            {success && <div className="success">{success}</div>}
-
-            <div className="project-table-container">
-                <table className="project-table">
-                    <thead>
-                        <tr>
-                            <th></th>
-                            <th>Project ID</th>
-                            <th>Project Name</th>
-                            <th>Item Name</th>
-                            <th>UOM</th>
-                            <th>Total Quantity</th>
-                            <th>Total Price</th>
-                            <th>Service Type</th>
-                            <th style={{ width: '160px' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedEntries.map((entry) => (
-                            <>
-                                <tr key={entry.id}>
-                                    <td>
-                                        <button onClick={() => setShowItemsForId(showItemsForId === entry.id ? null : entry.id)} className="expand-btn">
-                                            {showItemsForId === entry.id ? <MdExpandLess /> : <MdExpandMore />}
-                                        </button>
-                                    </td>
-                                    <td>{entry.project_id}</td>
-                                    <td>{entry.project_name}</td>
-                                    <td>{entry.item_name}</td>
-                                    <td>{entry.uom}</td>
-                                    <td>{entry.total_quantity?.toLocaleString()}</td>
-                                    <td>{entry.total_price?.toLocaleString()}</td>
-                                    <td>{(entry.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                            <button className="stylish-btn" onClick={() => handleEditClick(entry)}>Details</button>
-                                            <button className="stylish-btn danger" onClick={() => handleDelete(entry)}>Delete</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {showItemsForId === entry.id && (
-                                    <tr className="items-row-container">
-                                        <td colSpan="9">
-                                            <div className="sub-table-wrapper">
-                                                <h4>Items for {entry.item_name}</h4>
-                                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                                    <button className="stylish-btn" onClick={() => handleAddItem(entry.id)}>+ Add New Item</button>
-                                                    <label className="stylish-btn" style={{ cursor: 'pointer' }}>
-                                                        Upload CSV
-                                                        <input type="file" accept=".csv" onChange={handleUploadCSV(entry.id, entry.item_name)} style={{ display: 'none' }} />
-                                                    </label>
-                                                </div>
-                                                <table className="project-sub-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Item Name</th>
-                                                            <th>Details</th>
-                                                            <th>Part #</th>
-                                                            <th>Category</th>
-                                                            <th>UOM</th>
-                                                            <th>Quantity</th>
-                                                            <th>Price</th>
-                                                            <th>Service Type</th>
-                                                            <th>Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {(entry.items || []).map((item) => (
-                                                            <tr key={item.id}>
-                                                                <td>{item.item_name}</td>
-                                                                <td>{item.item_details}</td>
-                                                                <td>{item.vendor_part_number}</td>
-                                                                <td>{item.category}</td>
-                                                                <td>{item.uom}</td>
-                                                                <td>{item.quantity}</td>
-                                                                <td>{item.price}</td>
-                                                                <td>{(item.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
-                                                                <td>
-                                                                    <button className="stylish-btn" onClick={() => handleEditItem(entry.id, item)}>Edit</button>
-                                                                    <button className="stylish-btn danger" onClick={() => handleDeleteItem(entry.id, item.id)}>Delete</button>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {totalPages > 1 && (
-                <div className="pagination">
-                    {Array.from({ length: totalPages }, (_, i) => (
-                        <button
-                            key={i}
-                            className={i + 1 === currentPage ? 'active-page' : ''}
-                            onClick={() => setCurrentPage(i + 1)}
-                        >
-                            {i + 1}
+                            {/* Item Create/Edit Modal */}
+                                                    {showItemForm && (
+                                                        <div className="modal-overlay">
+                                                            <div className="modal-content">
+                                                                <form className="project-form" onSubmit={handleSaveItem}>
+                                                                    <div className="modal-header-row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                                        <h3 className="modal-title">
+                                                                            {editingItemData?.itemId ? `Editing item : '${itemFormData.item_name}'` : 'New Level 3 Item'}
+                                                                        </h3>
+                                                                        <button className="modal-close-btn" onClick={() => setShowItemForm(false)} type="button">&times;</button>
+                                                                    </div>
+                                                                    <input type="text" name="item_name" placeholder="Item Name" value={itemFormData.item_name} onChange={handleItemChange} required />
+                                                                    <input type="text" name="item_details" placeholder="Item Details" value={itemFormData.item_details} onChange={handleItemChange} />
+                                                                    <input type="text" name="vendor_part_number" placeholder="Vendor Part Number" value={itemFormData.vendor_part_number} onChange={handleItemChange} />
+                                                                    <input type="text" name="category" placeholder="Category" value={itemFormData.category} onChange={handleItemChange} />
+                                                                    <input type="text" name="uom" placeholder="UOM" value={itemFormData.uom} onChange={handleItemChange} />
+                                                                    <input type="number" name="quantity" placeholder="Quantity" value={itemFormData.quantity} onChange={handleItemChange} required />
+                                                                    <input type="number" name="price" placeholder="Price" value={itemFormData.price} onChange={handleItemChange} required />
+                                                                    <select name="service_type" value={itemFormData.service_type || ''} onChange={handleItemChange} required>
+                                                                        <option value="">Select Service Type</option>
+                                                                        <option value="1">Software</option>
+                                                                        <option value="2">Hardware</option>
+                                                                        <option value="3">Service</option>
+                                                                    </select>
+                                                                    <button style={{ width: '100%', marginTop: '1rem' }} type="submit" className="stylish-btn">
+                                                                        Save Item
+                                                                    </button>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                    {/* Header & Create Button */}
+                    <div className="dismantling-header-row">
+                        <h2>Level 3 Records</h2>
+                        <button className="upload-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
+                            {showForm ? 'Cancel' : '➕ Create Level 3 Item'}
                         </button>
-                    ))}
+                    </div>
+
+                    {/* Search */}
+                    <div className="dismantling-search-container">
+                        <input
+                            type="text"
+                            placeholder="Filter by Project Name or Item Name..."
+                            value={''}
+                            onChange={() => {}}
+                            className="search-input"
+                        />
+                    </div>
+
+                    {/* Messages */}
+                    {error && <div className="dismantling-message error">{error}</div>}
+                    {success && <div className="dismantling-message success">{success}</div>}
+
+                    {/* Table */}
+                    <div className="dismantling-table-container">
+                        <table className="dismantling-table">
+                            <thead>
+                                <tr>
+                                    <th style={{ width: '30px' }}></th>
+                                    <th>Project ID</th>
+                                    <th>Project Name</th>
+                                    <th>Item Name</th>
+                                    <th>UOM</th>
+                                    <th>Total Quantity</th>
+                                    <th>Total Price</th>
+                                    <th>Service Type</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedEntries.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={9} className="no-results">No results</td>
+                                    </tr>
+                                ) : (
+                                    paginatedEntries.map((entry) => (
+                                        <>
+                                            <tr key={entry.id}>
+                                                <td>
+                                                    <button
+                                                        onClick={() => setShowItemsForId(showItemsForId === entry.id ? null : entry.id)}
+                                                        className="clear-btn"
+                                                        style={{ padding: '4px 8px', fontSize: '12px', transform: showItemsForId === entry.id ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                                                    >
+                                                        ▶
+                                                    </button>
+                                                </td>
+                                                <td>{entry.project_id}</td>
+                                                <td>{entry.project_name}</td>
+                                                <td>{entry.item_name}</td>
+                                                <td>{entry.uom}</td>
+                                                <td>{entry.total_quantity?.toLocaleString()}</td>
+                                                <td>{entry.total_price?.toLocaleString()}</td>
+                                                <td>{(entry.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
+                                                <td className="actions-cell">
+                                                    <button className="clear-btn" onClick={() => handleEditClick(entry)}>Edit</button>
+                                                    <button className="clear-btn" onClick={() => handleDelete(entry)}>Delete</button>
+                                                </td>
+                                            </tr>
+                                            {showItemsForId === entry.id && (
+                                                <tr>
+                                                    <td colSpan={9} style={{ padding: 0, background: '#f8fafb' }}>
+                                                        <div style={{ padding: '1rem', borderLeft: '4px solid var(--primary-color)' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                                <h4 style={{ margin: 0, color: 'var(--primary-color)' }}>Items for {entry.item_name}</h4>
+                                                                <label className="upload-btn" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem' }}>
+                                                                    📤 Upload Items CSV
+                                                                    <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleUploadCSV(entry.id, entry.item_name)} />
+                                                                </label>
+                                                            </div>
+                                                            <div style={{ overflowX: 'auto' }}>
+                                                                <table className="dismantling-table" style={{ margin: 0 }}>
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Item Name</th>
+                                                                            <th>Details</th>
+                                                                            <th>Vendor Part #</th>
+                                                                            <th>Category</th>
+                                                                            <th>UOM</th>
+                                                                            <th>Quantity</th>
+                                                                            <th>Price</th>
+                                                                            <th>Service Type</th>
+                                                                            <th>Actions</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {(entry.items || []).length === 0 ? (
+                                                                            <tr>
+                                                                                <td colSpan={9} className="no-results">No items found</td>
+                                                                            </tr>
+                                                                        ) : (
+                                                                            (entry.items || []).map((item) => (
+                                                                                <tr key={item.id}>
+                                                                                    <td>{item.item_name}</td>
+                                                                                    <td>{item.item_details}</td>
+                                                                                    <td>{item.vendor_part_number}</td>
+                                                                                    <td>{item.category}</td>
+                                                                                    <td>{item.uom}</td>
+                                                                                    <td>{item.quantity}</td>
+                                                                                    <td>{item.price}</td>
+                                                                                    <td>{(item.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
+                                                                                    <td className="actions-cell">
+                                                                                        <button className="clear-btn" onClick={() => handleEditItem(entry.id, item)}>Edit</button>
+                                                                                        <button className="clear-btn" onClick={() => handleDeleteItem(entry.id, item.id)}>Delete</button>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {totalPages > 1 && (
+                        <div className="dismantling-pagination">
+                            <button className="pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>Prev</button>
+                            <span className="pagination-info">Page {currentPage} of {totalPages}</span>
+                            <button className="pagination-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>Next</button>
+                        </div>
+                    )}
                 </div>
-            )}
-        </div>
     );
 }

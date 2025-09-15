@@ -28,7 +28,7 @@ def create_ran_site(site: RANSiteCreate, db: Session = Depends(get_db)):
     return db_site
 
 
-@ran_lld_router.get("/", response_model=PaginatedRANSites)
+@ran_lld_router.get("", response_model=PaginatedRANSites)
 def get_ran_sites(
         skip: int = Query(0, ge=0),
         limit: int = Query(50, ge=1, le=100),

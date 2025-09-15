@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 
 class LLDCreate(BaseModel):
@@ -27,8 +27,16 @@ class LLDCreate(BaseModel):
     losr_approval: str
     initial_lb: str
     flb: str
+    pid_po: str
 
 
 class LLDOut(LLDCreate):
+    id:int
+    class Config:
+        orm_mode = True
+class LLDListOut(BaseModel):
+    total: int
+    items: List[LLDOut]
+
     class Config:
         orm_mode = True

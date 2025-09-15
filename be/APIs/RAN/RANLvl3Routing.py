@@ -214,7 +214,7 @@ def create_ran_lvl3(
     return db_ranlvl3
 
 
-@RANLvl3Router.get("/", response_model=PaginatedRANLvl3Response)
+@RANLvl3Router.get("", response_model=PaginatedRANLvl3Response)
 def get_all_ran_lvl3(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=200),

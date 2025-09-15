@@ -70,7 +70,7 @@ function App() {
               <Route path="/ran-lld" element={<RANLLD />} />
               <Route path="/ran-level3" element={<RANLvl3 />} />
               <Route path="/ran-inventory" element={<RANInventory />} />
-              <Route path="*" element={<Home setActiveSection={setActiveSection} />} />
+              <Route path="*" element={<Home setActiveSection={setActiveSection} user={auth.user}/>} />
             </Routes>
           </div>
 

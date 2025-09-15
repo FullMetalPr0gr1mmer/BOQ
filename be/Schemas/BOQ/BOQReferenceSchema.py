@@ -7,7 +7,7 @@ class BOQReferenceBase(BaseModel):
     interface_name: Optional[str] = Field(None, alias="InterfaceName")
     site_ip_a: Optional[str] = Field(None, alias="SiteIPA")  # <- change here
     site_ip_b: Optional[str] = Field(None, alias="SiteIPB")  # <- and here
-
+    pid_po: Optional[str] = Field(None, alias="PIDPO")
     class Config:
         populate_by_name = True
         from_attributes = True

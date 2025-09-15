@@ -147,28 +147,24 @@ export default function Dismantling() {
         <table className="dismantling-table">
           <thead>
             <tr>
-              
-              <th>Nokia Link ID</th>
-              <th>NEC Dismantling Link ID</th>
-              <th>No. of Dismantling</th>
-              <th>Comments</th>
+              <th style={{ textAlign: 'center' }}>Nokia Link ID</th>
+              <th style={{ textAlign: 'center' }}>NEC Dismantling Link ID</th>
+              <th style={{ textAlign: 'center' }}>No. of Dismantling</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={5} className="no-results">
+                <td colSpan={3} className="no-results" style={{ textAlign: 'center' }}>
                   No results
                 </td>
               </tr>
             ) : (
               rows.map((row) => (
                 <tr key={row.id}>
-                  
-                  <td>{row.nokia_link_id}</td>
-                  <td>{row.nec_dismantling_link_id}</td>
-                  <td>{row.no_of_dismantling}</td>
-                  <td>{row.comments}</td>
+                  <td style={{ textAlign: 'center' }}>{row.nokia_link_id}</td>
+                  <td style={{ textAlign: 'center' }}>{row.nec_dismantling_link_id}</td>
+                  <td style={{ textAlign: 'center' }}>{row.no_of_dismantling}</td>
                 </tr>
               ))
             )}

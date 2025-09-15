@@ -4,7 +4,16 @@ import '../css/Dismantling.css'; // Using the same styling
 
 const ROWS_PER_PAGE = 50;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-
+const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+        return { 'Content-Type': 'application/json' };
+    };
 export default function Inventory() {
   const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,7 +53,8 @@ export default function Inventory() {
         search: search.trim(),
       });
       
-      const res = await fetch(`${VITE_API_URL}/inventory?${params.toString()}`, { signal: controller.signal });
+      const res = await fetch(`${VITE_API_URL}/inventory?${params.toString()}`, { signal: controller.signal,    method: 'GET',
+        headers: getAuthHeaders()       });
       if (!res.ok) throw new Error('Failed to fetch inventory');
       
       const data = await res.json();
@@ -109,12 +119,14 @@ export default function Inventory() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+                  headers: getAuthHeaders()
         });
       } else {
         res = await fetch(`${VITE_API_URL}/create-inventory`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+                  headers: getAuthHeaders()
         });
       }
 
@@ -134,7 +146,7 @@ export default function Inventory() {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this inventory item?')) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/delete-inventory/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${VITE_API_URL}/delete-inventory/${id}`, { method: 'DELETE' ,        headers: getAuthHeaders()});
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.detail || 'Failed to delete inventory');
@@ -158,6 +170,7 @@ export default function Inventory() {
       const res = await fetch(`${VITE_API_URL}/upload-inventory-csv`, {
         method: "POST",
         body: formData,
+                headers: getAuthHeaders()
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -210,57 +223,55 @@ export default function Inventory() {
         <table className="dismantling-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Site Id</th>
-              <th>Site Name</th>
-              <th>Slot Id</th>
-              <th>Port Id</th>
-              <th>Status</th>
-              <th>Company ID</th>
-              <th>Mnemonic</th>
-              <th>CLEI Code</th>
-              <th>Part No</th>
-              <th>Software Part No</th>
-              <th>Factory ID</th>
-              <th>Serial No</th>
-              <th>Date ID</th>
-              <th>Manufactured Date</th>
-              <th>Customer Field</th>
-              <th>License Points Consumed</th>
-              <th>Alarm Status</th>
-              <th>Aggregated Alarm Status</th>
-              <th>Actions</th>
+              <th style={{ textAlign: 'center' }}>Site Id</th>
+              <th style={{ textAlign: 'center' }}>Site Name</th>
+              <th style={{ textAlign: 'center' }}>Slot Id</th>
+              <th style={{ textAlign: 'center' }}>Port Id</th>
+              <th style={{ textAlign: 'center' }}>Status</th>
+              <th style={{ textAlign: 'center' }}>Company ID</th>
+              <th style={{ textAlign: 'center' }}>Mnemonic</th>
+              <th style={{ textAlign: 'center' }}>CLEI Code</th>
+              <th style={{ textAlign: 'center' }}>Part No</th>
+              <th style={{ textAlign: 'center' }}>Software Part No</th>
+              <th style={{ textAlign: 'center' }}>Factory ID</th>
+              <th style={{ textAlign: 'center' }}>Serial No</th>
+              <th style={{ textAlign: 'center' }}>Date ID</th>
+              <th style={{ textAlign: 'center' }}>Manufactured Date</th>
+              <th style={{ textAlign: 'center' }}>Customer Field</th>
+              <th style={{ textAlign: 'center' }}>License Points Consumed</th>
+              <th style={{ textAlign: 'center' }}>Alarm Status</th>
+              <th style={{ textAlign: 'center' }}>Aggregated Alarm Status</th>
+              <th style={{ textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading ? (
-              <tr><td colSpan={20} className="no-results">No results</td></tr>
+              <tr><td colSpan={19} className="no-results">No results</td></tr>
             ) : (
               rows.map(item => (
                 <tr key={item.id}>
-                  <td>{item.id}</td>
-                  <td>{item.site_id}</td>
-                  <td>{item.site_name}</td>
-                  <td>{item.slot_id}</td>
-                  <td>{item.port_id}</td>
-                  <td>{item.status}</td>
-                  <td>{item.company_id}</td>
-                  <td>{item.mnemonic}</td>
-                  <td>{item.clei_code}</td>
-                  <td>{item.part_no}</td>
-                  <td>{item.software_no}</td>
-                  <td>{item.factory_id}</td>
-                  <td>{item.serial_no}</td>
-                  <td>{item.date_id}</td>
-                  <td>{item.manufactured_date}</td>
-                  <td>{item.customer_field}</td>
-                  <td>{item.license_points_consumed}</td>
-                  <td>{item.alarm_status}</td>
-                  <td>{item.Aggregated_alarm_status}</td>
+                  <td style={{ textAlign: 'center' }}>{item.site_id}</td>
+                  <td style={{ textAlign: 'center' }}>{item.site_name}</td>
+                  <td style={{ textAlign: 'center' }}>{item.slot_id}</td>
+                  <td style={{ textAlign: 'center' }}>{item.port_id}</td>
+                  <td style={{ textAlign: 'center' }}>{item.status}</td>
+                  <td style={{ textAlign: 'center' }}>{item.company_id}</td>
+                  <td style={{ textAlign: 'center' }}>{item.mnemonic}</td>
+                  <td style={{ textAlign: 'center' }}>{item.clei_code}</td>
+                  <td style={{ textAlign: 'center' }}>{item.part_no}</td>
+                  <td style={{ textAlign: 'center' }}>{item.software_no}</td>
+                  <td style={{ textAlign: 'center' }}>{item.factory_id}</td>
+                  <td style={{ textAlign: 'center' }}>{item.serial_no}</td>
+                  <td style={{ textAlign: 'center' }}>{item.date_id}</td>
+                  <td style={{ textAlign: 'center' }}>{item.manufactured_date}</td>
+                  <td style={{ textAlign: 'center' }}>{item.customer_field}</td>
+                  <td style={{ textAlign: 'center' }}>{item.license_points_consumed}</td>
+                  <td style={{ textAlign: 'center' }}>{item.alarm_status}</td>
+                  <td style={{ textAlign: 'center' }}>{item.Aggregated_alarm_status}</td>
                   <td style={{ textAlign: 'center' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                      <button className="stylish-btn" onClick={() => openEditForm(item)}>Details</button>
-                      <button className="stylish-btn danger" onClick={() => handleDelete(item.id)}>Delete</button>
+                      <button className="pagination-btn" onClick={() => openEditForm(item)}>Details</button>
+                      <button className="clear-btn" onClick={() => handleDelete(item.id)}>Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -280,27 +291,179 @@ export default function Inventory() {
 
       {showForm && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ minWidth: '800px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h3>{isEditing ? `Edit Inventory: ${editingId}` : 'New Inventory'}</h3>
-              <button onClick={() => setShowForm(false)} className="close-btn">✖</button>
-            </div>
-            <form onSubmit={handleSubmit} className="project-form">
-              {Object.keys(initialForm).map((key) => (
-                <div key={key}>
-                  <label>{key.replace(/_/g, ' ')}</label>
-                  <input
-                    type={['slot_id', 'port_id'].includes(key) ? 'number' : 'text'}
-                    name={key}
-                    value={formData[key] || ''}
-                    onChange={handleChange}
-                    required
-                    disabled={isEditing && key === 'site_id'}
-                  />
-                </div>
-              ))}
-              <button type="submit" className="stylish-btn" style={{ width: '100%', marginTop: '1rem' }}>
-                {isEditing ? 'Update Inventory' : 'Create Inventory'}
+          <div className="modal-content">
+            <form className="project-form" onSubmit={handleSubmit}>
+              <div className="modal-header-row" style={{ justifyContent: 'space-between' }}>
+                <h3 className="modal-title">
+                  {isEditing ? `Edit Inventory: ${editingId}` : 'New Inventory'}
+                </h3>
+                <button className="modal-close-btn" onClick={() => setShowForm(false)} type="button">&times;</button>
+              </div>
+              <input
+                className="search-input"
+                type="text"
+                name="site_id"
+                placeholder="Site ID"
+                value={formData.site_id}
+                required
+                disabled={isEditing}
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="site_name"
+                placeholder="Site Name"
+                value={formData.site_name}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="number"
+                name="slot_id"
+                placeholder="Slot ID"
+                value={formData.slot_id}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="number"
+                name="port_id"
+                placeholder="Port ID"
+                value={formData.port_id}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="status"
+                placeholder="Status"
+                value={formData.status}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="company_id"
+                placeholder="Company ID"
+                value={formData.company_id}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="mnemonic"
+                placeholder="Mnemonic"
+                value={formData.mnemonic}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="clei_code"
+                placeholder="CLEI Code"
+                value={formData.clei_code}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="part_no"
+                placeholder="Part No"
+                value={formData.part_no}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="software_no"
+                placeholder="Software Part No"
+                value={formData.software_no}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="factory_id"
+                placeholder="Factory ID"
+                value={formData.factory_id}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="serial_no"
+                placeholder="Serial No"
+                value={formData.serial_no}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="date_id"
+                placeholder="Date ID"
+                value={formData.date_id}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="manufactured_date"
+                placeholder="Manufactured Date"
+                value={formData.manufactured_date}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="customer_field"
+                placeholder="Customer Field"
+                value={formData.customer_field}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="license_points_consumed"
+                placeholder="License Points Consumed"
+                value={formData.license_points_consumed}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="alarm_status"
+                placeholder="Alarm Status"
+                value={formData.alarm_status}
+                required
+                onChange={handleChange}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="Aggregated_alarm_status"
+                placeholder="Aggregated Alarm Status"
+                value={formData.Aggregated_alarm_status}
+                required
+                onChange={handleChange}
+              />
+              <button className="upload-btn" type="submit">
+                {isEditing ? 'Update' : 'Save'}
               </button>
             </form>
           </div>
