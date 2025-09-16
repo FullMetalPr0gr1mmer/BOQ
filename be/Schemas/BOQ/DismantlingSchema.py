@@ -7,7 +7,7 @@ class DismantlingBase(BaseModel):
     nec_dismantling_link_id: str
     no_of_dismantling: int
     comments: Optional[str] = None
-
+    pid_po: Optional[str] = None
 class DismantlingCreate(DismantlingBase):
     pass
 

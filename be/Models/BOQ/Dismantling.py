@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from Database.session import Base
 
 class Dismantling(Base):
@@ -9,3 +9,4 @@ class Dismantling(Base):
     nec_dismantling_link_id = Column(String(200), index=True, nullable=False)
     no_of_dismantling = Column(Integer, nullable=False)
     comments = Column(Text, nullable=True)
+    pid_po=Column(String(200),ForeignKey('projects.pid_po'),index=True)

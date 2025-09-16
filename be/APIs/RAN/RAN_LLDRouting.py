@@ -282,7 +282,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     output = io.StringIO()
     writer = csv.writer(output)
     headers = [
-        "PO Line -L1", "Item Code", "Merge POLine#UPLLine#", "Seq.-L2",
+        "PO Line -L1", "Item Code","L1 Category", "Merge POLine#UPLLine#", "Seq.-L2",
         "Model Name / Description", "Serial number", "Quantity", "Notes"
     ]
     writer.writerow(headers)
@@ -290,8 +290,9 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     # Write data rows from matching parents and their children
     for parent in matching_parents:
         parent_row = [
-            "NA",
+            parent.po_line,
             "NA",  # Item Code
+            parent.category,
             "NA",
             "NA",
             parent.item_name,  # Model Name / Description
@@ -313,8 +314,9 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                 description = f"{child.item_details or ''}".strip()
 
                 child_row = [
-                    "NA",
+                    parent.po_line or "NA",
                     child.vendor_part_number,
+                    child.category or "NA",
                     "NA",
                     "NA",
                     description,
@@ -331,7 +333,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             antenna_count = int(site.total_antennas)
             for _ in range(antenna_count):
                 antenna_row = [
-                    "NA", "NA", "NA", "NA",
+                    "NA","NA", "NA", "NA", "NA",
                     site.new_antennas,  # Model Name / Description
                     "XXXXXXXX",  # Serial Number
                     1,  # Quantity
