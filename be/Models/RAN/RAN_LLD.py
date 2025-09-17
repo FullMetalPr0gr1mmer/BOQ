@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from Database.session import Base
 
 
@@ -11,3 +11,4 @@ class RAN_LLD(Base):
     total_antennas = Column(Integer, nullable=True)
     technical_boq = Column(String(255), nullable=True)
     key = Column(String(200),nullable=True)
+    pid_po = Column(String(200),ForeignKey('ran_projects.pid_po'), index=True, nullable=True)

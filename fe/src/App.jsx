@@ -22,6 +22,7 @@ import Home from './Components/Home';
 import RANLLD from './RanComponents/RanLLD';
 import RANLvl3 from './RanComponents/RanLvl3';
 import RANInventory from './RanComponents/RanInventory';
+import RanProjects from './RanComponents/RanProjects';
 
 function App() {
   const [auth, setAuth] = useState({
@@ -70,6 +71,7 @@ function App() {
               <Route path="/ran-lld" element={<RANLLD />} />
               <Route path="/ran-level3" element={<RANLvl3 />} />
               <Route path="/ran-inventory" element={<RANInventory />} />
+              <Route path="/ran-projects" element={<RanProjects />} />
               <Route path="*" element={<Home setActiveSection={setActiveSection} user={auth.user}/>} />
             </Routes>
           </div>

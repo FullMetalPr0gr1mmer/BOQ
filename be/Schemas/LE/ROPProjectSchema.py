@@ -16,5 +16,6 @@ class ROPProjectCreate(ROPProjectBase):
     pass
 
 class ROPProjectOut(ROPProjectBase):
+    pid_po:str
     class Config:
         orm_mode = True

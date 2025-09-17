@@ -53,19 +53,21 @@ const apiService = {
 
   // Projects endpoints
   getAllProjects: async function() {
+
     return this.apiCall('/get_project');
+  
   },
 
   // Access management endpoints
   grantAccess: async function(accessData) {
-    return this.apiCall('/audit-logs/grant_project_access', {
+    return this.apiCall(`/audit-logs/grant_project_access`, {
       method: 'POST',
       body: JSON.stringify(accessData),
     });
   },
 
   updateAccess: async function(accessId, updateData) {
-    return this.apiCall(`/admin/update_project_access/${accessId}`, {
+    return this.apiCall(`/audit-logs/update_project_access/${accessId}`, {
       method: 'PUT',
       body: JSON.stringify(updateData),
     });
@@ -120,9 +122,11 @@ const SeniorAdminDashboard = () => {
   const [selectedAccess, setSelectedAccess] = useState(null);
   const [grantForm, setGrantForm] = useState({
     user_id: '',
+    section: '', // 1 = MW BOQ, 2 = RAN BOQ
     project_id: '',
     permission_level: 'view'
   });
+  const [sectionProjects, setSectionProjects] = useState([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
@@ -233,10 +237,14 @@ const SeniorAdminDashboard = () => {
     setAuthError('');
     try {
       setLoading(true);
-      await apiService.grantAccess({
-        user_id: parseInt(grantForm.user_id),
-        project_id: grantForm.project_id,
-        permission_level: grantForm.permission_level
+      await apiService.apiCall(`/audit-logs/grant_project_access`, {
+        method: 'POST',
+        body: JSON.stringify({
+          section:parseInt(grantForm.section),
+          user_id: parseInt(grantForm.user_id),
+          project_id: grantForm.project_id,
+          permission_level: grantForm.permission_level
+        }),
       });
       showMessage('Access granted successfully', 'success');
       setShowGrantModal(false);
@@ -652,7 +660,9 @@ const SeniorAdminDashboard = () => {
             padding: '2rem',
             maxWidth: '500px',
             width: '90%',
-            boxShadow: 'var(--shadow-main)'
+            boxShadow: 'var(--shadow-main)',
+            maxHeight: '80vh',
+            overflowY: 'auto'
           }}>
             <div style={{ marginBottom: '1.5rem' }}>
               <h3 style={{ color: 'var(--primary-color)', margin: 0, fontSize: '1.5rem' }}>
@@ -667,7 +677,10 @@ const SeniorAdminDashboard = () => {
                 <select
                   className="search-input"
                   value={grantForm.user_id}
-                  onChange={(e) => setGrantForm({...grantForm, user_id: e.target.value})}
+                  onChange={async (e) => {
+                    const user_id = e.target.value;
+                    setGrantForm({ ...grantForm, user_id });
+                  }}
                   required
                 >
                   <option value="">Choose a user...</option>
@@ -680,16 +693,50 @@ const SeniorAdminDashboard = () => {
               </div>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
+                  Section:
+                </label>
+                <select
+                  className="search-input"
+                  value={grantForm.section}
+                  onChange={async (e) => {
+                    const section = e.target.value;
+                    setGrantForm({ ...grantForm, section, project_id: '' });
+                    // Fetch projects for selected section
+                    if (section === '1') {
+                      const mwProjects = await apiService.apiCall('/get_project');
+                      setSectionProjects(Array.isArray(mwProjects) ? mwProjects : []);
+                    } else if (section === '2') {
+                      const ranProjects = await apiService.apiCall('/ran-projects');
+                      setSectionProjects(Array.isArray(ranProjects) ? ranProjects : []);
+                    } else if (section === '3') {
+                      const leProjects = await apiService.apiCall('/rop-projects');
+                      setSectionProjects(Array.isArray(leProjects) ? leProjects : []);
+                    } else {
+                      setSectionProjects([]);
+                    }
+                  }}
+                  required
+                  disabled={!grantForm.user_id}
+                >
+                  <option value="">Choose a section...</option>
+                  <option value="1">MW BOQ</option>
+                  <option value="2">RAN BOQ</option>
+                  <option value="3">LE-Automation</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
                   Select Project:
                 </label>
                 <select
                   className="search-input"
                   value={grantForm.project_id}
-                  onChange={(e) => setGrantForm({...grantForm, project_id: e.target.value})}
+                  onChange={(e) => setGrantForm({ ...grantForm, project_id: e.target.value })}
                   required
+                  disabled={!grantForm.user_id || !grantForm.section}
                 >
                   <option value="">Choose a project...</option>
-                  {projects.map(project => (
+                  {sectionProjects.map(project => (
                     <option key={project.pid_po} value={project.pid_po}>
                       {project.project_name} ({project.pid_po})
                     </option>
@@ -703,8 +750,9 @@ const SeniorAdminDashboard = () => {
                 <select
                   className="search-input"
                   value={grantForm.permission_level}
-                  onChange={(e) => setGrantForm({...grantForm, permission_level: e.target.value})}
+                  onChange={(e) => setGrantForm({ ...grantForm, permission_level: e.target.value })}
                   required
+                  disabled={!grantForm.user_id || !grantForm.section}
                 >
                   <option value="view">View Only</option>
                   <option value="edit">Edit Access</option>
@@ -717,7 +765,8 @@ const SeniorAdminDashboard = () => {
                   className="clear-btn"
                   onClick={() => {
                     setShowGrantModal(false);
-                    setGrantForm({ user_id: '', project_id: '', permission_level: 'view' });
+                    setGrantForm({ user_id: '', section: '', project_id: '', permission_level: 'view' });
+                    setSectionProjects([]);
                   }}
                   disabled={loading}
                 >

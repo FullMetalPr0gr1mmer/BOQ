@@ -3,7 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import '../css/Project.css';
 
 const PROJECTS_PER_PAGE = 5;
-
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+};
+const getAuthHeadersForFormData = () => {
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 export default function ROPProject() {
   const [projects, setProjects] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -31,7 +48,7 @@ export default function ROPProject() {
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-projects/`);
+      const res = await fetch(`${VITE_API_URL}/rop-projects/`,{ headers: getAuthHeaders() });
       const data = await res.json();
       setProjects(data);
     } catch {
@@ -47,6 +64,7 @@ export default function ROPProject() {
     setLastCsvFile(file);
     try {
       const res = await fetch(`${VITE_API_URL}/rop-projects/upload-csv`, {
+        headers: getAuthHeadersForFormData(),
         method: 'POST',
         body: formData
       });
@@ -75,30 +93,6 @@ export default function ROPProject() {
     const projectData = { pid, po, project_name: projectName, wbs, country, currency };
 
     if (csvModalMode) {
-      /*
-      =====================================================================
-      ||  CSV CORRECTION MODE: PROJECT DATA AVAILABLE HERE                ||
-      =====================================================================
-      ||  The user has corrected the project data after a CSV upload      ||
-      ||  failed due to missing Level 0. The object below contains the    ||
-      ||  corrected project data:                                         ||
-      ||                                                                 ||
-      ||      projectData = {                                            ||
-      ||        pid, po, project_name, wbs, country, currency            ||
-      ||      }                                                          ||
-      ||                                                                 ||
-      ||  You can send this data to your backend for further processing,  ||
-      ||  e.g. POST to a special endpoint for CSV correction:             ||
-      ||                                                                 ||
-      ||      await fetch(`${VITE_API_URL}/rop-projects/upload-csv-fix`,  ||
-      ||        { method: 'POST', body: formData, ...}                   ||
-      ||      );                                                        ||
-      ||                                                                 ||
-      ||  This block ONLY runs if the modal was opened due to a CSV error.||
-      =====================================================================
-      */
-      // --- SEND projectData BACK TO THE UPLOAD METHOD FOR FURTHER MANIPULATION ---
-      // Prepare FormData for FastAPI Form(...) endpoint
       const formData = new FormData();
       formData.append('pid', pid);
       formData.append('po', po);
@@ -111,6 +105,7 @@ export default function ROPProject() {
         formData.append('file', lastCsvFile);
       }
       await fetch(`${VITE_API_URL}/rop-projects/upload-csv-fix`, {
+        headers: getAuthHeadersForFormData(),
         method: 'POST',
         body: formData
       });
@@ -126,13 +121,13 @@ export default function ROPProject() {
       if (editingProject) {
         res = await fetch(`${VITE_API_URL}/rop-projects/${editingProject.pid + editingProject.po}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify(projectData),
         });
       } else {
         res = await fetch(`${VITE_API_URL}/rop-projects/`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify(projectData),
         });
       }
@@ -176,7 +171,7 @@ export default function ROPProject() {
     if (!window.confirm(`Delete project ${proj.pid} - ${proj.project_name}?`)) return;
 
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-projects/${proj.pid + proj.po}`, { method: 'DELETE' });
+      const res = await fetch(`${VITE_API_URL}/rop-projects/${proj.pid + proj.po}`, { method: 'DELETE',headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to delete project');
       setSuccess('Project deleted successfully!');
       fetchProjects();

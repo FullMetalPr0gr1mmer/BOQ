@@ -37,5 +37,7 @@ class UserProjectAccess(Base):
     __tablename__ = 'user_project_access'
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    project_id = Column(String(200), ForeignKey('projects.pid_po'), nullable=False)
+    project_id = Column(String(200), ForeignKey('projects.pid_po'), nullable=True)
     permission_level = Column(String(50), nullable=False, default="view")
+    Ranproject_id= Column(String(200), ForeignKey('ran_projects.pid_po'), nullable=True)
+    Ropproject_id= Column(String(200), ForeignKey('rop_projects.pid_po'), nullable=True)

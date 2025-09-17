@@ -17,6 +17,7 @@ from APIs.LE.ROPProjectRoute import ROPProjectrouter
 from APIs.LE.RopPackageRoute import RopPackageRouter
 from APIs.RAN.RANInventoryRouting import RANInventoryRouter
 from APIs.RAN.RANLvl3Routing import RANLvl3Router
+from APIs.RAN.RANProjectRouting import RANProjectRoute
 from APIs.RAN.RAN_LLDRouting import ran_lld_router
 from APIs.Admin.UserRoute import userRoute
 from Database.session import engine, Base
@@ -51,5 +52,7 @@ app.include_router(ran_lld_router)
 app.include_router(lld_router)
 app.include_router(RANLvl3Router)
 app.include_router(adminRoute)
+app.include_router(RANProjectRoute)
+
 if __name__ == "__main__":
      uvicorn.run(app, host="127.0.0.1", port=8003)

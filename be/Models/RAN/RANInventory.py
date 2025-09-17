@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 
 from Database.session import Base
 
@@ -17,6 +17,6 @@ class RANInventory(Base):
     serial_number = Column(String(200), index=True, nullable=True)
     duplicate = Column(Boolean, default=False)
     duplicate_remarks = Column(String(200), nullable=True)
-
+    pid_po = Column(String(200),ForeignKey('ran_projects.pid_po'), index=True, nullable=True)
     def __repr__(self):
         return f"<RANInventory(id={self.id}, site_id='{self.site_id}')>"

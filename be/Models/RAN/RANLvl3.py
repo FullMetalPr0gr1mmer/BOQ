@@ -3,7 +3,7 @@ from enum import Enum
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from Database.session import Base
-
+from Models.RAN.RANProject import RanProject
 class TypeofService(str, Enum):
     Software = "1"
     Hardware = "2"
@@ -14,7 +14,7 @@ class TypeofService(str, Enum):
 class RANLvl3(Base):
     __tablename__ = 'ranlvl3'
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(String(200), ForeignKey("projects.pid_po"), index=True)
+    project_id = Column(String(200), ForeignKey('ran_projects.pid_po'), index=True,nullable=True)
     item_name = Column(String(200), index=True)
     key = Column(String(200), nullable=True)  # New 'key' attribute
     _service_type = Column('service_type', String, default='[]')

@@ -3,6 +3,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import '../css/RopLvl1.css';
 const ENTRIES_PER_PAGE = 15;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+};
 export default function RopLvl1() {
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -47,7 +57,7 @@ export default function RopLvl1() {
 				// Only fetch if details aren't already loaded
 				if (!lvl2Details[item.id]) {
 					try {
-						const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${item.id}`);
+						const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${item.id}`,{headers: getAuthHeaders()});
 						if (!res.ok) throw new Error('Failed to fetch Level 2 items');
 						const data = await res.json();
 						newLvl2Details[item.id] = data;
@@ -96,7 +106,7 @@ export default function RopLvl1() {
 			const url = projectState?.pid_po
 				? `${VITE_API_URL}/rop-lvl1/by-project/${projectState.pid_po}`
 				: `${VITE_API_URL}/rop-lvl1/`;
-			const res = await fetch(url);
+			const res = await fetch(url,{headers: getAuthHeaders()});
 			const data = await res.json();
 			setEntries(data);
 		} catch {
@@ -106,7 +116,7 @@ export default function RopLvl1() {
 
 	const fetchLvl2Items = async (lvl1_id) => {
 		try {
-			const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${lvl1_id}`);
+			const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${lvl1_id}`,{headers: getAuthHeaders()});
 			if (!res.ok) throw new Error('Failed to fetch Level 2 items');
 			const data = await res.json();
 			setLvl2Items(prev => ({ ...prev, [lvl1_id]: data }));
@@ -157,7 +167,7 @@ export default function RopLvl1() {
 		try {
 			const res = await fetch(`${VITE_API_URL}/rop-package/create`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: getAuthHeaders(),
 				body: JSON.stringify(payload),
 			});
 

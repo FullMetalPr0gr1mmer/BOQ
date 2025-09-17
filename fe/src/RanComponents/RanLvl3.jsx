@@ -4,6 +4,26 @@ import "../css/Dismantling.css";
 const ROWS_PER_PAGE = 50;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+};
+
+const getAuthHeadersForFormData = () => {
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 // Define the Service Type mapping for the dropdown
 const serviceTypes = {
   "1": "Software",
@@ -19,6 +39,10 @@ export default function RANLvl3() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // NEW: Project management states
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
 
   // Parent modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,6 +63,25 @@ export default function RANLvl3() {
 
   const fetchAbort = useRef(null);
 
+  // NEW: Function to fetch user's accessible projects
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch(`${VITE_API_URL}/ran-projects`, { 
+        headers: getAuthHeaders() 
+      });
+      if (!res.ok) throw new Error('Could not fetch projects');
+      const data = await res.json();
+      setProjects(data || []);
+      // Optionally, auto-select the first project
+      if (data && data.length > 0) {
+        setSelectedProject(data[0].pid_po);
+      }
+    } catch (err) {
+      setError('Failed to load projects. Please ensure you have project access.');
+      console.error(err);
+    }
+  };
+
   const fetchRANLvl3 = async (page = 1, search = "") => {
     try {
       if (fetchAbort.current) fetchAbort.current.abort();
@@ -54,10 +97,20 @@ export default function RANLvl3() {
       if (search.trim()) params.set("search", search.trim());
 
       const res = await fetch(`${VITE_API_URL}/ranlvl3?${params.toString()}`, {
+        headers: getAuthHeaders(),
         signal: controller.signal,
       });
 
-      if (!res.ok) throw new Error("Failed to fetch RAN Level 3 records");
+      if (!res.ok) {
+        let errorMessage = 'Failed to fetch RAN Level 3 records';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
 
       const { records, total } = await res.json();
 
@@ -71,6 +124,8 @@ export default function RANLvl3() {
           uom: r.uom,
           total_quantity: r.total_quantity,
           total_price: r.total_price,
+          category: r.category,
+          po_line: r.po_line,
           items: r.items || [],
         }))
       );
@@ -84,6 +139,7 @@ export default function RANLvl3() {
   };
 
   useEffect(() => {
+    fetchProjects(); // Fetch projects on component mount
     fetchRANLvl3(1, "");
   }, []);
 
@@ -93,23 +149,32 @@ export default function RANLvl3() {
     fetchRANLvl3(1, v);
   };
 
+  // MODIFIED: Handle child upload with project validation
   const handleChildUpload = async (e, parentId) => {
     const file = e.target.files[0];
     if (!file) return;
+    
     setChildUploading(true);
     setError("");
     setSuccess("");
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("parent_id", parentId);
+    
     try {
       const res = await fetch(`${VITE_API_URL}/ranlvl3/${parentId}/items/upload-csv`, {
         method: "POST",
+        headers: getAuthHeadersForFormData(),
         body: formData,
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to upload items CSV");
+        let errorMessage = 'Failed to upload items CSV';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
       const result = await res.json();
       setSuccess(`Upload successful! ${result.inserted || "?"} items inserted.`);
@@ -126,9 +191,19 @@ export default function RANLvl3() {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
       const res = await fetch(`${VITE_API_URL}/ranlvl3/${id}`, {
+        headers: getAuthHeaders(),
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete record");
+      if (!res.ok) {
+        let errorMessage = 'Failed to delete record';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
       setSuccess("Record deleted successfully");
       fetchRANLvl3(currentPage, searchTerm);
     } catch (err) {
@@ -141,8 +216,18 @@ export default function RANLvl3() {
     try {
       const res = await fetch(`${VITE_API_URL}/ranlvl3/${parentId}/items/${childId}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
-      if (!res.ok) throw new Error("Failed to delete item");
+      if (!res.ok) {
+        let errorMessage = 'Failed to delete item';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
       setSuccess("Item deleted successfully");
       fetchRANLvl3(currentPage, searchTerm);
     } catch (err) {
@@ -162,18 +247,26 @@ export default function RANLvl3() {
     });
   };
 
-  // Create modal functions
+  // MODIFIED: Create modal functions with project validation
   const openCreateModal = () => {
+    if (!selectedProject) {
+      setError('Please select a project to create a new RAN Level 3 record.');
+      return;
+    }
     setCreateForm({
-      project_id: '',
+      project_id: selectedProject,
       item_name: '',
       key: '',
       service_type: '',
       uom: '',
       total_quantity: '',
-      total_price: ''
+      total_price: '',
+      category: '',
+      po_line: ''
     });
     setIsCreateModalOpen(true);
+    setError('');
+    setSuccess('');
   };
 
   const closeCreateModal = () => {
@@ -210,14 +303,20 @@ export default function RANLvl3() {
         service_type: createForm.service_type ? [createForm.service_type] : [],
         items: []
       };
-      const res = await fetch(`${VITE_API_URL}/ranlvl3`, {
+      const res = await fetch(`${VITE_API_URL}/ranlvl3/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(createData),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to create record");
+        let errorMessage = 'Failed to create record';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
       setSuccess("Record created successfully!");
       closeCreateModal();
@@ -279,12 +378,18 @@ export default function RANLvl3() {
       };
       const res = await fetch(`${VITE_API_URL}/ranlvl3/${editingRow.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(updateData),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to update record");
+        let errorMessage = 'Failed to update record';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
       setSuccess("Record updated successfully!");
       closeModal();
@@ -342,12 +447,18 @@ export default function RANLvl3() {
       };
       const res = await fetch(`${VITE_API_URL}/ranlvl3/${childEditingRow.parentId}/items/${childEditingRow.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(updateData),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to update item");
+        let errorMessage = 'Failed to update item';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
       setSuccess("Item updated successfully!");
       closeChildModal();
@@ -369,12 +480,14 @@ export default function RANLvl3() {
         <button
           className="upload-btn"
           onClick={openCreateModal}
+          disabled={!selectedProject}
+          title={!selectedProject ? "Select a project first" : "Create a new RAN Level 3 record"}
         >
-          ➕ Create RAN Level 3 Item
+          + Create RAN Level 3 Item
         </button>
       </div>
 
-      {/* Search */}
+      {/* Search & Project Selection */}
       <div className="dismantling-search-container">
         <input
           type="text"
@@ -394,6 +507,20 @@ export default function RANLvl3() {
             Clear
           </button>
         )}
+        
+        <select
+          id="project-select"
+          className="search-input"
+          value={selectedProject}
+          onChange={(e) => setSelectedProject(e.target.value)}
+        >
+          <option value="">-- Select a Project --</option>
+          {projects.map((p) => (
+            <option key={p.pid_po} value={p.pid_po}>
+              {p.project_name} ({p.pid_po})
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Messages */}
@@ -414,13 +541,15 @@ export default function RANLvl3() {
               <th>UOM</th>
               <th>Total Quantity</th>
               <th>Total Price</th>
+              <th>Category</th>
+              <th>PO Line</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={10} className="no-results">
+                <td colSpan={11} className="no-results">
                   No results
                 </td>
               </tr>
@@ -450,6 +579,8 @@ export default function RANLvl3() {
                     <td>{row.uom}</td>
                     <td>{row.total_quantity}</td>
                     <td>{row.total_price}</td>
+                    <td>{row.category}</td>
+                    <td>{row.po_line}</td>
                     <td className="actions-cell">
                       <button className="clear-btn" onClick={() => openEditModal(row)}>
                         Edit
@@ -461,7 +592,7 @@ export default function RANLvl3() {
                   </tr>
                   {expandedRows.has(row.id) && (
                     <tr>
-                      <td colSpan={10} style={{ padding: 0, background: '#f8fafb' }}>
+                      <td colSpan={11} style={{ padding: 0, background: '#f8fafb' }}>
                         <div style={{ padding: '1rem', borderLeft: '4px solid var(--primary-color)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 style={{ margin: 0, color: 'var(--primary-color)' }}>Items for {row.item_name}</h4>
@@ -565,6 +696,10 @@ export default function RANLvl3() {
               <h3>Create New RAN Level 3 Item</h3>
               <button onClick={closeCreateModal} className="close-btn">✖</button>
             </div>
+            
+            {error && <div className="dismantling-message error">{error}</div>}
+            {success && <div className="dismantling-message success">{success}</div>}
+            
             <table className="dismantling-table" style={{ width: '100%', borderSpacing: 0, borderCollapse: 'collapse' }}>
               <tbody>
                 {Object.keys(createForm).map((key) => (
@@ -573,8 +708,20 @@ export default function RANLvl3() {
                       {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </td>
                     <td>
-                      {/* Dropdown for Service Type */}
-                      {key === 'service_type' ? (
+                      {key === 'project_id' ? (
+                        <select
+                          value={createForm[key]}
+                          onChange={e => onCreateChange(key, e.target.value)}
+                          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                        >
+                          <option value="">-- Select Project --</option>
+                          {projects.map((p) => (
+                            <option key={p.pid_po} value={p.pid_po}>
+                              {p.project_name} ({p.pid_po})
+                            </option>
+                          ))}
+                        </select>
+                      ) : key === 'service_type' ? (
                         <select
                           value={createForm[key]}
                           onChange={e => onCreateChange(key, e.target.value)}
@@ -594,7 +741,7 @@ export default function RANLvl3() {
                           value={createForm[key] !== null && createForm[key] !== undefined ? createForm[key] : ''}
                           onChange={e => onCreateChange(key, e.target.value)}
                           style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                          placeholder={key === 'service_type' ? 'Enter comma-separated values (e.g., 1,2,3)' : ''}
+                          disabled={key === 'project_id'}
                         />
                       )}
                     </td>
@@ -630,8 +777,20 @@ export default function RANLvl3() {
                       {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </td>
                     <td>
-                      {/* Dropdown for Service Type */}
-                      {key === 'service_type' ? (
+                      {key === 'project_id' ? (
+                        <select
+                          value={editForm[key]}
+                          onChange={e => onEditChange(key, e.target.value)}
+                          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                        >
+                          <option value="">-- Select Project --</option>
+                          {projects.map((p) => (
+                            <option key={p.pid_po} value={p.pid_po}>
+                              {p.project_name} ({p.pid_po})
+                            </option>
+                          ))}
+                        </select>
+                      ) : key === 'service_type' ? (
                         <select
                           value={editForm[key]}
                           onChange={e => onEditChange(key, e.target.value)}

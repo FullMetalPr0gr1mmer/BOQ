@@ -2,6 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../css/RopLvl2.css';
 const ENTRIES_PER_PAGE = 5;
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+};
 
 export default function RopLvl2() {
   const location = useLocation();
@@ -42,7 +52,7 @@ export default function RopLvl2() {
       const url = formData.lvl1_id
         ? `${VITE_API_URL}/rop-lvl2/by-lvl1/${formData.lvl1_id}`
         : `${VITE_API_URL}/rop-lvl2/`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getAuthHeaders() });
       const data = await res.json();
       setEntries(data);
     } catch {
@@ -138,7 +148,7 @@ export default function RopLvl2() {
 
       const res = await fetch(url, {
         method: isEditing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
 
@@ -194,7 +204,7 @@ export default function RopLvl2() {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this entry?')) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-lvl2/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${VITE_API_URL}/rop-lvl2/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to delete entry');
       setEntries(entries.filter((e) => e.id !== id));
       setSuccess('Entry deleted successfully!');
@@ -277,7 +287,7 @@ export default function RopLvl2() {
     try {
       const res = await fetch(`${VITE_API_URL}/rop-lvl2/update/${entry.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ ...entry, distributions: newDistributions })
       });
       if (!res.ok) throw new Error('Failed to save distributions');

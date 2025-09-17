@@ -7,7 +7,16 @@ import moment from "moment";
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 const MONTH_WIDTH = 60; // width of 1 month column in px
-
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+};
 export default function RopPackage() {
   const location = useLocation();
   const projectState = location.state;
@@ -40,7 +49,7 @@ export default function RopPackage() {
     try {
       const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ quantity: Number(editingQuantityCol[pkg.id]) })
       });
       if (!res.ok) throw new Error("Failed to save quantity");
@@ -69,7 +78,7 @@ export default function RopPackage() {
   const fetchPackages = async () => {
     try {
       const url = VITE_API_URL + "/rop-package/";
-      const res = await fetch(url);
+      const res = await fetch(url,{ headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Failed to fetch packages");
       const data = await res.json();
       setPackages(data);
@@ -127,7 +136,7 @@ export default function RopPackage() {
     try {
       const res = await fetch(`${VITE_API_URL}/rop-package/update/${packageId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers:  getAuthHeaders(),
         body: JSON.stringify(updatedData),
       });
 
@@ -151,6 +160,7 @@ export default function RopPackage() {
     try {
       const res = await fetch(`${VITE_API_URL}/rop-package/${packageId}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -276,7 +286,7 @@ export default function RopPackage() {
     try {
       const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers:  getAuthHeaders(),
         body: JSON.stringify({ lvl1_ids: updatedLvl1 })
       });
       if (!res.ok) throw new Error("Failed to save quantities");
@@ -307,7 +317,7 @@ export default function RopPackage() {
     try {
       const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers:  getAuthHeaders(),
         body: JSON.stringify({ quantity: totalQty })
       });
       if (!res.ok) throw new Error("Failed to save monthly quantities");

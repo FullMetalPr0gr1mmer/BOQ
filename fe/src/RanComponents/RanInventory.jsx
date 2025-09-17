@@ -1,9 +1,28 @@
 import React, { useState, useEffect, useRef } from "react";
 import "../css/Dismantling.css";
-// The VITE_API_URL is an environment variable. In this self-contained
-// environment, we'll set a placeholder URL for demonstration.
+
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 const ROWS_PER_PAGE = 50;
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  return { 'Content-Type': 'application/json' };
+};
+
+const getAuthHeadersForFormData = () => {
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 export default function RANInventory() {
   const [rows, setRows] = useState([]);
@@ -20,7 +39,42 @@ export default function RANInventory() {
   const [editForm, setEditForm] = useState({});
   const [updating, setUpdating] = useState(false);
 
+  // NEW: State for project management
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    mrbts: '',
+    site_id: '',
+    identification_code: '',
+    user_label: '',
+    serial_number: '',
+    duplicate: false,
+    duplicate_remarks: '',
+    pid_po: ''
+  });
+  const [creating, setCreating] = useState(false);
+
   const fetchAbort = useRef(null);
+
+  // NEW: Function to fetch user's accessible projects
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch(`${VITE_API_URL}/ran-projects`, { 
+        headers: getAuthHeaders() 
+      });
+      if (!res.ok) throw new Error('Could not fetch projects');
+      const data = await res.json();
+      setProjects(data || []);
+      // Optionally, auto-select the first project
+      if (data && data.length > 0) {
+        setSelectedProject(data[0].pid_po);
+      }
+    } catch (err) {
+      setError('Failed to load projects. Please ensure you have project access.');
+      console.error(err);
+    }
+  };
 
   const fetchInventory = async (page = 1, search = "") => {
     try {
@@ -37,10 +91,20 @@ export default function RANInventory() {
       if (search.trim()) params.set("search", search.trim());
 
       const res = await fetch(`${VITE_API_URL}/raninventory?${params.toString()}`, {
-        signal: controller.signal,
+        signal: controller.signal,  
+        headers: getAuthHeaders(),
       });
 
-      if (!res.ok) throw new Error("Failed to fetch RAN Inventory records");
+      if (!res.ok) {
+        let errorMessage = 'Failed to fetch RAN Inventory records';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
 
       const { records, total } = await res.json();
 
@@ -54,6 +118,7 @@ export default function RANInventory() {
           serial_number: r.serial_number,
           duplicate: r.duplicate,
           duplicate_remarks: r.duplicate_remarks,
+          pid_po: r.pid_po,
         }))
       );
       setTotal(total || 0);
@@ -66,6 +131,7 @@ export default function RANInventory() {
   };
 
   useEffect(() => {
+    fetchProjects(); // Fetch projects on component mount
     fetchInventory(1, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -76,22 +142,39 @@ export default function RANInventory() {
     fetchInventory(1, v);
   };
 
+  // MODIFIED: Handle Upload with project selection
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Check if a project is selected
+    if (!selectedProject) {
+      setError("Please select a project before uploading.");
+      e.target.value = '';
+      return;
+    }
+
     setUploading(true);
     setError("");
     setSuccess("");
     const formData = new FormData();
     formData.append("file", file);
+
     try {
       const res = await fetch(`${VITE_API_URL}/raninventory/upload-csv`, {
+        headers: getAuthHeadersForFormData(),
         method: "POST",
         body: formData,
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to upload RAN Inventory CSV");
+        let errorMessage = 'Upload failed';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
       const result = await res.json();
       setSuccess(`Upload successful! ${result.message}`);
@@ -108,9 +191,19 @@ export default function RANInventory() {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
       const res = await fetch(`${VITE_API_URL}/raninventory/${id}`, {
+        headers: getAuthHeaders(),
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete record");
+      if (!res.ok) {
+        let errorMessage = 'Failed to delete record';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
       setSuccess("Record deleted successfully");
       fetchInventory(currentPage, searchTerm);
     } catch (err) {
@@ -144,13 +237,19 @@ export default function RANInventory() {
     setSuccess("");
     try {
       const res = await fetch(`${VITE_API_URL}/raninventory/${editingRow.id}`, {
+        headers: getAuthHeaders(),
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to update record");
+        let errorMessage = 'Failed to update record';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
       setSuccess("Record updated successfully!");
       closeModal();
@@ -162,6 +261,78 @@ export default function RANInventory() {
     }
   };
 
+  // NEW: Functions for creating records
+  const openCreateModal = () => {
+    if (!selectedProject) {
+      setError('Please select a project to create a new record.');
+      return;
+    }
+    setCreateForm({
+      mrbts: '',
+      site_id: '',
+      identification_code: '',
+      user_label: '',
+      serial_number: '',
+      duplicate: false,
+      duplicate_remarks: '',
+      pid_po: selectedProject
+    });
+    setShowCreateModal(true);
+    setError('');
+    setSuccess('');
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setCreateForm({
+      mrbts: '',
+      site_id: '',
+      identification_code: '',
+      user_label: '',
+      serial_number: '',
+      duplicate: false,
+      duplicate_remarks: '',
+      pid_po: ''
+    });
+    setError('');
+    setSuccess('');
+  };
+
+  const onCreateChange = (key, value) => {
+    setCreateForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setCreating(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${VITE_API_URL}/raninventory/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(createForm),
+      });
+      if (!res.ok) {
+        let errorMessage = 'Failed to create record';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (err) {
+          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+      setSuccess('Record created successfully!');
+      fetchInventory(currentPage, searchTerm);
+      setTimeout(() => closeCreateModal(), 1200);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / ROWS_PER_PAGE);
 
   return (
@@ -170,19 +341,31 @@ export default function RANInventory() {
         {/* Header & Upload */}
         <div className="dismantling-header-row">
           <h2>RAN Inventory</h2>
-          <label className={`upload-btn ${uploading ? "disabled" : ""}`}>
-            📤 Upload RAN Inventory CSV
-            <input
-              type="file"
-              accept=".csv"
-              style={{ display: "none" }}
-              disabled={uploading}
-              onChange={handleUpload}
-            />
-          </label>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <button 
+              className="upload-btn" 
+              onClick={openCreateModal}
+              disabled={!selectedProject}
+              title={!selectedProject ? "Select a project first" : "Create a new inventory record"}
+            >
+              + New Record
+            </button>
+            <label className={`upload-btn ${uploading || !selectedProject ? "disabled" : ""}`}
+              title={!selectedProject ? "Select a project first" : "Upload RAN Inventory CSV"}
+            >
+              📤 Upload RAN Inventory CSV
+              <input
+                type="file"
+                accept=".csv"
+                style={{ display: "none" }}
+                disabled={uploading || !selectedProject}
+                onChange={handleUpload}
+              />
+            </label>
+          </div>
         </div>
 
-        {/* Search */}
+        {/* Search & Project Selection */}
         <div className="dismantling-search-container">
           <input
             type="text"
@@ -202,6 +385,20 @@ export default function RANInventory() {
               Clear
             </button>
           )}
+          
+          <select
+            id="project-select"
+            className="search-input"
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+          >
+            <option value="">-- Select a Project --</option>
+            {projects.map((p) => (
+              <option key={p.pid_po} value={p.pid_po}>
+                {p.project_name} ({p.pid_po})
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Messages */}
@@ -221,13 +418,14 @@ export default function RANInventory() {
                 <th>Serial Number</th>
                 <th>Duplicate</th>
                 <th>Duplicate Remarks</th>
+                <th>Project</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={8} className="no-results">
+                  <td colSpan={9} className="no-results">
                     No results
                   </td>
                 </tr>
@@ -241,6 +439,7 @@ export default function RANInventory() {
                     <td>{row.serial_number}</td>
                     <td>{row.duplicate ? "Yes" : "No"}</td>
                     <td>{row.duplicate_remarks}</td>
+                    <td>{row.pid_po}</td>
                     <td className="actions-cell">
                       <button className="clear-btn" onClick={() => openEditModal(row)}>
                         Edit
@@ -276,6 +475,112 @@ export default function RANInventory() {
             >
               Next
             </button>
+          </div>
+        )}
+
+        {/* Create Modal */}
+        {showCreateModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <form onSubmit={handleCreate}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <h3>Create New Record</h3>
+                  <button type="button" onClick={closeCreateModal} className="close-btn">✖</button>
+                </div>
+                
+                {error && <div className="dismantling-message error">{error}</div>}
+                {success && <div className="dismantling-message success">{success}</div>}
+                
+                <table className="dismantling-table" style={{ width: '100%', borderSpacing: 0, borderCollapse: 'collapse' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ fontWeight: 'bold' }}>MRBTS</td>
+                      <td>
+                        <input 
+                          type="text" 
+                          value={createForm.mrbts} 
+                          onChange={e => onCreateChange('mrbts', e.target.value)} 
+                          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} 
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold' }}>Site ID</td>
+                      <td>
+                        <input 
+                          type="text" 
+                          value={createForm.site_id} 
+                          onChange={e => onCreateChange('site_id', e.target.value)} 
+                          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} 
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold' }}>Identification Code</td>
+                      <td>
+                        <input 
+                          type="text" 
+                          value={createForm.identification_code} 
+                          onChange={e => onCreateChange('identification_code', e.target.value)} 
+                          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} 
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold' }}>User Label</td>
+                      <td>
+                        <input 
+                          type="text" 
+                          value={createForm.user_label} 
+                          onChange={e => onCreateChange('user_label', e.target.value)} 
+                          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} 
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold' }}>Serial Number</td>
+                      <td>
+                        <input 
+                          type="text" 
+                          value={createForm.serial_number} 
+                          onChange={e => onCreateChange('serial_number', e.target.value)} 
+                          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} 
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold' }}>Duplicate</td>
+                      <td>
+                        <input 
+                          type="checkbox" 
+                          checked={createForm.duplicate} 
+                          onChange={e => onCreateChange('duplicate', e.target.checked)} 
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold' }}>Duplicate Remarks</td>
+                      <td>
+                        <input 
+                          type="text" 
+                          value={createForm.duplicate_remarks} 
+                          onChange={e => onCreateChange('duplicate_remarks', e.target.value)} 
+                          style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} 
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="pagination-btn"
+                  style={{ marginTop: 12, width: '100%' }}
+                >
+                  {creating ? 'Creating...' : 'Create Record'}
+                </button>
+              </form>
+            </div>
           </div>
         )}
 
@@ -329,6 +634,23 @@ export default function RANInventory() {
                     <td style={{ fontWeight: 'bold' }}>Duplicate Remarks</td>
                     <td>
                       <input type="text" value={editForm.duplicate_remarks !== null && editForm.duplicate_remarks !== undefined ? editForm.duplicate_remarks : ''} onChange={e => onEditChange('duplicate_remarks', e.target.value)} style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
+                    </td>
+                  </tr>
+                  <tr key="pid_po">
+                    <td style={{ fontWeight: 'bold' }}>Project</td>
+                    <td>
+                      <select 
+                        value={editForm.pid_po || ''} 
+                        onChange={e => onEditChange('pid_po', e.target.value)}
+                        style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                      >
+                        <option value="">-- Select Project --</option>
+                        {projects.map((p) => (
+                          <option key={p.pid_po} value={p.pid_po}>
+                            {p.project_name} ({p.pid_po})
+                          </option>
+                        ))}
+                      </select>
                     </td>
                   </tr>
                 </tbody>

@@ -3,7 +3,7 @@ import '../css/header.css';
 
 const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Generation', 'LLD', 'Dismantling', 'LogOut'];
 const leAutomationTabs = ['ROP Project', 'ROP Package', 'LogOut'];
-const ranBoqTabs=['Ran LLD','Ran Level3','Ran Inventory','LogOut']
+const ranBoqTabs=['Ran Projects','Ran LLD','Ran Level3','Ran Inventory','LogOut']
 export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();
   const location = useLocation();

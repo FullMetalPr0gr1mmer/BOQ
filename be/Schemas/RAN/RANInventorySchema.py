@@ -12,6 +12,7 @@ class RANInventoryBase(BaseModel):
     serial_number: Optional[str] = Field(None, max_length=200)
     duplicate: Optional[bool] = False
     duplicate_remarks: Optional[str] = Field(None, max_length=200)
+    pid_po: Optional[str] =None
 
 class RANInventoryCreate(RANInventoryBase):
     """

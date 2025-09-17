@@ -8,7 +8,7 @@ class UserProjectAccessBase(BaseModel):
     user_id: int
     project_id: str  # Changed to str since it's pid_po
     permission_level: str
-
+    section:int
 
 class UserProjectAccessCreate(UserProjectAccessBase):
     """Schema for creating a new project access record."""
@@ -20,10 +20,14 @@ class UserProjectAccessUpdate(BaseModel):
     permission_level: str
 
 
-class UserProjectAccessResponse(UserProjectAccessBase):
+class UserProjectAccessResponse(BaseModel):
     """Schema for the response after creating a project access record."""
     id: int
-
+    user_id: int
+    project_id:Optional[str]=None# Changed to str since it's pid_po
+    permission_level: str
+    Ranproject_id:Optional[str]=None
+    Ropproject_id:Optional[str]=None
     class Config:
         from_attributes = True
 

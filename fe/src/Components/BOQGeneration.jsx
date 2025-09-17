@@ -361,12 +361,17 @@ export default function BOQGeneration() {
     setError('');
     setSuccess('');
     try {
+      // Ensure pid_po is set before submitting
+      const submitData = {
+        ...formData,
+        pid_po: formData.pid_po || selectedProject
+      };
       if (editingRow) {
         const url = `${VITE_API_URL}/boq/reference/${editingRow.id}`;
         const res = await fetch(url, {
           method: 'PUT',
           headers: getAuthHeaders(),
-          body: JSON.stringify(formData),
+          body: JSON.stringify(submitData),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -378,7 +383,7 @@ export default function BOQGeneration() {
         const res = await fetch(url, {
           method: 'POST',
           headers: getAuthHeaders(),
-          body: JSON.stringify(formData),
+          body: JSON.stringify(submitData),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));

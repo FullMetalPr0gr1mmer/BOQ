@@ -4,7 +4,6 @@ from Database.session import Base
 
 class ROPLvl2(Base):
     __tablename__ = "rop_lvl2"
-
     id = Column(String(200), primary_key=True, index=True)
     project_id = Column(String(200), ForeignKey("rop_projects.pid_po"), index=True)
     lvl1_id = Column(String(200), ForeignKey("rop_lvl1.id"), index=True)
