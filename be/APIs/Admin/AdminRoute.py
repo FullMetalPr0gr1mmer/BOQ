@@ -17,6 +17,7 @@ from Schemas.Admin.AccessSchema import (
     UserWithProjectsResponse
 )
 from Schemas.Admin.LogSchema import AuditLogResponse
+from Schemas.Admin.UserSchema import UserRoleUpdateResponse, UserRoleUpdateRequest
 
 adminRoute = APIRouter(prefix="/audit-logs",tags=["Admin"])
 
@@ -479,7 +480,7 @@ async def get_user_projects(
 # AUDIT LOG MANAGEMENT
 # ===========================
 
-@adminRoute.get("/", response_model=List[AuditLogResponse])
+@adminRoute.get("", response_model=List[AuditLogResponse])
 async def get_audit_logs(
     skip: int = 0,
     limit: int = 100,
@@ -584,3 +585,99 @@ async def get_available_resource_types(
     except Exception as e:
         print(f"Error fetching resource types: {e}")
         return {"resource_types": []}
+
+
+@adminRoute.get("/roles")
+async def get_all_roles(
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """Get all available roles. Only senior_admin can access this."""
+
+    if current_user.role.name != "senior_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this information"
+        )
+
+    try:
+        roles = db.query(Role).all()
+        return {"roles": [{"id": role.id, "name": role.name} for role in roles]}
+    except Exception as e:
+        print(f"Error fetching roles: {e}")
+        return {"roles": []}
+
+
+@adminRoute.put("/update_user_role", response_model=UserRoleUpdateResponse)
+async def update_user_role(
+        role_data: UserRoleUpdateRequest,
+        request: Request,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """Update user role. Only senior_admin can do this."""
+
+    if current_user.role.name != "senior_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action"
+        )
+
+    # Find the target user
+    target_user = db.query(User).filter(User.id == role_data.user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Find the new role
+    new_role = db.query(Role).filter(Role.name == role_data.new_role_name).first()
+    if not new_role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
+
+    # Prevent changing own role
+    if target_user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot change your own role"
+        )
+
+    # Store old role for audit log
+    old_role_name = target_user.role.name
+
+    # Update the user's role
+    target_user.role_id = new_role.id
+    db.commit()
+    db.refresh(target_user)
+
+    # Create audit log
+    try:
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update_user_role",
+            resource_type="user",
+            resource_id=str(target_user.id),
+            resource_name=target_user.username,
+            details=json.dumps({
+                "target_user": target_user.username,
+                "old_role": old_role_name,
+                "new_role": role_data.new_role_name
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+    except Exception as e:
+        print(f"Failed to create audit log: {e}")
+
+    return UserRoleUpdateResponse(
+        id=target_user.id,
+        username=target_user.username,
+        email=target_user.email,
+        old_role=old_role_name,
+        new_role=role_data.new_role_name
+    )

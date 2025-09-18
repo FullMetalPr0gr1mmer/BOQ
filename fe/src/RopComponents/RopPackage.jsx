@@ -721,7 +721,7 @@ export default function RopPackage() {
                                     <td>{paymentDetails.paymentAmount}</td>
                                   </tr>
                                   <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Lead Time:</td>
+                                    <td style={{ fontWeight: 'bold' }}>Payment Lead Time:</td>
                                     <td>{pkg.lead_time}</td>
                                   </tr>
                                 </tbody>

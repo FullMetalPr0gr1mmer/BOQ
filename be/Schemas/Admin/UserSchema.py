@@ -32,3 +32,21 @@ class UserWithRole(UserBase):
 
     class Config:
         orm_mode = True
+
+
+class UserRoleUpdateRequest(BaseModel):
+    """Schema for updating user role."""
+    user_id: int
+    new_role_name: str
+
+
+class UserRoleUpdateResponse(BaseModel):
+    """Schema for role update response."""
+    id: int
+    username: str
+    email: str
+    old_role: str
+    new_role: str
+
+    class Config:
+        from_attributes = True

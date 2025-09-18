@@ -119,7 +119,7 @@ export default function ROPProject() {
     try {
       let res;
       if (editingProject) {
-        res = await fetch(`${VITE_API_URL}/rop-projects/${editingProject.pid + editingProject.po}`, {
+        res = await fetch(`${VITE_API_URL}/rop-projects/${editingProject.pid_po}`, {
           method: 'PUT',
           headers: getAuthHeaders(),
           body: JSON.stringify(projectData),
@@ -171,7 +171,7 @@ export default function ROPProject() {
     if (!window.confirm(`Delete project ${proj.pid} - ${proj.project_name}?`)) return;
 
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-projects/${proj.pid + proj.po}`, { method: 'DELETE',headers: getAuthHeaders() });
+      const res = await fetch(`${VITE_API_URL}/rop-projects/${proj.pid_po}`, { method: 'DELETE',headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to delete project');
       setSuccess('Project deleted successfully!');
       fetchProjects();
@@ -181,8 +181,8 @@ export default function ROPProject() {
   };
 
   const handleLevel1 = (proj) => {
-    const pid_po = proj.pid + proj.po;
-    navigate('/rop-lvl1', { state: { pid_po, project_name: proj.project_name,currency:proj.currency } });
+    // const pid_po = proj.pid + proj.po;
+    navigate('/rop-lvl1', { state: { pid_po:proj.pid_po, project_name: proj.project_name,currency:proj.currency } });
   };
 
   const paginatedProjects = projects.slice(
@@ -214,7 +214,7 @@ export default function ROPProject() {
               type="button"
               className="new-entry-btn"
               onClick={() => document.getElementById('csv-upload-input').click()}
-            >Upload CSV</button>
+            >Upload QC CSV</button>
           </form>
         </div>
       </div>

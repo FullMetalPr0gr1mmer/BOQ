@@ -12,6 +12,7 @@ from Models.Admin.User import UserProjectAccess, User
 from APIs.LE.ROPLvl1Route import create_lvl1
 from APIs.LE.ROPLvl2Route import create_lvl2
 from Models.LE.ROPProject import ROPProject
+from Models.RAN.RANProject import RanProject
 from Schemas.LE.ROPLvl1Schema import ROPLvl1Create
 from Schemas.LE.ROPLvl2Schema import ROPLvl2DistributionCreate, ROPLvl2Create
 from Schemas.LE.ROPProjectSchema import ROPProjectCreate, ROPProjectOut
@@ -36,7 +37,7 @@ def check_rop_project_access(
     access = db.query(UserProjectAccess).filter(and_(
         UserProjectAccess.user_id == current_user.id,
         UserProjectAccess.Ropproject_id == project.pid_po
-    )).first()
+    )  ).first()
 
     if not access:
         return False
@@ -78,8 +79,13 @@ def get_user_accessible_rop_projects(current_user: User, db: Session) -> List[RO
     accessible_project_ids = [access.Ropproject_id for access in user_accesses]
 
     # Return projects that match those IDs
-    return db.query(ROPProject).filter(ROPProject.pid_po.in_(accessible_project_ids)).all()
-
+    return (
+        db.query(ROPProject)
+        .filter(
+            (ROPProject.pid_po.in_(accessible_project_ids))
+        )
+        .all()
+    )
 
 # --------------------------------------------------------------------------------
 # CRUD Endpoints
@@ -95,13 +101,13 @@ def create_project(
     Create a new ROP project. Only senior_admin can create projects.
     """
     # Only senior_admin can create projects
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name != "senior_admin" and current_user.role.name != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to perform this action. Contact the Senior Admin."
         )
 
-    pid_po = project.pid + project.po
+    pid_po = project.pid + project.po + str(current_user.id)
     existing = db.query(ROPProject).filter(ROPProject.pid_po == pid_po).first()
     if existing:
         raise HTTPException(status_code=400, detail="Project with this pid_po already exists")
@@ -109,7 +115,18 @@ def create_project(
     try:
         new_project = ROPProject(**project.dict())
         new_project.pid_po = pid_po
+        new_project.created_by = current_user.id
         db.add(new_project)
+        db.flush()
+        if current_user.role.name == "admin":
+            access = UserProjectAccess(
+                user_id=current_user.id,
+                Ranproject_id=None,
+                project_id=None,
+                Ropproject_id=new_project.pid_po,
+                permission_level="all"
+            )
+            db.add(access)
         db.commit()
         db.refresh(new_project)
         return new_project
@@ -214,12 +231,14 @@ def update_project(
         )
 
 
-@ROPProjectrouter.delete("/{pid_po}", status_code=status.HTTP_204_NO_CONTENT)
+@ROPProjectrouter.delete("/{pid_po}")
 def delete_project(
         pid_po: str,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
+
+
     """
     Delete a ROP project.
     - senior_admin: Can delete any project
@@ -245,14 +264,18 @@ def delete_project(
         )
 
     try:
+        db.query(UserProjectAccess).filter(
+            UserProjectAccess.Ropproject_id == pid_po
+        ).delete(synchronize_session=False)
+
         db.delete(project)
         db.commit()
+
     except Exception as e:
+
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting ROP project: {str(e)}"
-        )
+        print("Commit failed:", type(e), e)
+        raise
 
 
 @ROPProjectrouter.get("/check-permission/{pid_po}")
@@ -265,6 +288,7 @@ def check_user_rop_project_permission(
     Check what permissions the current user has for a specific ROP project.
     Returns the permission level and available actions.
     """
+
     project = db.query(ROPProject).filter(ROPProject.pid_po == pid_po).first()
     if not project:
         raise HTTPException(status_code=404, detail="ROP Project not found")
@@ -369,7 +393,7 @@ async def upload_csv(
     Only senior_admin can upload CSV files.
     """
     # Only senior_admin can upload CSV files
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name != "senior_admin" and current_user.role.name != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to upload CSV files. Contact the Senior Admin."
@@ -406,7 +430,7 @@ async def upload_csv(
                 raise HTTPException(status_code=400, detail=f"Invalid level value: {row[0]}")
 
             if level == 0:
-                project_id = row[1] + row[5]  # id + customer material number
+                project_id = row[1] + row[5] + str(current_user.id) # id + customer material number
                 project_name = row[4]  # Product Description
                 rop_project_data = ROPProjectCreate(
                     pid=row[1],  # id
@@ -490,13 +514,13 @@ async def upload_csv_fix(
     Only senior_admin can upload CSV files.
     """
     # Only senior_admin can upload CSV files
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name != "senior_admin" and current_user.role.name != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to upload CSV files. Contact the Senior Admin."
         )
 
-    project_id = pid + po
+    project_id = pid + po +str(current_user.id)
 
     # Step 0: Build the project model manually
     project = ROPProjectCreate(

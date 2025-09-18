@@ -54,7 +54,7 @@ def create_lvl1(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name != "senior_admin" and current_user.role.name != "admin":
         raise HTTPException(status_code=403, detail="Only senior admins can create Lvl1")
 
     new_lvl1 = ROPLvl1(**data.dict())

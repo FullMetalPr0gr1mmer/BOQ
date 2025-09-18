@@ -33,8 +33,8 @@ def check_project_access(current_user: User, pid_po: str, db: Session, required_
 # ----------------------------
 @ROPLvl2router.post("/create", response_model=ROPLvl2Out)
 def create_lvl2(data: ROPLvl2Create, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not check_project_access(current_user, data.project_id, db, "edit"):
-        raise HTTPException(status_code=403, detail="Not authorized to create Lvl2 in this project")
+    if current_user.role.name != "senior_admin" and current_user.role.name != "admin":
+        raise HTTPException(status_code=403, detail="Only senior admins can create Lvl1")
 
     new_lvl2 = ROPLvl2(**data.dict(exclude={"distributions"}))
     db.add(new_lvl2)

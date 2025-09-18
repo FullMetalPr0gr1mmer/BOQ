@@ -12,12 +12,27 @@ const getAuthHeaders = () => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     };
+  } else {
+    // No token: auto logout
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+    return { 'Content-Type': 'application/json' };
   }
-  return { 'Content-Type': 'application/json' };
 };
 
 // API service with real endpoints
 const apiService = {
+  // Roles endpoints
+  getAllRoles: async function() {
+    return this.apiCall('/audit-logs/roles');
+  },
+
+  updateUserRole: async function(userId, newRoleName) {
+    return this.apiCall('/audit-logs/update_user_role', {
+      method: 'PUT',
+      body: JSON.stringify({ user_id: userId, new_role_name: newRoleName }),
+    });
+  },
   async apiCall(endpoint, options = {}) {
     const url = `${VITE_API_URL}${endpoint}`;
     const config = {
@@ -31,6 +46,9 @@ const apiService = {
         const errorData = await response.json();
         // Check for 401/403 status codes and handle them gracefully
         if (response.status === 401 || response.status === 403) {
+          // Auto logout on unauthorized/forbidden
+          localStorage.removeItem('token');
+          window.location.href = '/login';
           throw new Error('Unauthorized or Forbidden access. Please log in again.');
         }
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
@@ -38,6 +56,11 @@ const apiService = {
       return await response.json();
     } catch (error) {
       console.error('API call failed:', error);
+      // If error is unauthorized, auto logout
+      if (error.message && error.message.includes('Unauthorized')) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
       throw error;
     }
   },
@@ -119,6 +142,7 @@ const SeniorAdminDashboard = () => {
   // Modal states
   const [showGrantModal, setShowGrantModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showControlAdminModal, setShowControlAdminModal] = useState(false);
   const [selectedAccess, setSelectedAccess] = useState(null);
   const [grantForm, setGrantForm] = useState({
     user_id: '',
@@ -127,6 +151,10 @@ const SeniorAdminDashboard = () => {
     permission_level: 'view'
   });
   const [sectionProjects, setSectionProjects] = useState([]);
+  // Control Administration modal states
+  const [controlAdminUserId, setControlAdminUserId] = useState('');
+  const [controlAdminRole, setControlAdminRole] = useState('');
+  const [allRoles, setAllRoles] = useState([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
@@ -342,13 +370,30 @@ const SeniorAdminDashboard = () => {
       {/* Header */}
       <div className="dismantling-header-row">
         <h2>Senior Admin Dashboard</h2>
-        <button 
-          className="upload-btn"
-          onClick={() => setShowGrantModal(true)}
-          disabled={loading}
-        >
-          Grant Project Access
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button 
+            className="upload-btn"
+            onClick={() => setShowGrantModal(true)}
+            disabled={loading}
+          >
+            Grant Project Access
+          </button>
+          <button
+            className="upload-btn"
+            onClick={async () => {
+              setShowControlAdminModal(true);
+              try {
+                const rolesData = await apiService.getAllRoles();
+                setAllRoles(Array.isArray(rolesData.roles) ? rolesData.roles : []);
+              } catch (error) {
+                showMessage('Failed to load roles', 'error');
+              }
+            }}
+            disabled={loading}
+          >
+            Control Administration
+          </button>
+        </div>
       </div>
 
       {/* Tab Navigation */}
@@ -709,7 +754,7 @@ const SeniorAdminDashboard = () => {
                       const ranProjects = await apiService.apiCall('/ran-projects');
                       setSectionProjects(Array.isArray(ranProjects) ? ranProjects : []);
                     } else if (section === '3') {
-                      const leProjects = await apiService.apiCall('/rop-projects');
+                      const leProjects = await apiService.apiCall('/rop-projects/');
                       setSectionProjects(Array.isArray(leProjects) ? leProjects : []);
                     } else {
                       setSectionProjects([]);
@@ -774,6 +819,116 @@ const SeniorAdminDashboard = () => {
                 </button>
                 <button type="submit" className="upload-btn" disabled={loading}>
                   {loading ? 'Granting...' : 'Grant Access'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Control Administration Modal */}
+      {showControlAdminModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '2rem',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: 'var(--shadow-main)',
+            maxHeight: '80vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ color: 'var(--primary-color)', margin: 0, fontSize: '1.5rem' }}>
+                Control Administration
+              </h3>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setAuthError('');
+              try {
+                setLoading(true);
+                await apiService.updateUserRole(controlAdminUserId, controlAdminRole);
+                showMessage('User role updated successfully', 'success');
+                setShowControlAdminModal(false);
+                setControlAdminUserId('');
+                setControlAdminRole('');
+                await loadUsers();
+              } catch (error) {
+                if (error.message.includes('Unauthorized')) {
+                  setAuthError(error.message);
+                } else {
+                  showMessage(`Failed to update user role: ${error.message}`, 'error');
+                }
+              } finally {
+                setLoading(false);
+              }
+            }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
+                  Select User:
+                </label>
+                <select
+                  className="search-input"
+                  value={controlAdminUserId}
+                  onChange={(e) => {
+                    setControlAdminUserId(e.target.value);
+                    setControlAdminRole('');
+                  }}
+                  required
+                >
+                  <option value="">Choose a user...</option>
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>
+                      {user.username} ({user.role_name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
+                  Select Role:
+                </label>
+                <select
+                  className="search-input"
+                  value={controlAdminRole}
+                  onChange={(e) => setControlAdminRole(e.target.value)}
+                  required
+                  disabled={!controlAdminUserId}
+                >
+                  <option value="">Choose a role...</option>
+                  {allRoles.map(role => (
+                    <option key={role.id} value={role.name}>{role.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
+                <button 
+                  type="button"
+                  className="clear-btn"
+                  onClick={() => {
+                    setShowControlAdminModal(false);
+                    setControlAdminUserId('');
+                    setControlAdminRole('');
+                  }}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="upload-btn" disabled={loading || !controlAdminUserId || !controlAdminRole}>
+                  {loading ? 'Updating...' : 'Update Role'}
                 </button>
               </div>
             </form>
