@@ -14,4 +14,3 @@ class ROPProject(Base):
     country = Column(String(200), index=True)
     currency = Column(String(200),default='Euros', index=True)
     product_number = Column(String(100),nullable=True, index=True)
-    created_by = Column(Integer,nullable=True, index=True)

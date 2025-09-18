@@ -20,7 +20,7 @@ def check_project_access(current_user: User, pid_po: str, db: Session, required_
         return True
     access = db.query(UserProjectAccess).filter(
         UserProjectAccess.user_id == current_user.id,
-        UserProjectAccess.project_id == pid_po
+        UserProjectAccess.Ropproject_id == pid_po
     ).first()
     if not access:
         return False

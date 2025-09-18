@@ -17,7 +17,7 @@ class ROPProjectCreate(ROPProjectBase):
 
 class ROPProjectOut(ROPProjectBase):
     pid_po:str
-    created_by:Optional[int]=None
+
 
     class Config:
         orm_mode = True
