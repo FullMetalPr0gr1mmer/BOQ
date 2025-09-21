@@ -5,15 +5,15 @@ import '../css/Dismantling.css'; // Using the same styling
 const ROWS_PER_PAGE = 50;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-        return { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('token');
+  if (token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
     };
+  }
+  return { 'Content-Type': 'application/json' };
+};
 export default function Inventory() {
   const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,11 +52,13 @@ export default function Inventory() {
         limit: String(ROWS_PER_PAGE),
         search: search.trim(),
       });
-      
-      const res = await fetch(`${VITE_API_URL}/inventory?${params.toString()}`, { signal: controller.signal,    method: 'GET',
-        headers: getAuthHeaders()       });
+
+      const res = await fetch(`${VITE_API_URL}/inventory?${params.toString()}`, {
+        signal: controller.signal, method: 'GET',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error('Failed to fetch inventory');
-      
+
       const data = await res.json();
       setRows(data.records || []);
       setTotal(data.total || 0);
@@ -113,20 +115,18 @@ export default function Inventory() {
         slot_id: parseInt(formData.slot_id || 0),
         port_id: parseInt(formData.port_id || 0),
       };
-      
+
       if (isEditing && editingId !== null) {
         res = await fetch(`${VITE_API_URL}/update-inventory/${editingId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-                  headers: getAuthHeaders()
+          headers: getAuthHeaders()
         });
       } else {
         res = await fetch(`${VITE_API_URL}/create-inventory`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-                  headers: getAuthHeaders()
+          headers: getAuthHeaders()
         });
       }
 
@@ -146,7 +146,10 @@ export default function Inventory() {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this inventory item?')) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/delete-inventory/${id}`, { method: 'DELETE' ,        headers: getAuthHeaders()});
+      const res = await fetch(`${VITE_API_URL}/delete-inventory/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.detail || 'Failed to delete inventory');
@@ -170,7 +173,7 @@ export default function Inventory() {
       const res = await fetch(`${VITE_API_URL}/upload-inventory-csv`, {
         method: "POST",
         body: formData,
-                headers: getAuthHeaders()
+        headers: getAuthHeaders()
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

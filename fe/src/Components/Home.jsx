@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../css/Home.css';
 
-export default function Home({ setActiveSection,user }) {
+export default function Home({ setActiveSection, user }) {
   const navigate = useNavigate();
   const [showRevenueCards, setShowRevenueCards] = React.useState(false);
 
@@ -20,14 +20,15 @@ export default function Home({ setActiveSection,user }) {
       <div className="cards-wrapper">
         {!showRevenueCards ? (
           <>
+            <div className="home-card card-link" onClick={() => handleCardClick('/rop-project', 'le-automation')}>
+              <h2>LE-Automation</h2>
+              <p>Explore and manage Latest Estimation automation projects. ⚙️</p>
+            </div>
             <div className="home-card card-link" onClick={() => setShowRevenueCards(true)}>
               <h2>Revenue Sheet Automation</h2>
               <p>Automate and manage revenue sheet BOQ processes. 📈</p>
             </div>
-            <div className="home-card card-link" onClick={() => handleCardClick('/rop-project', 'le-automation')}>
-              <h2>Le-Automation</h2>
-              <p>Explore and manage Latest Estimation automation projects. ⚙️</p>
-            </div>
+
           </>
         ) : (
           <>

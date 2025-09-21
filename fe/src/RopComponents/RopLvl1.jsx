@@ -1,24 +1,55 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../css/RopLvl1.css';
+
 const ENTRIES_PER_PAGE = 15;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
+
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
+	const token = localStorage.getItem('token');
+	if (token) {
+		return {
+			'Content-Type': 'application/json',
+			'Authorization': `Bearer ${token}`
+		};
+	}
+	return { 'Content-Type': 'application/json' };
 };
+
+// Utility function to generate monthly periods
+const generateMonthlyPeriods = (startDate, endDate) => {
+	if (!startDate || !endDate) return [];
+	
+	const periods = [];
+	const start = new Date(startDate);
+	const end = new Date(endDate);
+	
+	// Set to first day of start month
+	const current = new Date(start.getFullYear(), start.getMonth(), 1);
+	const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+	
+	while (current <= endMonth) {
+		periods.push({
+			year: current.getFullYear(),
+			month: current.getMonth() + 1, // 1-based month
+			display: current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+		});
+		current.setMonth(current.getMonth() + 1);
+	}
+	
+	return periods;
+};
+
 export default function RopLvl1() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const projectState = location.state;
 	const [entries, setEntries] = useState([]);
+	const [filteredEntries, setFilteredEntries] = useState([]);
+	const [searchQuery, setSearchQuery] = useState('');
 	const [showForm, setShowForm] = useState(false);
+	const [showLvl1Form, setShowLvl1Form] = useState(false);
+	const [showLvl2Form, setShowLvl2Form] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 	const [editId, setEditId] = useState(null);
 	const [formData, setFormData] = useState({
@@ -28,8 +59,44 @@ export default function RopLvl1() {
 		start_date: '',
 		end_date: '',
 		quantity: '',
-
+		lead_time: '',
 	});
+
+	// Monthly distributions state
+	const [monthlyDistributions, setMonthlyDistributions] = useState([]);
+	const [monthlyPeriods, setMonthlyPeriods] = useState([]);
+	const [distributionError, setDistributionError] = useState('');
+
+	// Lvl1 form data
+	const [lvl1FormData, setLvl1FormData] = useState({
+		id: '',
+		project_id: projectState?.pid_po || '',
+		project_name: projectState?.project_name || '',
+		item_name: '',
+		region: '',
+		total_quantity: '',
+		price: '',
+		product_number: '',
+		start_date: '',
+		end_date: ''
+	});
+
+	// Lvl2 form data
+	const [lvl2FormData, setLvl2FormData] = useState({
+		id: '',
+		project_id: projectState?.pid_po || '',
+		lvl1_id: '',
+		lvl1_item_name: '',
+		item_name: '',
+		region: '',
+		total_quantity: '',
+		price: '',
+		start_date: '',
+		end_date: '',
+		product_number: '',
+		distributions: []
+	});
+
 	const cur = projectState?.currency || '';
 	// State to hold selected Lvl1 items with their quantities
 	const [selectedLvl1Items, setSelectedLvl1Items] = useState([]);
@@ -45,10 +112,88 @@ export default function RopLvl1() {
 	const [calculatedPackagePrice, setCalculatedPackagePrice] = useState(0);
 	const [calculatedTotalPrice, setCalculatedTotalPrice] = useState(0);
 
-
 	useEffect(() => {
 		fetchEntries();
 	}, []);
+
+	// Generate monthly periods when dates change
+	useEffect(() => {
+		if (formData.start_date && formData.end_date) {
+			const periods = generateMonthlyPeriods(formData.start_date, formData.end_date);
+			setMonthlyPeriods(periods);
+			
+			// Initialize distributions with zero quantities
+			const initialDistributions = periods.map(period => ({
+				year: period.year,
+				month: period.month,
+				quantity: 0
+			}));
+			setMonthlyDistributions(initialDistributions);
+		} else {
+			setMonthlyPeriods([]);
+			setMonthlyDistributions([]);
+		}
+		setDistributionError('');
+	}, [formData.start_date, formData.end_date]);
+
+	// Validate distributions when quantities change
+	useEffect(() => {
+		if (monthlyDistributions.length > 0 && formData.quantity) {
+			const totalDistributed = monthlyDistributions.reduce((sum, dist) => sum + (parseInt(dist.quantity) || 0), 0);
+			const packageQuantity = parseInt(formData.quantity) || 0;
+			
+			if (totalDistributed !== packageQuantity && packageQuantity > 0) {
+				setDistributionError(`Total distributed quantity (${totalDistributed}) must equal package quantity (${packageQuantity})`);
+			} else {
+				setDistributionError('');
+			}
+		} else {
+			setDistributionError('');
+		}
+	}, [monthlyDistributions, formData.quantity]);
+
+	// Auto-distribute quantity evenly
+	const handleAutoDistribute = () => {
+		if (!formData.quantity || monthlyPeriods.length === 0) return;
+		
+		const totalQuantity = parseInt(formData.quantity);
+		const monthsCount = monthlyPeriods.length;
+		const baseQuantity = Math.floor(totalQuantity / monthsCount);
+		const remainder = totalQuantity % monthsCount;
+		
+		const autoDistributions = monthlyPeriods.map((period, index) => ({
+			year: period.year,
+			month: period.month,
+			quantity: baseQuantity + (index < remainder ? 1 : 0)
+		}));
+		
+		setMonthlyDistributions(autoDistributions);
+	};
+
+	// Handle monthly distribution quantity change
+	const handleMonthlyQuantityChange = (year, month, quantity) => {
+		setMonthlyDistributions(prev =>
+			prev.map(dist =>
+				dist.year === year && dist.month === month
+					? { ...dist, quantity: parseInt(quantity) || 0 }
+					: dist
+			)
+		);
+	};
+
+	// Search functionality
+	useEffect(() => {
+		if (searchQuery.trim() === '') {
+			setFilteredEntries(entries);
+		} else {
+			const filtered = entries.filter(entry =>
+				entry.item_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				entry.product_number?.toLowerCase().includes(searchQuery.toLowerCase())
+			);
+			setFilteredEntries(filtered);
+		}
+		setCurrentPage(1); // Reset to first page when searching
+	}, [searchQuery, entries]);
 
 	useEffect(() => {
 		const fetchDetailsForSelectedLvl1 = async () => {
@@ -57,7 +202,7 @@ export default function RopLvl1() {
 				// Only fetch if details aren't already loaded
 				if (!lvl2Details[item.id]) {
 					try {
-						const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${item.id}`,{headers: getAuthHeaders()});
+						const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${item.id}`, { headers: getAuthHeaders() });
 						if (!res.ok) throw new Error('Failed to fetch Level 2 items');
 						const data = await res.json();
 						newLvl2Details[item.id] = data;
@@ -82,11 +227,21 @@ export default function RopLvl1() {
 			let packagePrice = 0;
 			selectedLvl1Items.forEach(item => {
 				const lvl2s = lvl2Details[item.id] || [];
-				const quantity = parseFloat(item.quantity);
-
-				if (!isNaN(quantity) && quantity > 0 && lvl2s.length > 0) {
-					const sumOfLvl2Prices = lvl2s.reduce((sum, lvl2) => sum + (lvl2.price || 0), 0);
-					packagePrice += sumOfLvl2Prices * quantity;
+				const parentQuantity = parseFloat(item.quantity);
+				let parentUnitPrice = 0;
+				if (!isNaN(parentQuantity) && parentQuantity > 0) {
+					if (lvl2s.length === 0) {
+						parentUnitPrice = 0;
+					} else {
+						// Sum(child unit price * child quantity)
+						const sum = lvl2s.reduce((acc, child) => {
+							const childUnitPrice = parseFloat(child.price) || 0;
+							const childQuantity = parseFloat(child.total_quantity) || 0;
+							return acc + (childUnitPrice * childQuantity);
+						}, 0);
+						parentUnitPrice = sum / parentQuantity;
+					}
+					packagePrice += parentUnitPrice * parentQuantity;
 				}
 			});
 
@@ -100,23 +255,63 @@ export default function RopLvl1() {
 		calculatePrices();
 	}, [selectedLvl1Items, lvl2Details, formData.quantity]);
 
-
 	const fetchEntries = async () => {
 		try {
 			const url = projectState?.pid_po
 				? `${VITE_API_URL}/rop-lvl1/by-project/${projectState.pid_po}`
 				: `${VITE_API_URL}/rop-lvl1/`;
-			const res = await fetch(url,{headers: getAuthHeaders()});
-			const data = await res.json();
-			setEntries(data);
-		} catch {
-			setError('Failed to fetch ROP Lvl1 entries');
+			const res = await fetch(url, { headers: getAuthHeaders() });
+			if (!res.ok) throw new Error('Failed to fetch Lvl1 entries');
+			const lvl1Entries = await res.json();
+
+			// Fetch Lvl2 children for all Lvl1 entries in parallel
+			const lvl2Promises = lvl1Entries.map(entry =>
+				fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${entry.id}`, { headers: getAuthHeaders() })
+					.then(res => res.ok ? res.json() : []) // Gracefully handle errors
+					.catch(() => []) // Handle fetch failures
+			);
+
+			const allLvl2Items = await Promise.all(lvl2Promises);
+
+			// Prepare a new state object for lvl2Items to avoid multiple re-renders
+			const newLvl2ItemsState = {};
+
+			// Augment Lvl1 entries with calculated prices
+			const augmentedEntries = lvl1Entries.map((entry, index) => {
+				const children = allLvl2Items[index] || [];
+
+				// Populate the lvl2Items state object
+				newLvl2ItemsState[entry.id] = children;
+
+				const parentQuantity = parseFloat(entry.total_quantity);
+				let calculatedUnitPrice = 0;
+
+				if (children.length > 0 && parentQuantity > 0) {
+					const sumOfChildTotals = children.reduce((acc, child) => {
+						const childUnitPrice = parseFloat(child.price) || 0;
+						const childQuantity = parseFloat(child.total_quantity) || 0;
+						return acc + (childUnitPrice * childQuantity);
+					}, 0);
+					calculatedUnitPrice = sumOfChildTotals / parentQuantity;
+				}
+				// If children.length is 0 or parentQuantity is 0, calculatedUnitPrice remains 0.
+
+				return { ...entry, calculatedUnitPrice };
+			});
+
+			// Set both states together
+			setEntries(augmentedEntries);
+			setLvl2Items(newLvl2ItemsState);
+
+		} catch (err) {
+			setError('Failed to fetch or process ROP entries');
+			console.error(err);
 		}
 	};
 
 	const fetchLvl2Items = async (lvl1_id) => {
 		try {
-			const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${lvl1_id}`,{headers: getAuthHeaders()});
+			const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${lvl1_id}`, { headers: getAuthHeaders() });
 			if (!res.ok) throw new Error('Failed to fetch Level 2 items');
 			const data = await res.json();
 			setLvl2Items(prev => ({ ...prev, [lvl1_id]: data }));
@@ -133,14 +328,56 @@ export default function RopLvl1() {
 			start_date: '',
 			end_date: '',
 			quantity: '',
+			lead_time: '',
 		});
 		setSelectedLvl1Items([]);
 		setLvl2Details({});
+		setMonthlyDistributions([]);
+		setMonthlyPeriods([]);
+		setDistributionError('');
 		setEditId(null);
 		setIsEditing(false);
 		setShowForm(false);
-		setCalculatedPackagePrice(0); // Reset prices
-		setCalculatedTotalPrice(0); // Reset prices
+		setCalculatedPackagePrice(0);
+		setCalculatedTotalPrice(0);
+	};
+
+	const resetLvl1Form = () => {
+		setLvl1FormData({
+			id: '',
+			project_id: projectState?.pid_po || '',
+			project_name: projectState?.project_name || '',
+			item_name: '',
+			region: '',
+			total_quantity: '',
+			price: '',
+			product_number: '',
+			start_date: '',
+			end_date: ''
+		});
+		setEditId(null);
+		setIsEditing(false);
+		setShowLvl1Form(false);
+	};
+
+	const resetLvl2Form = () => {
+		setLvl2FormData({
+			id: '',
+			project_id: projectState?.pid_po || '',
+			lvl1_id: '',
+			lvl1_item_name: '',
+			item_name: '',
+			region: '',
+			total_quantity: '',
+			price: '',
+			start_date: '',
+			end_date: '',
+			product_number: '',
+			distributions: []
+		});
+		setEditId(null);
+		setIsEditing(false);
+		setShowLvl2Form(false);
 	};
 
 	const handleSubmit = async (e) => {
@@ -153,6 +390,12 @@ export default function RopLvl1() {
 			return;
 		}
 
+		// Check distribution validation if dates and quantity are provided
+		if (distributionError && formData.start_date && formData.end_date && formData.quantity) {
+			setError(distributionError);
+			return;
+		}
+
 		const payload = {
 			project_id: formData.project_id,
 			package_name: formData.package_name,
@@ -160,8 +403,10 @@ export default function RopLvl1() {
 			end_date: formData.end_date || null,
 			quantity: formData.quantity ? parseInt(formData.quantity) : null,
 			lvl1_ids: selectedLvl1Items,
-			price: calculatedPackagePrice,// Send the calculated package unit price
-			lead_time:formData.lead_time? parseInt(formData.lead_time) : null 
+			price: calculatedPackagePrice,
+			lead_time: formData.lead_time ? parseInt(formData.lead_time) : null,
+			// Include monthly distributions if they exist and are valid
+			monthly_distributions: monthlyDistributions.length > 0 && !distributionError ? monthlyDistributions : []
 		};
 
 		try {
@@ -184,15 +429,212 @@ export default function RopLvl1() {
 		}
 	};
 
+	const handleLvl1Submit = async (e) => {
+		e.preventDefault();
+		setError('');
+		setSuccess('');
+
+		const payload = {
+			id: lvl1FormData.id,
+			project_id: lvl1FormData.project_id,
+			project_name: lvl1FormData.project_name,
+			item_name: lvl1FormData.item_name,
+			region: lvl1FormData.region || null,
+			total_quantity: lvl1FormData.total_quantity ? parseInt(lvl1FormData.total_quantity) : null,
+			price: lvl1FormData.price ? parseFloat(lvl1FormData.price) : null,
+			product_number: lvl1FormData.product_number || null,
+			start_date: lvl1FormData.start_date || null,
+			end_date: lvl1FormData.end_date || null
+		};
+
+		try {
+			const url = isEditing
+				? `${VITE_API_URL}/rop-lvl1/update/${editId}`
+				: `${VITE_API_URL}/rop-lvl1/create`;
+
+			const method = isEditing ? 'PUT' : 'POST';
+
+			const res = await fetch(url, {
+				method: method,
+				headers: getAuthHeaders(),
+				body: JSON.stringify(payload),
+			});
+
+			if (!res.ok) {
+				const err = await res.json();
+				throw new Error(err.detail || `Failed to ${isEditing ? 'update' : 'create'} Lvl1 item`);
+			}
+
+			setSuccess(`ROP Lvl1 ${isEditing ? 'updated' : 'created'} successfully!`);
+			resetLvl1Form();
+			fetchEntries();
+		} catch (err) {
+			setError(err.message);
+		}
+	};
+
+	const handleLvl2Submit = async (e) => {
+		e.preventDefault();
+		setError('');
+		setSuccess('');
+
+		const payload = {
+			id: lvl2FormData.id,
+			project_id: lvl2FormData.project_id,
+			lvl1_id: lvl2FormData.lvl1_id,
+			lvl1_item_name: lvl2FormData.lvl1_item_name,
+			item_name: lvl2FormData.item_name,
+			region: lvl2FormData.region,
+			total_quantity: parseInt(lvl2FormData.total_quantity),
+			price: parseFloat(lvl2FormData.price),
+			start_date: lvl2FormData.start_date,
+			end_date: lvl2FormData.end_date,
+			product_number: lvl2FormData.product_number || null,
+			distributions: lvl2FormData.distributions
+		};
+
+		try {
+			const url = isEditing
+				? `${VITE_API_URL}/rop-lvl2/update/${editId}`
+				: `${VITE_API_URL}/rop-lvl2/create`;
+
+			const method = isEditing ? 'PUT' : 'POST';
+
+			const res = await fetch(url, {
+				method: method,
+				headers: getAuthHeaders(),
+				body: JSON.stringify(payload),
+			});
+
+			if (!res.ok) {
+				const err = await res.json();
+				throw new Error(err.detail || `Failed to ${isEditing ? 'update' : 'create'} Lvl2 item`);
+			}
+
+			setSuccess(`ROP Lvl2 ${isEditing ? 'updated' : 'created'} successfully!`);
+			resetLvl2Form();
+			fetchEntries();
+			// Refresh lvl2 items for the parent lvl1
+			if (lvl2FormData.lvl1_id) {
+				await fetchLvl2Items(lvl2FormData.lvl1_id);
+			}
+		} catch (err) {
+			setError(err.message);
+		}
+	};
+
+	const handleEditLvl1 = (entry) => {
+		setLvl1FormData({
+			id: entry.id,
+			project_id: entry.project_id,
+			project_name: entry.project_name,
+			item_name: entry.item_name,
+			region: entry.region || '',
+			total_quantity: entry.total_quantity?.toString() || '',
+			price: entry.price?.toString() || '',
+			product_number: entry.product_number || '',
+			start_date: entry.start_date || '',
+			end_date: entry.end_date || ''
+		});
+		setEditId(entry.id);
+		setIsEditing(true);
+		setShowLvl1Form(true);
+	};
+
+	const handleEditLvl2 = (lvl2Item) => {
+		setLvl2FormData({
+			id: lvl2Item.id,
+			project_id: lvl2Item.project_id,
+			lvl1_id: lvl2Item.lvl1_id,
+			lvl1_item_name: lvl2Item.lvl1_item_name,
+			item_name: lvl2Item.item_name,
+			region: lvl2Item.region,
+			total_quantity: lvl2Item.total_quantity?.toString() || '',
+			price: lvl2Item.price?.toString() || '',
+			start_date: lvl2Item.start_date || '',
+			end_date: lvl2Item.end_date || '',
+			product_number: lvl2Item.product_number || '',
+			distributions: lvl2Item.distributions || []
+		});
+		setEditId(lvl2Item.id);
+		setIsEditing(true);
+		setShowLvl2Form(true);
+	};
+
+	const handleCreateLvl2 = (lvl1Item) => {
+		setLvl2FormData({
+			id: `lvl2_${Date.now()}`,
+			project_id: projectState?.pid_po || '',
+			lvl1_id: lvl1Item.id,
+			lvl1_item_name: lvl1Item.item_name,
+			item_name: '',
+			region: '',
+			total_quantity: '',
+			price: '',
+			start_date: '',
+			end_date: '',
+			product_number: '',
+			distributions: []
+		});
+		setIsEditing(false);
+		setShowLvl2Form(true);
+	};
+
+	const handleDeleteLvl1 = async (id) => {
+		if (!window.confirm('Are you sure you want to delete this Lvl1 item and all its Lvl2 children?')) {
+			return;
+		}
+
+		try {
+			const res = await fetch(`${VITE_API_URL}/rop-lvl1/${id}`, {
+				method: 'DELETE',
+				headers: getAuthHeaders(),
+			});
+
+			if (!res.ok) {
+				const err = await res.json();
+				throw new Error(err.detail || 'Failed to delete Lvl1 item');
+			}
+
+			setSuccess('ROP Lvl1 deleted successfully!');
+			fetchEntries();
+		} catch (err) {
+			setError(err.message);
+		}
+	};
+
+	const handleDeleteLvl2 = async (id, lvl1_id) => {
+		if (!window.confirm('Are you sure you want to delete this Lvl2 item?')) {
+			return;
+		}
+
+		try {
+			const res = await fetch(`${VITE_API_URL}/rop-lvl2/${id}`, {
+				method: 'DELETE',
+				headers: getAuthHeaders(),
+			});
+
+			if (!res.ok) {
+				const err = await res.json();
+				throw new Error(err.detail || 'Failed to delete Lvl2 item');
+			}
+
+			setSuccess('ROP Lvl2 deleted successfully!');
+			// Refresh lvl2 items for the parent lvl1
+			await fetchLvl2Items(lvl1_id);
+			fetchEntries(); // Also refresh main entries to update totals
+		} catch (err) {
+			setError(err.message);
+		}
+	};
+
 	const handleSelectLvl1Item = (item) => {
 		setSelectedLvl1Items(prev => {
 			const itemExists = prev.find(i => i.id === item.id);
 			if (itemExists) {
-
 				return prev.filter(i => i.id !== item.id);
 			} else {
-
-				return [...prev, { id: item.id, quantity: '1' }]; // Default quantity to 1
+				return [...prev, { id: item.id, quantity: '1' }];
 			}
 		});
 	};
@@ -205,13 +647,14 @@ export default function RopLvl1() {
 		);
 	};
 
-	const paginatedEntries = entries.slice(
+	// Use filtered entries for pagination
+	const paginatedEntries = filteredEntries.slice(
 		(currentPage - 1) * ENTRIES_PER_PAGE,
 		currentPage * ENTRIES_PER_PAGE
 	);
-	const totalPages = Math.ceil(entries.length / ENTRIES_PER_PAGE);
+	const totalPages = Math.ceil(filteredEntries.length / ENTRIES_PER_PAGE);
 
-	// Statistics calculations
+	// Statistics calculations (using original entries, not filtered)
 	const totalItems = entries.length;
 	const totalQuantity = entries.reduce((sum, e) => sum + (e.total_quantity || 0), 0);
 	const totalLE = entries.reduce((sum, e) => sum + ((e.total_quantity || 0) * (e.price || 0)), 0);
@@ -248,9 +691,14 @@ export default function RopLvl1() {
 						{formData.project_name ? `${formData.project_name} • Project ID: ${formData.project_id}` : 'Project Management Dashboard'}
 					</p>
 				</div>
-				<button className="new-entry-btn" onClick={() => { resetForm(); setShowForm(!showForm); }}>
-					{showForm ? '✕ Cancel' : '+ New Package'}
-				</button>
+				<div style={{ display: 'flex', gap: '10px' }}>
+					<button className="new-entry-btn" onClick={() => { resetLvl1Form(); setShowLvl1Form(!showLvl1Form); }}>
+						{showLvl1Form ? '✕ Cancel' : '+ New PCI'}
+					</button>
+					<button className="new-entry-btn" onClick={() => { resetForm(); setShowForm(!showForm); }}>
+						{showForm ? '✕ Cancel' : '+ New Package'}
+					</button>
+				</div>
 			</div>
 
 			{/* Alerts */}
@@ -283,23 +731,27 @@ export default function RopLvl1() {
 						<div className="mini-stat-value">{avgLEPerItem.toLocaleString()}</div>
 						<div className="mini-stat-label">Avg LE/Item</div>
 					</div>
-				</div><div className="stats-row">
+				</div>
+				<div className="stats-row">
 					<div className="mini-stat-card card-purple">
 						<div className="stat-icon">🎯</div>
 						<div className="mini-stat-value">{avgQuantityPerItem.toLocaleString()}</div>
 						<div className="mini-stat-label">Avg Qty/Item</div>
-					</div><div className="mini-stat-card card-teal">
+					</div>
+					<div className="mini-stat-card card-teal">
 						<div className="stat-icon">💲</div>
 						<div className="mini-stat-value">{avgPrice}</div>
 						<div className="mini-stat-label">Avg Price</div>
-					</div><div className="mini-stat-card card-blue">
+					</div>
+					<div className="mini-stat-card card-blue">
 						<div className="stat-icon">🏆</div>
 						<div className="mini-stat-value">{highestLEItem.item_name?.substring(0, 12) || '-'}</div>
 						<div className="mini-stat-extra">
 							{highestLEItem.le ? `${highestLEItem.le.toLocaleString()} LE` : ''}
 						</div>
 						<div className="mini-stat-label">Top Item</div>
-					</div><div className="mini-stat-card card-warning">
+					</div>
+					<div className="mini-stat-card card-warning">
 						<div className="stat-icon">🌍</div>
 						<div className="mini-stat-value">{topRegion.region}</div>
 						<div className="mini-stat-extra">{topRegion.count} items</div>
@@ -307,6 +759,7 @@ export default function RopLvl1() {
 					</div>
 				</div>
 			</div>
+
 			<div className="dashboard-chart-section">
 				<div className="chart-card">
 					<h3 className="chart-title">📊 Project Overview</h3>
@@ -371,6 +824,8 @@ export default function RopLvl1() {
 					</div>
 				</div>
 			</div>
+
+			{/* Package Creation Form Modal */}
 			{showForm && (
 				<div className="dashboard-modal">
 					<div className="dashboard-modal-content" style={{ minWidth: 900, maxWidth: 1300, margin: '0 auto', overflowX: 'hidden' }}>
@@ -383,7 +838,8 @@ export default function RopLvl1() {
 								onClick={() => setShowForm(false)}
 								type="button"
 							>✕</button>
-						</div><form className="dashboard-form" onSubmit={handleSubmit} style={{ minWidth: 820, maxWidth: 1200, margin: '0 auto', fontSize: '1.1em' }}>
+						</div>
+						<form className="dashboard-form" onSubmit={handleSubmit} style={{ minWidth: 820, maxWidth: 1200, margin: '0 auto', fontSize: '1.1em' }}>
 							<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 18, width: '100%' }}>
 								<input
 									type="text"
@@ -443,8 +899,94 @@ export default function RopLvl1() {
 								/>
 							</div>
 
-							<div className="form-group" style={{ position: 'relative' }}>
+							{/* Monthly Distribution Table */}
+							{monthlyPeriods.length > 0 && (
+								<div style={{ marginBottom: 20, border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px', backgroundColor: '#f9f9f9' }}>
+									<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+										<h4 style={{ margin: 0, color: '#333', fontSize: '1.1em' }}>Monthly Distribution</h4>
+										<button
+											type="button"
+											onClick={handleAutoDistribute}
+											disabled={!formData.quantity}
+											style={{
+												backgroundColor: '#4CAF50',
+												color: 'white',
+												border: 'none',
+												padding: '8px 16px',
+												borderRadius: '4px',
+												cursor: formData.quantity ? 'pointer' : 'not-allowed',
+												fontSize: '0.9em',
+												opacity: formData.quantity ? 1 : 0.6
+											}}
+										>
+											Auto Distribute
+										</button>
+									</div>
+									
+									{distributionError && (
+										<div style={{ 
+											backgroundColor: '#ffebee', 
+											border: '1px solid #f44336', 
+											color: '#d32f2f', 
+											padding: '10px', 
+											borderRadius: '4px', 
+											marginBottom: '12px',
+											fontSize: '0.9em'
+										}}>
+											⚠️ {distributionError}
+										</div>
+									)}
 
+									<div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+										<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95em' }}>
+											<thead>
+												<tr style={{ backgroundColor: '#e3f2fd' }}>
+													<th style={{ padding: '8px 12px', borderBottom: '2px solid #1976d2', textAlign: 'left', fontWeight: 600 }}>Month</th>
+													<th style={{ padding: '8px 12px', borderBottom: '2px solid #1976d2', textAlign: 'center', fontWeight: 600 }}>Quantity</th>
+												</tr>
+											</thead>
+											<tbody>
+												{monthlyPeriods.map((period, index) => {
+													const distribution = monthlyDistributions.find(d => d.year === period.year && d.month === period.month);
+													return (
+														<tr key={`${period.year}-${period.month}`} style={{ borderBottom: '1px solid #e0e0e0' }}>
+															<td style={{ padding: '10px 12px', fontWeight: 500 }}>
+																{period.display}
+															</td>
+															<td style={{ padding: '8px 12px', textAlign: 'center' }}>
+																<input
+																	type="number"
+																	min="0"
+																	value={distribution?.quantity || 0}
+																	onChange={e => handleMonthlyQuantityChange(period.year, period.month, e.target.value)}
+																	style={{
+																		width: '80px',
+																		padding: '6px 8px',
+																		border: '1px solid #ccc',
+																		borderRadius: '4px',
+																		textAlign: 'center',
+																		fontSize: '0.9em'
+																	}}
+																/>
+															</td>
+														</tr>
+													);
+												})}
+											</tbody>
+											<tfoot>
+												<tr style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>
+													<td style={{ padding: '10px 12px', borderTop: '2px solid #1976d2' }}>Total:</td>
+													<td style={{ padding: '10px 12px', textAlign: 'center', borderTop: '2px solid #1976d2' }}>
+														{monthlyDistributions.reduce((sum, d) => sum + (parseInt(d.quantity) || 0), 0)}
+													</td>
+												</tr>
+											</tfoot>
+										</table>
+									</div>
+								</div>
+							)}
+
+							<div className="form-group" style={{ position: 'relative' }}>
 								<label htmlFor="lvl1-select">Select PCI Items:</label>
 								<div
 									className="custom-dropdown-select"
@@ -518,14 +1060,13 @@ export default function RopLvl1() {
 																value={selectedItem.quantity}
 																onChange={e => handleQuantityChange(entry.id, e.target.value)}
 																style={{ width: '120px', fontSize: '1.08em', padding: '6px 10px', borderRadius: '4px', border: '1px solid #1976d2' }}
-																onClick={e => e.stopPropagation()} // Prevent closing dropdown
+																onClick={e => e.stopPropagation()}
 															/>
 														</span>
 													)}
 												</div>
 											);
 										})}
-
 									</div>
 								)}
 							</div>
@@ -555,7 +1096,6 @@ export default function RopLvl1() {
 								</div>
 							</div>
 
-							{/* === NEW: Price Display Section === */}
 							<div className="form-group" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px', textAlign: 'right' }}>
 								<div style={{ fontSize: '1.3em', marginBottom: '8px' }}>
 									<strong style={{ color: '#39439fff', marginRight: '10px' }}>Package Price:</strong>
@@ -571,30 +1111,278 @@ export default function RopLvl1() {
 								</div>
 							</div>
 
-
-							<button type="submit">
+							<button type="submit" disabled={distributionError && monthlyPeriods.length > 0}>
 								🚀 Create Package
 							</button>
 						</form>
 					</div>
 				</div>
 			)}
-			<div className="dashboard-content-section">
-				<div className="dashboard-section-header">
-					📋 Detailed Entry Management
+
+			{/* Lvl1 Form Modal */}
+			{showLvl1Form && (
+				<div className="dashboard-modal">
+					<div className="dashboard-modal-content" style={{ minWidth: 700, maxWidth: 900, margin: '0 auto' }}>
+						<div className="dashboard-modal-header">
+							<h2 className="dashboard-modal-title">
+								{isEditing ? '✏️ Edit ROP Lvl1' : '✨ Create New ROP Lvl1'}
+							</h2>
+							<button
+								className="dashboard-modal-close"
+								onClick={() => setShowLvl1Form(false)}
+								type="button"
+							>✕</button>
+						</div>
+						<form className="dashboard-form" onSubmit={handleLvl1Submit}>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<input
+									type="text"
+									placeholder="Project ID"
+									value={lvl1FormData.project_id}
+									disabled
+									style={{ flex: 1 }}
+								/>
+								<input
+									type="text"
+									placeholder="Project Name"
+									value={lvl1FormData.project_name}
+									disabled
+									style={{ flex: 1 }}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<input
+									type="text"
+									placeholder="Item ID"
+									value={lvl1FormData.id}
+									onChange={e => setLvl1FormData({ ...lvl1FormData, id: e.target.value })}
+									required
+									disabled={isEditing}
+									style={{ flex: 1 }}
+								/>
+								<input
+									type="text"
+									placeholder="Item Name"
+									value={lvl1FormData.item_name}
+									onChange={e => setLvl1FormData({ ...lvl1FormData, item_name: e.target.value })}
+									required
+									style={{ flex: 1 }}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<input
+									type="text"
+									placeholder="Region"
+									value={lvl1FormData.region}
+									onChange={e => setLvl1FormData({ ...lvl1FormData, region: e.target.value })}
+									style={{ flex: 1 }}
+								/>
+								<input
+									type="text"
+									placeholder="Product Number"
+									value={lvl1FormData.product_number}
+									onChange={e => setLvl1FormData({ ...lvl1FormData, product_number: e.target.value })}
+									style={{ flex: 1 }}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<input
+									type="number"
+									placeholder="Total Quantity"
+									value={lvl1FormData.total_quantity}
+									onChange={e => setLvl1FormData({ ...lvl1FormData, total_quantity: e.target.value })}
+									style={{ flex: 1 }}
+								/>
+								<input
+									type="number"
+									step="0.01"
+									placeholder="Price"
+									value={lvl1FormData.price}
+									onChange={e => setLvl1FormData({ ...lvl1FormData, price: e.target.value })}
+									style={{ flex: 1 }}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<div style={{ flex: 1 }}>
+									<label>Start Date:</label>
+									<input
+										type="date"
+										value={lvl1FormData.start_date}
+										onChange={e => setLvl1FormData({ ...lvl1FormData, start_date: e.target.value })}
+										style={{ width: '100%' }}
+									/>
+								</div>
+								<div style={{ flex: 1 }}>
+									<label>End Date:</label>
+									<input
+										type="date"
+										value={lvl1FormData.end_date}
+										onChange={e => setLvl1FormData({ ...lvl1FormData, end_date: e.target.value })}
+										style={{ width: '100%' }}
+									/>
+								</div>
+							</div>
+							<button type="submit">
+								{isEditing ? '💾 Update Lvl1' : '🚀 Create Lvl1'}
+							</button>
+						</form>
+					</div>
 				</div>
+			)}
+
+			{/* Lvl2 Form Modal */}
+			{showLvl2Form && (
+				<div className="dashboard-modal">
+					<div className="dashboard-modal-content" style={{ minWidth: 700, maxWidth: 900, margin: '0 auto' }}>
+						<div className="dashboard-modal-header">
+							<h2 className="dashboard-modal-title">
+								{isEditing ? '✏️ Edit ROP Lvl2' : '✨ Create New ROP Lvl2'}
+							</h2>
+							<button
+								className="dashboard-modal-close"
+								onClick={() => setShowLvl2Form(false)}
+								type="button"
+							>✕</button>
+						</div>
+						<form className="dashboard-form" onSubmit={handleLvl2Submit}>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<input
+									type="text"
+									placeholder="Project ID"
+									value={lvl2FormData.project_id}
+									disabled
+									style={{ flex: 1 }}
+								/>
+								<input
+									type="text"
+									placeholder="Lvl1 Item Name"
+									value={lvl2FormData.lvl1_item_name}
+									disabled
+									style={{ flex: 1 }}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<input
+									type="text"
+									placeholder="Item ID"
+									value={lvl2FormData.id}
+									onChange={e => setLvl2FormData({ ...lvl2FormData, id: e.target.value })}
+									required
+									disabled={isEditing}
+									style={{ flex: 1 }}
+								/>
+								<input
+									type="text"
+									placeholder="Item Name"
+									value={lvl2FormData.item_name}
+									onChange={e => setLvl2FormData({ ...lvl2FormData, item_name: e.target.value })}
+									required
+									style={{ flex: 1 }}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<input
+									type="text"
+									placeholder="Region"
+									value={lvl2FormData.region}
+									onChange={e => setLvl2FormData({ ...lvl2FormData, region: e.target.value })}
+									required
+									style={{ flex: 1 }}
+								/>
+								<input
+									type="text"
+									placeholder="Product Number"
+									value={lvl2FormData.product_number}
+									onChange={e => setLvl2FormData({ ...lvl2FormData, product_number: e.target.value })}
+									style={{ flex: 1 }}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<input
+									type="number"
+									placeholder="Total Quantity"
+									value={lvl2FormData.total_quantity}
+									onChange={e => setLvl2FormData({ ...lvl2FormData, total_quantity: e.target.value })}
+									required
+									style={{ flex: 1 }}
+								/>
+								<input
+									type="number"
+									step="0.01"
+									placeholder="Price"
+									value={lvl2FormData.price}
+									onChange={e => setLvl2FormData({ ...lvl2FormData, price: e.target.value })}
+									required
+									style={{ flex: 1 }}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: 20, marginBottom: 15 }}>
+								<div style={{ flex: 1 }}>
+									<label>Start Date:</label>
+									<input
+										type="date"
+										value={lvl2FormData.start_date}
+										onChange={e => setLvl2FormData({ ...lvl2FormData, start_date: e.target.value })}
+										required
+										style={{ width: '100%' }}
+									/>
+								</div>
+								<div style={{ flex: 1 }}>
+									<label>End Date:</label>
+									<input
+										type="date"
+										value={lvl2FormData.end_date}
+										onChange={e => setLvl2FormData({ ...lvl2FormData, end_date: e.target.value })}
+										required
+										style={{ width: '100%' }}
+									/>
+								</div>
+							</div>
+							<button type="submit">
+								{isEditing ? '💾 Update Lvl2' : '🚀 Create Lvl2'}
+							</button>
+						</form>
+					</div>
+				</div>
+			)}
+
+			{/* Search Bar */}
+			<div className="dashboard-content-section">
+				<div className="dashboard-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+					<span>📋 Detailed Entry Management</span>
+					<div style={{ position: 'relative', width: '300px' }}>
+						<input
+							type="text"
+							placeholder="🔍 Search by PCI Name or product number..."
+							value={searchQuery}
+							onChange={e => setSearchQuery(e.target.value)}
+							style={{
+								width: '100%',
+								padding: '10px 15px',
+								border: '2px solid #1976d2',
+								borderRadius: '25px',
+								fontSize: '14px',
+								outline: 'none',
+								transition: 'border-color 0.3s ease'
+							}}
+						/>
+					</div>
+				</div>
+
 				<div className="dashboard-table-container" style={{ overflowX: 'hidden' }}>
-					{entries.length > 0 ? (
+					{filteredEntries.length > 0 ? (
 						<table className="dashboard-table">
 							<thead>
 								<tr>
 									<th></th>
-									<th></th><th style={{ textAlign: 'center' }}>Product Number</th>
-									<th style={{ textAlign: 'center' }}>Item Name</th>
+									<th></th>
+									<th style={{ textAlign: 'center' }}>Product Number</th>
+									<th style={{ textAlign: 'center' }}>PCI Name</th>
 									<th style={{ textAlign: 'center' }}>Quantity</th>
 									<th style={{ textAlign: 'center' }}>Unit Price</th>
 									<th style={{ textAlign: 'center' }}>Total Price</th>
-									<th></th>
+									<th style={{ textAlign: 'center' }}>Actions</th>
+									
 								</tr>
 							</thead>
 							<tbody>
@@ -616,11 +1404,57 @@ export default function RopLvl1() {
 											<td>{entry.product_number || '-'}</td>
 											<td><strong>{entry.item_name}</strong></td>
 											<td>{entry.total_quantity?.toLocaleString() || '-'}</td>
-											<td>{entry.price ? `${entry.price.toFixed(2)}` : '-'} {cur}</td>
+											<td>{entry.calculatedUnitPrice ? `${entry.calculatedUnitPrice.toFixed(2)}` : '0.00'} {cur}</td>
 											<td>
 												<strong style={{ color: 'var(--nokia-success)' }}>
-													{((entry.total_quantity || 0) * (entry.price || 0)).toLocaleString()} {cur}
+													{((entry.total_quantity || 0) * (entry.calculatedUnitPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cur}
 												</strong>
+											</td>
+											<td>
+												<div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+													<button
+														onClick={() => handleCreateLvl2(entry)}
+														style={{
+															background: '#4caf50',
+															color: 'white',
+															border: 'none',
+															padding: '4px 8px',
+															borderRadius: '3px',
+															cursor: 'pointer',
+															fontSize: '11px'
+														}}
+													>
+														Add SI
+													</button>
+													<button
+														onClick={() => handleEditLvl1(entry)}
+														style={{
+															background: '#2196f3',
+															color: 'white',
+															border: 'none',
+															padding: '6px 12px',
+															borderRadius: '4px',
+															cursor: 'pointer',
+															fontSize: '12px'
+														}}
+													>
+														Details
+													</button>
+													<button
+														onClick={() => handleDeleteLvl1(entry.id)}
+														style={{
+															background: '#f44336',
+															color: 'white',
+															border: 'none',
+															padding: '6px 12px',
+															borderRadius: '4px',
+															cursor: 'pointer',
+															fontSize: '12px'
+														}}
+													>
+														Delete
+													</button>
+												</div>
 											</td>
 										</tr>
 										{expandedRows[entry.id] && (
@@ -631,10 +1465,11 @@ export default function RopLvl1() {
 															<thead>
 																<tr>
 																	<th style={{ textAlign: 'center' }}>Product Number</th>
-																	<th style={{ textAlign: 'center' }}>Item Name</th>
+																	<th style={{ textAlign: 'center' }}>SI Name</th>
 																	<th style={{ textAlign: 'center' }}>Quantity</th>
 																	<th style={{ textAlign: 'center' }}>Price</th>
 																	<th style={{ textAlign: 'center' }}>Total Price</th>
+																	<th style={{ textAlign: 'center' }}>Actions</th>
 																</tr>
 															</thead>
 															<tbody>
@@ -645,10 +1480,44 @@ export default function RopLvl1() {
 																		<td>{lvl2.total_quantity?.toLocaleString() || '-'}</td>
 																		<td>{lvl2.price ? `${lvl2.price.toFixed(2)} ${cur}` : '-'}</td>
 																		<td>{((lvl2.total_quantity || 0) * (lvl2.price || 0)).toLocaleString()} {cur}</td>
+																		<td>
+																			<div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+																				<button
+																					onClick={() => handleEditLvl2(lvl2)}
+																					style={{
+																						background: '#2196f3',
+																						color: 'white',
+																						border: 'none',
+																						padding: '4px 8px',
+																						borderRadius: '3px',
+																						cursor: 'pointer',
+																						fontSize: '11px'
+																					}}
+																				>
+																					Details
+																				</button>
+																				<button
+																					onClick={() => handleDeleteLvl2(lvl2.id, entry.id)}
+																					style={{
+																						background: '#f44336',
+																						color: 'white',
+																						border: 'none',
+																						padding: '4px 8px',
+																						borderRadius: '3px',
+																						cursor: 'pointer',
+																						fontSize: '11px'
+																					}}
+																				>
+																					Delete
+																				</button>
+																			</div>
+																		</td>
 																	</tr>
 																))}
 																{(lvl2Items[entry.id] && lvl2Items[entry.id].length === 0) && (
-																	<tr><td colSpan={6} style={{ textAlign: 'center', color: '#888' }}>No Level 2 items found.</td></tr>
+																	<tr>
+																		<td colSpan={6} style={{ textAlign: 'center', color: '#888' }}>No Level 2 items found.</td>
+																	</tr>
 																)}
 															</tbody>
 														</table>
@@ -664,12 +1533,11 @@ export default function RopLvl1() {
 						<div className="dashboard-empty-state">
 							<div className="dashboard-empty-icon">📋</div>
 							<div className="dashboard-empty-text">
-								No entries found. Create your first entry to get started!
+								{searchQuery ? `No entries found matching "${searchQuery}". Try a different search term.` : 'No entries found. Create your first entry to get started!'}
 							</div>
 						</div>
 					)}
 				</div>
-
 
 				{totalPages > 1 && (
 					<div className="dashboard-pagination">

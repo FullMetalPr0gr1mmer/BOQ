@@ -1,68 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import '../css/Dismantling.css';
-
-// Access the environment variable once at the top level
-const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-// Helper function to get authorization headers from the token
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  } else {
-    // No token: auto logout
-    localStorage.removeItem('token');
-    window.location.href = '/login';
-    return { 'Content-Type': 'application/json' };
-  }
-};
+import { apiCall, getAuthHeaders } from '../api';
 
 // API service with real endpoints
 const apiService = {
   // Roles endpoints
   getAllRoles: async function() {
-    return this.apiCall('/audit-logs/roles');
+    return apiCall('/audit-logs/roles');
   },
 
   updateUserRole: async function(userId, newRoleName) {
-    return this.apiCall('/audit-logs/update_user_role', {
+    return apiCall('/audit-logs/update_user_role', {
       method: 'PUT',
       body: JSON.stringify({ user_id: userId, new_role_name: newRoleName }),
     });
   },
-  async apiCall(endpoint, options = {}) {
-    const url = `${VITE_API_URL}${endpoint}`;
-    const config = {
-      headers: getAuthHeaders(), // <-- Use the centralized header function
-      ...options,
-    };
 
-    try {
-      const response = await fetch(url, config);
-      if (!response.ok) {
-        const errorData = await response.json();
-        // Check for 401/403 status codes and handle them gracefully
-        if (response.status === 401 || response.status === 403) {
-          // Auto logout on unauthorized/forbidden
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-          throw new Error('Unauthorized or Forbidden access. Please log in again.');
-        }
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('API call failed:', error);
-      // If error is unauthorized, auto logout
-      if (error.message && error.message.includes('Unauthorized')) {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      }
-      throw error;
-    }
+  async apiCall(endpoint, options = {}) {
+    return apiCall(endpoint, options);
   },
 
   // Users endpoints

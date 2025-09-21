@@ -1,3 +1,4 @@
+# Models/LE/RopPackages.py - Updated version
 from sqlalchemy import Date, Float
 from sqlalchemy import Table, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
@@ -16,6 +17,7 @@ class RopPackage(Base):
     quantity = Column(Integer, nullable=True)
     price = Column(Float, nullable=True)
     lead_time = Column(Integer, nullable=True)
+
     # Many-to-many relationship with Lvl1
     lvl1_items = relationship(
         "ROPLvl1",
@@ -23,10 +25,18 @@ class RopPackage(Base):
         back_populates="packages"
     )
 
+    # One-to-many relationship with MonthlyDistribution
+    monthly_distributions = relationship(
+        "MonthlyDistribution",
+        back_populates="package",
+        cascade="all, delete-orphan"
+    )
+
+
 rop_package_lvl1 = Table(
     "rop_package_lvl1",
     Base.metadata,
     Column("package_id", Integer, ForeignKey("rop_packages.id", ondelete="CASCADE"), primary_key=True),
     Column("lvl1_id", String(200), ForeignKey("rop_lvl1.id", ondelete="CASCADE"), primary_key=True),
-    Column("quantity", Integer, nullable=True),# ✅ added
+    Column("quantity", Integer, nullable=True),
 )
