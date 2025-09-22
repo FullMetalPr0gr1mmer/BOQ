@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../css/RopLvl1.css';
+import { apiCall, setTransient } from '../api';
 
 const ENTRIES_PER_PAGE = 15;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
@@ -19,15 +20,15 @@ const getAuthHeaders = () => {
 // Utility function to generate monthly periods
 const generateMonthlyPeriods = (startDate, endDate) => {
 	if (!startDate || !endDate) return [];
-	
+
 	const periods = [];
 	const start = new Date(startDate);
 	const end = new Date(endDate);
-	
+
 	// Set to first day of start month
 	const current = new Date(start.getFullYear(), start.getMonth(), 1);
 	const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-	
+
 	while (current <= endMonth) {
 		periods.push({
 			year: current.getFullYear(),
@@ -36,7 +37,7 @@ const generateMonthlyPeriods = (startDate, endDate) => {
 		});
 		current.setMonth(current.getMonth() + 1);
 	}
-	
+
 	return periods;
 };
 
@@ -121,7 +122,7 @@ export default function RopLvl1() {
 		if (formData.start_date && formData.end_date) {
 			const periods = generateMonthlyPeriods(formData.start_date, formData.end_date);
 			setMonthlyPeriods(periods);
-			
+
 			// Initialize distributions with zero quantities
 			const initialDistributions = periods.map(period => ({
 				year: period.year,
@@ -141,7 +142,7 @@ export default function RopLvl1() {
 		if (monthlyDistributions.length > 0 && formData.quantity) {
 			const totalDistributed = monthlyDistributions.reduce((sum, dist) => sum + (parseInt(dist.quantity) || 0), 0);
 			const packageQuantity = parseInt(formData.quantity) || 0;
-			
+
 			if (totalDistributed !== packageQuantity && packageQuantity > 0) {
 				setDistributionError(`Total distributed quantity (${totalDistributed}) must equal package quantity (${packageQuantity})`);
 			} else {
@@ -155,18 +156,18 @@ export default function RopLvl1() {
 	// Auto-distribute quantity evenly
 	const handleAutoDistribute = () => {
 		if (!formData.quantity || monthlyPeriods.length === 0) return;
-		
+
 		const totalQuantity = parseInt(formData.quantity);
 		const monthsCount = monthlyPeriods.length;
 		const baseQuantity = Math.floor(totalQuantity / monthsCount);
 		const remainder = totalQuantity % monthsCount;
-		
+
 		const autoDistributions = monthlyPeriods.map((period, index) => ({
 			year: period.year,
 			month: period.month,
 			quantity: baseQuantity + (index < remainder ? 1 : 0)
 		}));
-		
+
 		setMonthlyDistributions(autoDistributions);
 	};
 
@@ -258,11 +259,9 @@ export default function RopLvl1() {
 	const fetchEntries = async () => {
 		try {
 			const url = projectState?.pid_po
-				? `${VITE_API_URL}/rop-lvl1/by-project/${projectState.pid_po}`
-				: `${VITE_API_URL}/rop-lvl1/`;
-			const res = await fetch(url, { headers: getAuthHeaders() });
-			if (!res.ok) throw new Error('Failed to fetch Lvl1 entries');
-			const lvl1Entries = await res.json();
+				? `/rop-lvl1/by-project/${projectState.pid_po}`
+				: `/rop-lvl1/`;
+			const lvl1Entries = await apiCall(url);
 
 			// Fetch Lvl2 children for all Lvl1 entries in parallel
 			const lvl2Promises = lvl1Entries.map(entry =>
@@ -304,16 +303,14 @@ export default function RopLvl1() {
 			setLvl2Items(newLvl2ItemsState);
 
 		} catch (err) {
-			setError('Failed to fetch or process ROP entries');
+			setTransient(setError, err.message || 'Failed to fetch or process ROP entries');
 			console.error(err);
 		}
 	};
 
 	const fetchLvl2Items = async (lvl1_id) => {
 		try {
-			const res = await fetch(`${VITE_API_URL}/rop-lvl2/by-lvl1/${lvl1_id}`, { headers: getAuthHeaders() });
-			if (!res.ok) throw new Error('Failed to fetch Level 2 items');
-			const data = await res.json();
+			const data = await apiCall(`/rop-lvl2/by-lvl1/${lvl1_id}`);
 			setLvl2Items(prev => ({ ...prev, [lvl1_id]: data }));
 		} catch (err) {
 			setLvl2Items(prev => ({ ...prev, [lvl1_id]: [] }));
@@ -410,22 +407,16 @@ export default function RopLvl1() {
 		};
 
 		try {
-			const res = await fetch(`${VITE_API_URL}/rop-package/create`, {
+			await apiCall(`/rop-package/create`, {
 				method: 'POST',
-				headers: getAuthHeaders(),
 				body: JSON.stringify(payload),
 			});
 
-			if (!res.ok) {
-				const err = await res.json();
-				throw new Error(err.detail || 'Failed to create package');
-			}
-
-			setSuccess('ROP Package created successfully!');
+			setTransient(setSuccess, 'ROP Package created successfully!');
 			resetForm();
 			fetchEntries();
 		} catch (err) {
-			setError(err.message);
+			setTransient(setError, err.message || 'Failed to create package');
 		}
 	};
 
@@ -449,27 +440,21 @@ export default function RopLvl1() {
 
 		try {
 			const url = isEditing
-				? `${VITE_API_URL}/rop-lvl1/update/${editId}`
-				: `${VITE_API_URL}/rop-lvl1/create`;
+				? `/rop-lvl1/update/${editId}`
+				: `/rop-lvl1/create`;
 
 			const method = isEditing ? 'PUT' : 'POST';
 
-			const res = await fetch(url, {
+			await apiCall(url, {
 				method: method,
-				headers: getAuthHeaders(),
 				body: JSON.stringify(payload),
 			});
 
-			if (!res.ok) {
-				const err = await res.json();
-				throw new Error(err.detail || `Failed to ${isEditing ? 'update' : 'create'} Lvl1 item`);
-			}
-
-			setSuccess(`ROP Lvl1 ${isEditing ? 'updated' : 'created'} successfully!`);
+			setTransient(setSuccess, `ROP Lvl1 ${isEditing ? 'updated' : 'created'} successfully!`);
 			resetLvl1Form();
 			fetchEntries();
 		} catch (err) {
-			setError(err.message);
+			setTransient(setError, err.message || `Failed to ${isEditing ? 'update' : 'create'} Lvl1 item`);
 		}
 	};
 
@@ -495,23 +480,17 @@ export default function RopLvl1() {
 
 		try {
 			const url = isEditing
-				? `${VITE_API_URL}/rop-lvl2/update/${editId}`
-				: `${VITE_API_URL}/rop-lvl2/create`;
+				? `/rop-lvl2/update/${editId}`
+				: `/rop-lvl2/create`;
 
 			const method = isEditing ? 'PUT' : 'POST';
 
-			const res = await fetch(url, {
+			await apiCall(url, {
 				method: method,
-				headers: getAuthHeaders(),
 				body: JSON.stringify(payload),
 			});
 
-			if (!res.ok) {
-				const err = await res.json();
-				throw new Error(err.detail || `Failed to ${isEditing ? 'update' : 'create'} Lvl2 item`);
-			}
-
-			setSuccess(`ROP Lvl2 ${isEditing ? 'updated' : 'created'} successfully!`);
+			setTransient(setSuccess, `ROP Lvl2 ${isEditing ? 'updated' : 'created'} successfully!`);
 			resetLvl2Form();
 			fetchEntries();
 			// Refresh lvl2 items for the parent lvl1
@@ -519,7 +498,7 @@ export default function RopLvl1() {
 				await fetchLvl2Items(lvl2FormData.lvl1_id);
 			}
 		} catch (err) {
-			setError(err.message);
+			setTransient(setError, err.message || `Failed to ${isEditing ? 'update' : 'create'} Lvl2 item`);
 		}
 	};
 
@@ -586,20 +565,14 @@ export default function RopLvl1() {
 		}
 
 		try {
-			const res = await fetch(`${VITE_API_URL}/rop-lvl1/${id}`, {
-				method: 'DELETE',
-				headers: getAuthHeaders(),
+			await apiCall(`/rop-lvl1/${id}`, {
+				method: 'DELETE'
 			});
 
-			if (!res.ok) {
-				const err = await res.json();
-				throw new Error(err.detail || 'Failed to delete Lvl1 item');
-			}
-
-			setSuccess('ROP Lvl1 deleted successfully!');
+			setTransient(setSuccess, 'ROP Lvl1 deleted successfully!');
 			fetchEntries();
 		} catch (err) {
-			setError(err.message);
+			setTransient(setError, err.message || 'Failed to delete Lvl1 item');
 		}
 	};
 
@@ -609,22 +582,16 @@ export default function RopLvl1() {
 		}
 
 		try {
-			const res = await fetch(`${VITE_API_URL}/rop-lvl2/${id}`, {
-				method: 'DELETE',
-				headers: getAuthHeaders(),
+			await apiCall(`/rop-lvl2/${id}`, {
+				method: 'DELETE'
 			});
 
-			if (!res.ok) {
-				const err = await res.json();
-				throw new Error(err.detail || 'Failed to delete Lvl2 item');
-			}
-
-			setSuccess('ROP Lvl2 deleted successfully!');
+			setTransient(setSuccess, 'ROP Lvl2 deleted successfully!');
 			// Refresh lvl2 items for the parent lvl1
 			await fetchLvl2Items(lvl1_id);
 			fetchEntries(); // Also refresh main entries to update totals
 		} catch (err) {
-			setError(err.message);
+			setTransient(setError, err.message || 'Failed to delete Lvl2 item');
 		}
 	};
 
@@ -692,7 +659,7 @@ export default function RopLvl1() {
 					</p>
 				</div>
 				<div style={{ display: 'flex', gap: '10px' }}>
-					<button className="new-entry-btn" onClick={() => { resetLvl1Form(); setShowLvl1Form(!showLvl1Form); }}>
+					<button className="new-entry-btn" style={{ visibility: 'hidden' }} onClick={() => { resetLvl1Form(); setShowLvl1Form(!showLvl1Form); }}>
 						{showLvl1Form ? '✕ Cancel' : '+ New PCI'}
 					</button>
 					<button className="new-entry-btn" onClick={() => { resetForm(); setShowForm(!showForm); }}>
@@ -874,7 +841,7 @@ export default function RopLvl1() {
 								/>
 								<input
 									type="number"
-									placeholder="Lead Time (days)"
+									placeholder="Revenue Lead Time (days)"
 									value={formData.lead_time || ''}
 									onChange={e => setFormData({ ...formData, lead_time: e.target.value })}
 									style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
@@ -922,14 +889,14 @@ export default function RopLvl1() {
 											Auto Distribute
 										</button>
 									</div>
-									
+
 									{distributionError && (
-										<div style={{ 
-											backgroundColor: '#ffebee', 
-											border: '1px solid #f44336', 
-											color: '#d32f2f', 
-											padding: '10px', 
-											borderRadius: '4px', 
+										<div style={{
+											backgroundColor: '#ffebee',
+											border: '1px solid #f44336',
+											color: '#d32f2f',
+											padding: '10px',
+											borderRadius: '4px',
 											marginBottom: '12px',
 											fontSize: '0.9em'
 										}}>
@@ -1022,7 +989,7 @@ export default function RopLvl1() {
 											border: '1.5px solid #1976d2',
 											borderRadius: '6px',
 											backgroundColor: '#fff',
-											maxHeight: '320px',
+											maxHeight: '400px',
 											overflowY: 'auto',
 											fontSize: '0.92em',
 										}}
@@ -1030,39 +997,144 @@ export default function RopLvl1() {
 										{entries.map(entry => {
 											const isSelected = selectedLvl1Items.some(item => item.id === entry.id);
 											const selectedItem = selectedLvl1Items.find(item => item.id === entry.id);
+											const lvl2Children = lvl2Items[entry.id] || [];
+
 											return (
-												<div
-													key={entry.id}
-													style={{
-														padding: '8px 10px',
-														cursor: 'pointer',
-														backgroundColor: isSelected ? '#e6f7ff' : 'transparent',
-														borderBottom: '1px solid #f0f0f0',
-														display: 'flex',
-														alignItems: 'center',
-													}}
-												>
-													<input
-														type="checkbox"
-														checked={isSelected}
-														onChange={() => handleSelectLvl1Item(entry)}
-														style={{ marginRight: '10px', width: 16, height: 16 }}
-													/>
-													<span style={{ flexGrow: 1 }}>
-														{entry.item_name} (ID: {entry.id})
-													</span>
-													{isSelected && (
-														<span style={{ display: 'flex', alignItems: 'center' }}>
-															<span style={{ fontWeight: 600, fontSize: '1.08em', marginRight: 6 }}>Qty:</span>
-															<input
-																type="number"
-																placeholder="Quantity"
-																value={selectedItem.quantity}
-																onChange={e => handleQuantityChange(entry.id, e.target.value)}
-																style={{ width: '120px', fontSize: '1.08em', padding: '6px 10px', borderRadius: '4px', border: '1px solid #1976d2' }}
-																onClick={e => e.stopPropagation()}
-															/>
+												<div key={entry.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+													{/* Level 1 Item */}
+													<div
+														style={{
+															padding: '8px 10px',
+															cursor: 'pointer',
+															backgroundColor: isSelected ? '#e6f7ff' : 'transparent',
+															display: 'flex',
+															alignItems: 'center',
+															borderBottom: lvl2Children.length > 0 ? '1px solid #e8f4f8' : 'none'
+														}}
+													>
+														<input
+															type="checkbox"
+															checked={isSelected}
+															onChange={() => handleSelectLvl1Item(entry)}
+															style={{ marginRight: '10px', width: 16, height: 16 }}
+														/>
+														<span style={{ flexGrow: 1, fontWeight: '600', color: '#1976d2' }}>
+															 {entry.item_name}
 														</span>
+														{entry.calculatedUnitPrice > 0 && (
+															<span style={{
+																fontSize: '0.85em',
+																color: '#666',
+																marginRight: '10px',
+																backgroundColor: '#f5f5f5',
+																padding: '2px 6px',
+																borderRadius: '3px'
+															}}>
+																{entry.calculatedUnitPrice.toFixed(2)} {cur}
+															</span>
+														)}
+														{isSelected && (
+															<span style={{ display: 'flex', alignItems: 'center' }}>
+																<span style={{ fontWeight: 600, fontSize: '1.08em', marginRight: 6 }}>Qty:</span>
+																<input
+																	type="number"
+																	placeholder="Quantity"
+																	value={selectedItem.quantity}
+																	onChange={e => handleQuantityChange(entry.id, e.target.value)}
+																	style={{
+																		width: '120px',
+																		fontSize: '1.08em',
+																		padding: '6px 10px',
+																		borderRadius: '4px',
+																		border: '1px solid #1976d2'
+																	}}
+																	onClick={e => e.stopPropagation()}
+																/>
+															</span>
+														)}
+													</div>
+
+													{/* Level 2 Items (if any) */}
+													{lvl2Children.length > 0 && (
+														<div style={{
+															backgroundColor: '#f8fdff',
+															paddingLeft: '30px',
+															maxHeight: '120px',
+															overflowY: 'auto'
+														}}>
+															{lvl2Children.map(lvl2 => (
+																<div
+																	key={lvl2.id}
+																	style={{
+																		padding: '4px 10px',
+																		fontSize: '0.88em',
+																		color: '#555',
+																		borderBottom: '1px solid #f0f8ff',
+																		display: 'flex',
+																		alignItems: 'center',
+																		justifyContent: 'space-between'
+																	}}
+																>
+																	<span style={{ display: 'flex', alignItems: 'center' }}>
+																		<span style={{ marginRight: '8px', color: '#888' }}>└─</span>
+																		<span style={{ fontWeight: '500' }}>
+																			🔧 {lvl2.item_name}
+																		</span>
+																		{lvl2.product_number && (
+																			<span style={{
+																				marginLeft: '8px',
+																				color: '#888',
+																				fontSize: '0.85em',
+																				fontStyle: 'italic'
+																			}}>
+																				({lvl2.product_number})
+																			</span>
+																		)}
+																	</span>
+																	<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+																		{lvl2.total_quantity && (
+																			<span style={{
+																				fontSize: '0.8em',
+																				color: '#666',
+																				backgroundColor: '#fff',
+																				padding: '1px 4px',
+																				borderRadius: '2px',
+																				border: '1px solid #e0e0e0'
+																			}}>
+																				Qty: {lvl2.total_quantity.toLocaleString()}
+																			</span>
+																		)}
+																		{lvl2.price && (
+																			<span style={{
+																				fontSize: '0.8em',
+																				color: '#2e7d32',
+																				backgroundColor: '#fff',
+																				padding: '1px 4px',
+																				borderRadius: '2px',
+																				border: '1px solid #e0e0e0',
+																				fontWeight: '500'
+																			}}>
+																				{lvl2.price.toFixed(2)} {cur}
+																			</span>
+																		)}
+																	</div>
+																</div>
+															))}
+														</div>
+													)}
+
+													{/* No Level 2 items indicator */}
+													{lvl2Children.length === 0 && (
+														<div style={{
+															paddingLeft: '30px',
+															padding: '4px 10px 4px 30px',
+															fontSize: '0.85em',
+															color: '#999',
+															fontStyle: 'italic',
+															backgroundColor: '#fafafa'
+														}}>
+															└─ No SI items configured
+														</div>
 													)}
 												</div>
 											);
@@ -1382,7 +1454,7 @@ export default function RopLvl1() {
 									<th style={{ textAlign: 'center' }}>Unit Price</th>
 									<th style={{ textAlign: 'center' }}>Total Price</th>
 									<th style={{ textAlign: 'center' }}>Actions</th>
-									
+
 								</tr>
 							</thead>
 							<tbody>
@@ -1421,7 +1493,8 @@ export default function RopLvl1() {
 															padding: '4px 8px',
 															borderRadius: '3px',
 															cursor: 'pointer',
-															fontSize: '11px'
+															fontSize: '11px',
+															visibility: 'hidden'
 														}}
 													>
 														Add SI

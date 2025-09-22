@@ -16,10 +16,21 @@ export const getAuthHeaders = () => {
 
 export async function apiCall(endpoint, options = {}) {
   const url = `${VITE_API_URL}${endpoint}`;
+  const defaultHeaders = getAuthHeaders();
   const config = {
-    headers: getAuthHeaders(),
     ...options,
+    headers: {
+      ...defaultHeaders,
+      ...(options.headers || {})
+    }
   };
+
+  // If sending FormData, let the browser set the Content-Type
+  if (config.body instanceof FormData) {
+    if (config.headers && config.headers['Content-Type']) {
+      delete config.headers['Content-Type'];
+    }
+  }
 
   try {
     const response = await fetch(url, config);
@@ -36,10 +47,31 @@ export async function apiCall(endpoint, options = {}) {
       }
       throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
-    return await response.json();
+    // Handle empty or no-content responses safely
+    if (response.status === 204) {
+      return null;
+    }
+    const contentType = response.headers.get('content-type') || '';
+    // If not JSON, or body is empty, return null/string
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      return text?.length ? text : null;
+    }
+    // Parse JSON, but guard against empty body
+    const text = await response.text();
+    if (!text) return null;
+    return JSON.parse(text);
   } catch (error) {
     // Optionally, you can emit a global event or use a state manager for error messages
     console.error('API call failed:', error);
     throw error;
+  }
+}
+
+// Helper: set message then auto-clear after ms (default 5s)
+export function setTransient(setter, message, ms = 3000) {
+  setter(message);
+  if (ms > 0) {
+    setTimeout(() => setter(''), ms);
   }
 }

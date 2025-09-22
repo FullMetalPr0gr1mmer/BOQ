@@ -1,26 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../css/Project.css';
+import { apiCall, setTransient } from '../api';
 
 const PROJECTS_PER_PAGE = 5;
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
-};
-const getAuthHeadersForFormData = () => {
-  const token = localStorage.getItem('token');
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
+// getAuthHeaders and apiCall imported from ../api
 export default function ROPProject() {
   const [projects, setProjects] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -38,8 +22,9 @@ export default function ROPProject() {
   const [currentPage, setCurrentPage] = useState(1);
   const [csvModalMode, setCsvModalMode] = useState(false); // true if modal opened due to CSV error
   const [lastCsvFile, setLastCsvFile] = useState(null); // to store the last uploaded CSV file
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
 
-  const VITE_API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -48,11 +33,10 @@ export default function ROPProject() {
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-projects/`,{ headers: getAuthHeaders() });
-      const data = await res.json();
+      const data = await apiCall(`/rop-projects/`);
       setProjects(data);
-    } catch {
-      setError('Failed to fetch projects');
+    } catch (e) {
+      setTransient(setError, e.message || 'Failed to fetch projects');
     }
   };
 
@@ -63,25 +47,19 @@ export default function ROPProject() {
     formData.append('file', file);
     setLastCsvFile(file);
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-projects/upload-csv`, {
-        headers: getAuthHeadersForFormData(),
+      await apiCall(`/rop-projects/upload-csv`, {
         method: 'POST',
         body: formData
       });
-      if (!res.ok) {
-        const err = await res.json();
-        setError(err.detail || 'Failed to upload CSV');
-        // If error is due to missing Level 0, open modal in CSV mode
-        if (err.detail && err.detail.includes('CSV must contain at least one Level 0 entry')) {
-          setCsvModalMode(true);
-          setShowForm(true);
-        }
-        return;
-      }
-      setSuccess('CSV uploaded and processed successfully!');
+      setTransient(setSuccess, 'CSV uploaded and processed successfully!');
       fetchProjects();
     } catch (err) {
-      setError(err.message);
+      const msg = err?.message || 'Failed to upload CSV';
+      setTransient(setError, msg);
+      if (msg.includes('CSV must contain at least one Level 0 entry')) {
+        setCsvModalMode(true);
+        setShowForm(true);
+      }
     }
     document.getElementById('csv-upload-input').value = '';
   };
@@ -104,44 +82,35 @@ export default function ROPProject() {
       if (lastCsvFile) {
         formData.append('file', lastCsvFile);
       }
-      await fetch(`${VITE_API_URL}/rop-projects/upload-csv-fix`, {
-        headers: getAuthHeadersForFormData(),
+      await apiCall(`/rop-projects/upload-csv-fix`, {
         method: 'POST',
         body: formData
       });
       setCsvModalMode(false);
       setShowForm(false);
-      setSuccess('Project data sent for CSV correction!');
+      setTransient(setSuccess, 'Project data sent for CSV correction!');
            fetchProjects();
       return;
     }
 
     try {
-      let res;
       if (editingProject) {
-        res = await fetch(`${VITE_API_URL}/rop-projects/${editingProject.pid_po}`, {
+        await apiCall(`/rop-projects/${editingProject.pid_po}`, {
           method: 'PUT',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(projectData),
+          body: JSON.stringify(projectData)
         });
       } else {
-        res = await fetch(`${VITE_API_URL}/rop-projects/`, {
+        await apiCall(`/rop-projects/`, {
           method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(projectData),
+          body: JSON.stringify(projectData)
         });
       }
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Failed to save project');
-      }
-  
-      setSuccess(editingProject ? 'Project updated successfully!' : 'Project created successfully!');
+      setTransient(setSuccess, editingProject ? 'Project updated successfully!' : 'Project created successfully!');
       clearForm();
       fetchProjects();
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || 'Failed to save project');
     }
   };
 
@@ -167,17 +136,29 @@ export default function ROPProject() {
     setShowForm(true);
   };
 
-  const handleDelete = async (proj) => {
-    if (!window.confirm(`Delete project ${proj.pid} - ${proj.project_name}?`)) return;
+  const handleDelete = (proj) => {
+    setProjectToDelete(proj);
+    setShowDeleteModal(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-projects/${proj.pid_po}`, { method: 'DELETE',headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to delete project');
-      setSuccess('Project deleted successfully!');
+      await apiCall(`/rop-projects/${projectToDelete.pid_po}`, { method: 'DELETE' });
+      setTransient(setSuccess, 'Project and related items deleted successfully.');
+      setShowDeleteModal(false);
+      setProjectToDelete(null);
       fetchProjects();
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || 'Failed to delete project');
+      setShowDeleteModal(false);
+      setProjectToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setProjectToDelete(null);
   };
 
   const handleLevel1 = (proj) => {
@@ -199,7 +180,7 @@ export default function ROPProject() {
           <p className="dashboard-subtitle">Project Management Dashboard</p>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <button className="new-entry-btn" onClick={() => { clearForm(); setShowForm(!showForm); }}>
+          <button className="new-entry-btn" style={{visibility:'hidden'}} onClick={() => { clearForm(); setShowForm(!showForm); }}>
             {showForm ? '✕ Cancel' : '+ New Project'}
           </button>
           <form id="csv-upload-form" style={{ display: 'inline' }}>
@@ -308,6 +289,34 @@ export default function ROPProject() {
               {i + 1}
             </button>
           ))}
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 1001
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', padding: '1.5rem',
+            minWidth: '360px', maxWidth: '90vw', boxShadow: '0 12px 40px rgba(0,0,0,0.18)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%', background: '#fff3cd',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #ffecb5'
+              }}>⚠️</div>
+              <h3 style={{ margin: 0 }}>Confirm Project Deletion</h3>
+            </div>
+            <p style={{ marginTop: 0, color: '#444' }}>
+              Deleting project <strong>{projectToDelete?.project_name}</strong> will also permanently delete all related PCIs, SIs, and Packages. This action cannot be undone. Are you sure you want to proceed?
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button className="stylish-btn" onClick={cancelDelete} style={{ background: '#e0e0e0', color: '#333' }}>Cancel</button>
+              <button className="stylish-btn danger" onClick={confirmDelete}>Delete</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -4,20 +4,9 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useLocation } from "react-router-dom";
 import "../css/RopPackage.css";
 import moment from "moment";
+import { apiCall, setTransient } from '../api';
 
-const VITE_API_URL = import.meta.env.VITE_API_URL;
 const MONTH_WIDTH = 60; // width of 1 month column in px
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
-};
 
 export default function RopPackage() {
   const location = useLocation();
@@ -70,17 +59,15 @@ export default function RopPackage() {
     setSavingQuantityColPkgId(pkg.id);
     try {
       const newQuantity = Number(editingQuantityCol[pkg.id]);
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
+      await apiCall(`/rop-package/update/${pkg.id}`, {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ quantity: newQuantity })
       });
-      if (!res.ok) throw new Error("Failed to save quantity");
-      setSuccess("Quantity updated! Monthly distributions may need adjustment.");
+      setTransient(setSuccess, "Quantity updated! Monthly distributions may need adjustment.");
       setEditingQuantityCol(prev => ({ ...prev, [pkg.id]: undefined }));
       fetchPackages();
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || "Failed to save quantity");
     } finally {
       setSavingQuantityColPkgId(null);
     }
@@ -98,23 +85,29 @@ export default function RopPackage() {
 
   const fetchPackages = async () => {
     try {
-      const url = VITE_API_URL + "/rop-package/";
-      const res = await fetch(url, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error("Failed to fetch packages");
-      const data = await res.json();
+      const data = await apiCall(`/rop-package/`);
       setPackages(data);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || "Failed to fetch packages");
     }
   };
 
   const calculateTimeline = () => {
+    // Default to a 12-month window when no packages
     if (packages.length === 0) {
-      setTimeline([]);
+      const start = moment().startOf('month');
+      const months = [];
+      for (let i = 0; i < 12; i++) {
+        months.push(start.clone().add(i, 'month'));
+      }
+      setTimeline(months);
       return;
     }
 
-    const allStartDates = packages.map((p) => moment(p.start_date));
+    // Build min/max across packages, accounting for lead time
+    const allStartDates = packages
+      .map(p => moment(p.start_date))
+      .filter(d => d.isValid());
 
     const allPossibleEndDates = [];
     packages.forEach(p => {
@@ -128,42 +121,35 @@ export default function RopPackage() {
       }
     });
 
-    const minDate = moment.min(allStartDates.filter((d) => d.isValid()));
-    const maxDate = allPossibleEndDates.length > 0 ? moment.max(allPossibleEndDates.filter((d) => d && d.isValid())) : null;
+    let minDate = allStartDates.length > 0 ? moment.min(allStartDates) : moment().startOf('month');
+    let maxDate = allPossibleEndDates.length > 0 ? moment.max(allPossibleEndDates) : minDate.clone().add(11, 'months');
 
-    if (!minDate.isValid() || !maxDate || !maxDate.isValid()) {
-      setTimeline([]);
-      return;
+    // Ensure at least 12 months in the timeline
+    if (maxDate.diff(minDate, 'months') + 1 < 12) {
+      maxDate = minDate.clone().add(11, 'months');
     }
 
     const months = [];
-    let currentDate = minDate.clone().startOf("month");
-    const endDate = maxDate.clone().endOf("month");
-
+    let currentDate = minDate.clone().startOf('month');
+    const endDate = maxDate.clone().endOf('month');
     while (currentDate.isSameOrBefore(endDate)) {
       months.push(currentDate.clone());
-      currentDate.add(1, "month");
+      currentDate.add(1, 'month');
     }
     setTimeline(months);
   };
 
   const handleUpdatePackage = async (packageId, updatedData) => {
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${packageId}`, {
+      await apiCall(`/rop-package/update/${packageId}`, {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify(updatedData),
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to update package");
-      }
-
-      setSuccess("Package updated successfully!");
+      setTransient(setSuccess, "Package updated successfully!");
       fetchPackages();
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || "Failed to update package");
     }
   };
 
@@ -226,21 +212,15 @@ export default function RopPackage() {
     });
 
     try {
-        const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
+        await apiCall(`/rop-package/update/${pkg.id}`, {
             method: "PUT",
-            headers: getAuthHeaders(),
             body: JSON.stringify({ monthly_distributions: finalDistributions }),
         });
 
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || "Failed to auto-distribute quantities");
-        }
-
-        setSuccess("Future monthly quantities auto-distributed successfully!");
+        setTransient(setSuccess, "Future monthly quantities auto-distributed successfully!");
         fetchPackages();
     } catch (err) {
-        setError(err.message);
+        setTransient(setError, err.message || "Failed to auto-distribute quantities");
     }
   };
 
@@ -249,18 +229,13 @@ export default function RopPackage() {
       return;
     }
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-package/${packageId}`, {
+      await apiCall(`/rop-package/${packageId}`, {
         method: "DELETE",
-        headers: getAuthHeaders(),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to delete package");
-      }
-      setSuccess("Package deleted successfully!");
+      setTransient(setSuccess, "Package deleted successfully!");
       fetchPackages();
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || "Failed to delete package");
     }
   };
 
@@ -344,10 +319,10 @@ export default function RopPackage() {
   const getPaymentShiftedQuantities = (pkg) => {
     const monthlyQuantities = getMonthlyQuantities(pkg);
     if (!pkg.lead_time || monthlyQuantities.length === 0) {
-      return monthlyQuantities;
+      return monthlyQuantities.map(q => q ?? 0);
     }
 
-    const shiftedQuantities = new Array(timeline.length).fill(null);
+    const shiftedQuantities = new Array(timeline.length).fill(0);
     const leadTimeMonths = Math.floor(pkg.lead_time / 30);
 
     for (let i = 0; i < monthlyQuantities.length; i++) {
@@ -386,17 +361,15 @@ export default function RopPackage() {
       quantity: Number(editingQuantities[pkg.id]?.[idx] ?? item.quantity)
     }));
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
+      await apiCall(`/rop-package/update/${pkg.id}`, {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ lvl1_ids: updatedLvl1 })
       });
-      if (!res.ok) throw new Error("Failed to save quantities");
-      setSuccess("Quantities updated!");
+      setTransient(setSuccess, "Quantities updated!");
       setEditingQuantities(prev => ({ ...prev, [pkg.id]: {} }));
       fetchPackages();
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || "Failed to save quantities");
     } finally {
       setSavingPkgId(null);
     }
@@ -449,22 +422,16 @@ export default function RopPackage() {
         }
       });
 
-      const res = await fetch(`${VITE_API_URL}/rop-package/update/${pkg.id}`, {
+      await apiCall(`/rop-package/update/${pkg.id}`, {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ monthly_distributions: finalMonthlyDistributions })
       });
       
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Failed to save monthly quantities");
-      }
-      
-      setSuccess("Monthly quantities updated!");
+      setTransient(setSuccess, "Monthly quantities updated!");
       setEditingMonthly(prev => ({ ...prev, [pkg.id]: {} }));
       fetchPackages();
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || "Failed to save monthly quantities");
     } finally {
       setSavingMonthlyPkgId(null);
     }
@@ -669,14 +636,14 @@ export default function RopPackage() {
                 <th style={{ width: "100px" }}>End Date</th>
                 <th>Quantity</th>
 
-                <th className="gantt-header-cell">
+                <th className="gantt-header-cell" style={{ width: `${timeline.length * MONTH_WIDTH}px` }}>
                   <div
                     className="timeline-header"
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: `repeat(${timeline.length}, 1fr)`,
+                      gridTemplateColumns: `repeat(${timeline.length}, ${MONTH_WIDTH}px)`,
                       alignItems: 'center',
-                      minWidth: '400px',
+                      width: `${timeline.length * MONTH_WIDTH}px`,
                       position: 'relative',
                     }}
                   >
@@ -792,8 +759,8 @@ export default function RopPackage() {
                           style={{
                             position: 'relative',
                             display: 'grid',
-                            gridTemplateColumns: `repeat(${timeline.length}, 1fr)`,
-                            minWidth: '400px',
+                            gridTemplateColumns: `repeat(${timeline.length}, ${MONTH_WIDTH}px)`,
+                            width: `${timeline.length * MONTH_WIDTH}px`,
                             alignItems: 'center',
                           }}
                         >
@@ -877,8 +844,8 @@ export default function RopPackage() {
                           className="monthly-quantities-row"
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: `repeat(${timeline.length}, 1fr)`,
-                            minWidth: '400px',
+                            gridTemplateColumns: `repeat(${timeline.length}, ${MONTH_WIDTH}px)`,
+                            width: `${timeline.length * MONTH_WIDTH}px`,
                             alignItems: 'center',
                             position: 'relative',
                           }}
@@ -895,8 +862,7 @@ export default function RopPackage() {
                                 className="monthly-quantity-cell"
                                 style={{
                                   textAlign: 'center',
-                                  position: 'relative',
-                                  visibility: isWithinPackageDateRange ? 'visible' : 'hidden'
+                                  position: 'relative'
                                 }}
                               >
                                 <input
@@ -908,20 +874,18 @@ export default function RopPackage() {
                                     padding: '2px 6px', 
                                     borderRadius: 4, 
                                     border: '1px solid #ccc',
-                                    backgroundColor: isInPast ? '#f5f5f5' : 'white',
-                                    color: isInPast ? '#999' : 'black'
+                                    backgroundColor: (isInPast || !isWithinPackageDateRange) ? '#f5f5f5' : 'white',
+                                    color: (isInPast || !isWithinPackageDateRange) ? '#999' : 'black'
                                   }}
                                   onChange={e => handleMonthlyChange(pkg.id, index, e.target.value)}
-                                  disabled={isInPast || savingMonthlyPkgId === pkg.id}
-                                  readOnly={isInPast}
-                                  title={isInPast ? 'Past months cannot be modified' : ''}
+                                  disabled={isInPast || !isWithinPackageDateRange || savingMonthlyPkgId === pkg.id}
+                                  readOnly={isInPast || !isWithinPackageDateRange}
+                                  title={isInPast ? 'Past months cannot be modified' : (!isWithinPackageDateRange ? 'Outside package date range' : '')}
                                 />
                                 
-                                {paymentShiftedQuantities[index] !== null && (
-                                  <div className="monthly-cost-label" >
-                                    {`${(paymentShiftedQuantities[index] * pkg.price).toLocaleString()}`}
-                                  </div>
-                                )}
+                                <div className="monthly-cost-label" >
+                                  {`${(((paymentShiftedQuantities[index] ?? 0) * (pkg.price || 0))).toLocaleString()}`}
+                                </div>
                                 
                                 {index < timeline.length - 1 && (
                                   <span style={{
@@ -1021,7 +985,7 @@ export default function RopPackage() {
                                   <tr>
                                     <th>Month</th>
                                     <th>Quantity</th>
-                                    <th>Cost</th>
+                                    <th>Revenue</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1046,23 +1010,23 @@ export default function RopPackage() {
                             </div>
                             
                             <div className="payment-details-table">
-                              <h4>Payment Details</h4>
+                              <h4>Revenue Details</h4>
                               <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}>
                                 <tbody>
                                   <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Payment of:</td>
+                                    <td style={{ fontWeight: 'bold' }}>Revenue of:</td>
                                     <td>{paymentDetails.paymentOf}</td>
                                   </tr>
                                   <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Payment Date:</td>
+                                    <td style={{ fontWeight: 'bold' }}>Revenue Date:</td>
                                     <td>{paymentDetails.paymentDate}</td>
                                   </tr>
                                   <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Payment Amount:</td>
+                                    <td style={{ fontWeight: 'bold' }}>Revenue Amount:</td>
                                     <td>{paymentDetails.paymentAmount}</td>
                                   </tr>
                                   <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Payment Lead Time:</td>
+                                    <td style={{ fontWeight: 'bold' }}>Revenue Lead Time:</td>
                                     <td>{pkg.lead_time || 'N/A'}</td>
                                   </tr>
                                 </tbody>

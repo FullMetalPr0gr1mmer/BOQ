@@ -12,6 +12,10 @@ from Models.Admin.User import UserProjectAccess, User
 from APIs.LE.ROPLvl1Route import create_lvl1
 from APIs.LE.ROPLvl2Route import create_lvl2
 from Models.LE.ROPProject import ROPProject
+from Models.LE.ROPLvl1 import ROPLvl1
+from Models.LE.ROPLvl2 import ROPLvl2, ROPLvl2Distribution
+from Models.LE.RopPackages import RopPackage, rop_package_lvl1
+from Models.LE.MonthlyDistribution import MonthlyDistribution
 from Models.RAN.RANProject import RanProject
 from Schemas.LE.ROPLvl1Schema import ROPLvl1Create
 from Schemas.LE.ROPLvl2Schema import ROPLvl2DistributionCreate, ROPLvl2Create
@@ -264,12 +268,43 @@ def delete_project(
         )
 
     try:
+        # 1) Delete association table rows for packages of this project
+        pkg_ids_subq = db.query(RopPackage.id).filter(RopPackage.project_id == pid_po).subquery()
+        db.execute(rop_package_lvl1.delete().where(rop_package_lvl1.c.package_id.in_(pkg_ids_subq)))
+        db.commit()
+
+        # 2) Delete monthly distributions for packages of this project
+        db.query(MonthlyDistribution).filter(MonthlyDistribution.package_id.in_(pkg_ids_subq)).delete(synchronize_session=False)
+        db.commit()
+
+        # 3) Delete Level 2 distributions via subquery of lvl2 ids
+        lvl2_ids_subq = db.query(ROPLvl2.id).filter(ROPLvl2.project_id == pid_po).subquery()
+        db.query(ROPLvl2Distribution).filter(ROPLvl2Distribution.lvl2_id.in_(lvl2_ids_subq)).delete(synchronize_session=False)
+        db.commit()
+
+        # 4) Delete Level 2 rows
+        db.query(ROPLvl2).filter(ROPLvl2.project_id == pid_po).delete(synchronize_session=False)
+        db.commit()
+
+        # 5) Delete packages
+        db.query(RopPackage).filter(RopPackage.project_id == pid_po).delete(synchronize_session=False)
+        db.commit()
+
+        # 6) Delete Level 1 rows
+        db.query(ROPLvl1).filter(ROPLvl1.project_id == pid_po).delete(synchronize_session=False)
+        db.commit()
+
+        # 7) Remove user access mappings to this project
         db.query(UserProjectAccess).filter(
             UserProjectAccess.Ropproject_id == pid_po
         ).delete(synchronize_session=False)
+        db.commit()
 
+        # 8) Finally delete the project
         db.delete(project)
         db.commit()
+
+        return {"detail": "Project and related data deleted successfully"}
 
     except Exception as e:
 
