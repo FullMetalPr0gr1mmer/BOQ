@@ -17,7 +17,7 @@ class RopPackage(Base):
     quantity = Column(Integer, nullable=True)
     price = Column(Float, nullable=True)
     lead_time = Column(Integer, nullable=True)
-
+    currency = Column(String(20), nullable=True)
     # Many-to-many relationship with Lvl1
     lvl1_items = relationship(
         "ROPLvl1",

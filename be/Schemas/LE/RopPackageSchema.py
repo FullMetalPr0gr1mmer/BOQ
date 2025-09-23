@@ -15,7 +15,7 @@ class RopPackageCreate(BaseModel):
     price: Optional[float] = None
     lead_time: Optional[int] = None
     monthly_distributions: Optional[List[MonthlyDistributionItem]] = []
-
+    currency: Optional[str] = None
     @validator('monthly_distributions')
     def validate_monthly_distributions(cls, v, values):
         if not v:
@@ -45,7 +45,7 @@ class RopPackageUpdate(BaseModel):
     lead_time: Optional[int] = None
     price: Optional[float] = None
     monthly_distributions: Optional[List[MonthlyDistributionItem]] = None
-
+    currency: Optional[str] = None
     @validator('monthly_distributions')
     def validate_monthly_distributions(cls, v, values):
         if v is None:
@@ -73,6 +73,7 @@ class RopPackageOut(BaseModel):
     price: Optional[float] = None
     lead_time: Optional[int] = None
     monthly_distributions: List[MonthlyDistributionOut] = []
+    currency: Optional[str] = None
 
     class Config:
         from_attributes = True

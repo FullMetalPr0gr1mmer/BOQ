@@ -61,6 +61,7 @@ export default function RopLvl1() {
 		end_date: '',
 		quantity: '',
 		lead_time: '',
+		currency:projectState?.currency ||'',
 	});
 
 	// Monthly distributions state
@@ -152,6 +153,37 @@ export default function RopLvl1() {
 			setDistributionError('');
 		}
 	}, [monthlyDistributions, formData.quantity]);
+
+	// Validate selected item quantities and show a general error message
+	useEffect(() => {
+		const validateQuantities = () => {
+			let hasError = false;
+			for (const selectedItem of selectedLvl1Items) {
+				const entry = entries.find(e => e.id === selectedItem.id);
+				if (entry) {
+					const selectedQty = parseInt(selectedItem.quantity) || 0;
+					const availableQty = parseInt(entry.total_quantity) || 0;
+					const packageQty = parseInt(formData.quantity) || 1;
+					const totalNeeded = selectedQty * packageQty;
+
+					if (selectedQty > availableQty || totalNeeded > availableQty) {
+						hasError = true;
+						break; 
+					}
+				}
+			}
+
+			if (hasError) {
+				// Use the user's requested error message
+				setError("The selected PCI quantity is not sufficient.");
+			} else if (error === "The selected PCI quantity is not sufficient.") {
+				setError(''); // Clear the error if it's no longer applicable
+			}
+		};
+
+		validateQuantities();
+	}, [selectedLvl1Items, formData.quantity, entries, error]);
+
 
 	// Auto-distribute quantity evenly
 	const handleAutoDistribute = () => {
@@ -326,6 +358,8 @@ export default function RopLvl1() {
 			end_date: '',
 			quantity: '',
 			lead_time: '',
+						currency: projectState?.currency || '',
+
 		});
 		setSelectedLvl1Items([]);
 		setLvl2Details({});
@@ -387,6 +421,27 @@ export default function RopLvl1() {
 			return;
 		}
 
+		// Validate quantities before submission
+		const quantityErrors = [];
+		selectedLvl1Items.forEach(selectedItem => {
+			const entry = entries.find(e => e.id === selectedItem.id);
+			if (entry) {
+				const selectedQty = parseInt(selectedItem.quantity) || 0;
+				const availableQty = parseInt(entry.total_quantity) || 0;
+				const packageQty = parseInt(formData.quantity) || 1;
+				const totalNeeded = selectedQty * packageQty;
+				
+				if (selectedQty > availableQty || totalNeeded > availableQty) {
+					quantityErrors.push(`PCI "${entry.item_name}" has insufficient quantity`);
+				}
+			}
+		});
+		
+		if (quantityErrors.length > 0) {
+			setError('Cannot create package: ' + quantityErrors.join(', '));
+			return;
+		}
+
 		// Check distribution validation if dates and quantity are provided
 		if (distributionError && formData.start_date && formData.end_date && formData.quantity) {
 			setError(distributionError);
@@ -403,7 +458,8 @@ export default function RopLvl1() {
 			price: calculatedPackagePrice,
 			lead_time: formData.lead_time ? parseInt(formData.lead_time) : null,
 			// Include monthly distributions if they exist and are valid
-			monthly_distributions: monthlyDistributions.length > 0 && !distributionError ? monthlyDistributions : []
+			monthly_distributions: monthlyDistributions.length > 0 && !distributionError ? monthlyDistributions : [],
+			currency:formData.currency
 		};
 
 		try {
@@ -415,6 +471,7 @@ export default function RopLvl1() {
 			setTransient(setSuccess, 'ROP Package created successfully!');
 			resetForm();
 			fetchEntries();
+			navigate('/rop-package');
 		} catch (err) {
 			setTransient(setError, err.message || 'Failed to create package');
 		}
@@ -1019,7 +1076,7 @@ export default function RopLvl1() {
 															style={{ marginRight: '10px', width: 16, height: 16 }}
 														/>
 														<span style={{ flexGrow: 1, fontWeight: '600', color: '#1976d2' }}>
-															 {entry.item_name}
+															📦 {entry.item_name}
 														</span>
 														{entry.calculatedUnitPrice > 0 && (
 															<span style={{
@@ -1033,6 +1090,16 @@ export default function RopLvl1() {
 																{entry.calculatedUnitPrice.toFixed(2)} {cur}
 															</span>
 														)}
+														<span style={{ 
+															marginRight: '10px', 
+															color: '#666', 
+															fontSize: '0.8em',
+															backgroundColor: '#f5f5f5',
+															padding: '2px 6px',
+															borderRadius: '3px'
+														}}>
+															Available: {entry.total_quantity?.toLocaleString() || 0}
+														</span>
 														{isSelected && (
 															<span style={{ display: 'flex', alignItems: 'center' }}>
 																<span style={{ fontWeight: 600, fontSize: '1.08em', marginRight: 6 }}>Qty:</span>
@@ -1046,10 +1113,62 @@ export default function RopLvl1() {
 																		fontSize: '1.08em',
 																		padding: '6px 10px',
 																		borderRadius: '4px',
-																		border: '1px solid #1976d2'
+																		border: (() => {
+																			const selectedQty = parseInt(selectedItem.quantity) || 0;
+																			const availableQty = parseInt(entry.total_quantity) || 0;
+																			const packageQty = parseInt(formData.quantity) || 1;
+																			const totalNeeded = selectedQty * packageQty;
+																			
+																			if (selectedQty > availableQty || totalNeeded > availableQty) {
+																				return '2px solid #f44336'; // Red border for error
+																			}
+																			return '1px solid #1976d2'; // Normal blue border
+																		})(),
+																		backgroundColor: (() => {
+																			const selectedQty = parseInt(selectedItem.quantity) || 0;
+																			const availableQty = parseInt(entry.total_quantity) || 0;
+																			const packageQty = parseInt(formData.quantity) || 1;
+																			const totalNeeded = selectedQty * packageQty;
+																			
+																			if (selectedQty > availableQty || totalNeeded > availableQty) {
+																				return '#ffebee'; // Light red background for error
+																			}
+																			return 'white';
+																		})()
 																	}}
 																	onClick={e => e.stopPropagation()}
 																/>
+																{(() => {
+																	const selectedQty = parseInt(selectedItem.quantity) || 0;
+																	const availableQty = parseInt(entry.total_quantity) || 0;
+																	const packageQty = parseInt(formData.quantity) || 1;
+																	const totalNeeded = selectedQty * packageQty;
+																	
+																	if (selectedQty > availableQty) {
+																		return (
+																			<span style={{ 
+																				marginLeft: '8px', 
+																				color: '#f44336', 
+																				fontSize: '0.85em',
+																				fontWeight: '500'
+																			}}>
+																				⚠️ Exceeds available ({availableQty})
+																			</span>
+																		);
+																	} else if (totalNeeded > availableQty) {
+																		return (
+																			<span style={{ 
+																				marginLeft: '8px', 
+																				color: '#f44336', 
+																				fontSize: '0.85em',
+																				fontWeight: '500'
+																			}}>
+																				⚠️ Total needed: {totalNeeded} {'>'} {availableQty}
+																			</span>
+																		);
+																	}
+																	return null;
+																})()}
 															</span>
 														)}
 													</div>
@@ -1454,7 +1573,6 @@ export default function RopLvl1() {
 									<th style={{ textAlign: 'center' }}>Unit Price</th>
 									<th style={{ textAlign: 'center' }}>Total Price</th>
 									<th style={{ textAlign: 'center' }}>Actions</th>
-
 								</tr>
 							</thead>
 							<tbody>

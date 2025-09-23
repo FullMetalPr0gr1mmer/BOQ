@@ -136,6 +136,7 @@ def create_package(
         quantity=data.quantity,
         price=data.price,
         lead_time=data.lead_time,
+        currency=data.currency,
     )
     db.add(new_pkg)
     db.commit()

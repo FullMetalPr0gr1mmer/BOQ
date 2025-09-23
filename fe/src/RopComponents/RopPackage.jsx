@@ -7,7 +7,16 @@ import moment from "moment";
 import { apiCall, setTransient } from '../api';
 
 const MONTH_WIDTH = 60; // width of 1 month column in px
-
+const formatCurrency = (num) => {
+  if (num === null || num === undefined) return '';
+  if (Math.abs(num) >= 1_000_000) {
+    return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+  if (Math.abs(num) >= 1_000) {
+    return (num / 1_000).toFixed(0).replace(/\.0$/, '') + 'K';
+  }
+  return num.toString();
+};
 export default function RopPackage() {
   const location = useLocation();
   const projectState = location.state;
@@ -652,9 +661,15 @@ export default function RopPackage() {
                         textAlign: 'center', 
                         fontWeight: 'bold', 
                         position: 'relative',
-                        color: isMonthInPast(month.year(), month.month() + 1) ? '#999' : '#000'
+                        color: isMonthInPast(month.year(), month.month() + 1) ? '#999' : '#000',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1.1
                       }}>
-                        {month.format("MMM YY")}
+                        <span style={{ fontSize: '1em', fontWeight: 600 }}>{month.format("MMM")}</span>
+                        <span style={{ fontSize: '0.95em', fontWeight: 400 }}>{month.format("YY")}</span>
                         {index < timeline.length - 1 && (
                           <span style={{
                             position: 'absolute',
@@ -805,7 +820,7 @@ export default function RopPackage() {
                                 title="Drag to change start date"
                                 onMouseDown={(e) => { e.stopPropagation(); handleBarDrag(e, pkg, "start"); }}
                               ></div>
-                              <span className="gantt-quantity-label" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 1, pointerEvents: 'none' }}>{pkg.quantity}</span>
+                              <span className="gantt-quantity-label" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 1, pointerEvents: 'none', fontSize: '1.2em', fontWeight: 'bold' }}>{pkg.quantity}</span>
                               <div
                                 className="resize-pointer right"
                                 style={{ 
@@ -884,7 +899,25 @@ export default function RopPackage() {
                                 />
                                 
                                 <div className="monthly-cost-label" >
-                                  {`${(((paymentShiftedQuantities[index] ?? 0) * (pkg.price || 0))).toLocaleString()}`}
+                                  <div
+                                    className="monthly-cost-label"
+                                    title={`${Math.floor((paymentShiftedQuantities[index] ?? 0) * (pkg.price || 0)).toLocaleString()}${pkg.currency ? ' ' + pkg.currency : ''}`}
+                                    style={{
+                                      fontSize: '1.18em',
+                                      fontWeight: '600',
+                                      color: '#1976d2',
+                                      background: '#e3f2fd',
+                                      borderRadius: '6px',
+                                      padding: '4px 12px',
+                                      margin: '3px 0',
+                                      letterSpacing: '0.3px',
+                                      boxShadow: '0 1px 4px rgba(25,118,210,0.07)',
+                                      border: 'none',
+                                      transition: 'background 0.2s, box-shadow 0.2s',
+                                    }}
+                                  >
+                                    {`${formatCurrency(Math.floor((paymentShiftedQuantities[index] ?? 0) * (pkg.price || 0)))}`}
+                                  </div>
                                 </div>
                                 
                                 {index < timeline.length - 1 && (
@@ -962,7 +995,7 @@ export default function RopPackage() {
                                             type="number"
                                             value={editingQuantities[pkg.id]?.[index] ?? item.quantity ?? ''}
                                             min={0}
-                                            style={{ width: 'auto', minWidth: 24, padding: '1px 2px', borderRadius: 3, border: '1px solid #ccc', fontSize: '0.95em' }}
+                                            style={{ width: 'auto', minWidth: 24, padding: '1px 2px', borderRadius: 3, border: '1px solid #ccc', fontSize: '0.95em'  }}
                                             onChange={e => handleQuantityChange(pkg.id, index, e.target.value)}
                                             disabled={true} 
                                           />
@@ -1022,8 +1055,12 @@ export default function RopPackage() {
                                     <td>{paymentDetails.paymentDate}</td>
                                   </tr>
                                   <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Revenue Amount:</td>
+                                    <td style={{ fontWeight: 'bold' }}>Total Revenue Amount:</td>
                                     <td>{paymentDetails.paymentAmount}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={{ fontWeight: 'bold' }}>Revenue Currency:</td>
+                                    <td>{pkg.currency ? pkg.currency : 'N/A'}</td>
                                   </tr>
                                   <tr>
                                     <td style={{ fontWeight: 'bold' }}>Revenue Lead Time:</td>

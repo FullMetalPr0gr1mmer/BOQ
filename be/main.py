@@ -1,7 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from APIs.Admin.AdminRoute import adminRoute
 from APIs.BOQ import Level3Route
 from APIs.BOQ.BOQReferenceRoute import BOQRouter
@@ -9,7 +8,6 @@ from APIs.BOQ.DismantlingRoute import DismantlingRouter
 from APIs.BOQ.InventoryRoute import inventoryRoute
 from APIs.BOQ.LLDRoute import lld_router
 from APIs.BOQ.LevelsRoute import levelsRouter
-#from APIs.BOQ.LogRoute import logRouter
 from APIs.BOQ.ProjectRoute import projectRoute
 from APIs.LE.ROPLvl1Route import ROPLvl1router
 from APIs.LE.ROPLvl2Route import ROPLvl2router
@@ -42,7 +40,6 @@ app.include_router(levelsRouter)
 app.include_router(RANInventoryRouter)
 app.include_router(ROPProjectrouter)
 app.include_router(ROPLvl1router)
-#app.include_router(logRouter)
 app.include_router(ROPLvl2router)
 app.include_router(BOQRouter)
 app.include_router(RopPackageRouter)
