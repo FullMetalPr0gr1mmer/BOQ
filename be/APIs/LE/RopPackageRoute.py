@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import insert, delete, select, and_
+from sqlalchemy import insert, delete, select, and_, update, func
 from typing import List
 
 # --- Core Imports for Security and DB ---
@@ -103,6 +103,33 @@ def handle_monthly_distributions(package_id: int, data, db: Session):
     db.commit()
 
 
+def _to_int(val) -> int:
+    try:
+        # Accept strings like "3" as 3; treat None/empty as 0
+        return int(val) if val is not None and str(val).strip() != "" else 0
+    except Exception:
+        return 0
+
+
+def recompute_consumption_for_lvl1_ids(db: Session, lvl1_ids: list[str]):
+    """Recalculate ROPLvl1.consumption as sum of rop_package_lvl1.total_quantity."""
+    if not lvl1_ids:
+        return
+    sums = dict(
+        db.execute(
+            select(
+                rop_package_lvl1.c.lvl1_id,
+                func.coalesce(func.sum(rop_package_lvl1.c.total_quantity), 0)
+            ).where(rop_package_lvl1.c.lvl1_id.in_(lvl1_ids))
+             .group_by(rop_package_lvl1.c.lvl1_id)
+        ).all()
+    )
+    # Update each lvl1 row
+    lvl1_rows = db.query(ROPLvl1).filter(ROPLvl1.id.in_(lvl1_ids)).all()
+    for row in lvl1_rows:
+        row.consumption = int(sums.get(row.id, 0) or 0)
+    db.commit()
+
 # CREATE
 @RopPackageRouter.post("/create", response_model=RopPackageOut)
 def create_package(
@@ -127,7 +154,43 @@ def create_package(
                 detail="Some monthly distributions fall outside the package date range."
             )
 
-    # 3. Create package
+    # 3. Validate Lvl1 remaining quantities before creating package
+    pkg_qty = _to_int(data.quantity)
+    if data.lvl1_ids and pkg_qty > 0:
+        lvl1_ids = [item["id"] for item in data.lvl1_ids]
+        lvl1_rows = db.query(ROPLvl1).filter(ROPLvl1.id.in_(lvl1_ids)).all()
+        lvl1_by_id = {r.id: r for r in lvl1_rows}
+
+        insufficient = []
+        for item in data.lvl1_ids:
+            lvl1 = lvl1_by_id.get(item["id"]) if item["id"] in lvl1_by_id else None
+            if not lvl1:
+                continue
+            link_qty = _to_int(item.get("quantity"))
+            required_total = link_qty * pkg_qty
+            total_qty = _to_int(lvl1.total_quantity)
+            current_consumption = _to_int(lvl1.consumption)
+            remaining = total_qty - current_consumption
+            if required_total > remaining:
+                insufficient.append({
+                    "id": lvl1.id,
+                    "name": lvl1.item_name,
+                    "required": required_total,
+                    "available": max(0, remaining),
+                    "total_quantity": total_qty,
+                    "consumption": current_consumption
+                })
+
+        if insufficient:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": "The Remaining quantities for the following PCIs are not sufficient",
+                    "insufficient": insufficient
+                }
+            )
+
+    # 4. Create package
     new_pkg = RopPackage(
         project_id=data.project_id,
         package_name=data.package_name,
@@ -142,20 +205,25 @@ def create_package(
     db.commit()
     db.refresh(new_pkg)
 
-    # 4. Handle monthly distributions
+    # 5. Handle monthly distributions
     handle_monthly_distributions(new_pkg.id, data, db)
 
-    # 5. Insert lvl1 links
+    # 6. Insert lvl1 links
     if data.lvl1_ids:
+        affected_lvl1_ids = []
         for item in data.lvl1_ids:
             db.execute(insert(rop_package_lvl1).values(
                 package_id=new_pkg.id,
                 lvl1_id=item["id"],
-                quantity=item.get("quantity")
+                quantity=_to_int(item.get("quantity")),
+                total_quantity=_to_int(item.get("quantity")) * _to_int(new_pkg.quantity)
             ))
+            affected_lvl1_ids.append(item["id"])
         db.commit()
+        # recompute consumption for affected lvl1 ids
+        recompute_consumption_for_lvl1_ids(db, affected_lvl1_ids)
 
-    # 6. Build response
+    # 7. Build response
     return build_package_response(new_pkg.id, db)
 
 
@@ -227,10 +295,16 @@ def update_package(
     # Handle lvl1 updates
     if data.lvl1_ids is not None:
         db.execute(delete(rop_package_lvl1).where(rop_package_lvl1.c.package_id == id))
+        affected_lvl1_ids = []
         for item in data.lvl1_ids:
             db.execute(insert(rop_package_lvl1).values(
-                package_id=id, lvl1_id=item["id"], quantity=item.get("quantity")
+                package_id=id,
+                lvl1_id=item["id"],
+                quantity=_to_int(item.get("quantity")),
+                total_quantity=_to_int(item.get("quantity")) * _to_int((data.quantity if hasattr(data, 'quantity') and data.quantity is not None else pkg.quantity))
             ))
+            affected_lvl1_ids.append(item["id"])
+        # after commit below, we'll recompute consumption
 
     db.commit()
     db.refresh(pkg)
@@ -256,6 +330,23 @@ def update_package(
 
         handle_monthly_distributions(id, data, db)
 
+    # If only package quantity changed (and lvl1 not provided), recompute total_quantity for links
+    if ('quantity' in update_data) and (data.lvl1_ids is None):
+        # Update using SQL expression but ensure integer math
+        db.execute(
+            update(rop_package_lvl1)
+            .where(rop_package_lvl1.c.package_id == id)
+            .values(total_quantity=rop_package_lvl1.c.quantity * _to_int(pkg.quantity))
+        )
+        db.commit()
+        # recompute consumption for all lvl1 linked to this package
+        ids = [r[0] for r in db.execute(select(rop_package_lvl1.c.lvl1_id).where(rop_package_lvl1.c.package_id == id)).all()]
+        recompute_consumption_for_lvl1_ids(db, ids)
+
+    # If lvl1_ids were updated, recompute their consumption
+    if data.lvl1_ids is not None:
+        recompute_consumption_for_lvl1_ids(db, affected_lvl1_ids)
+
     return build_package_response(id, db)
 
 
@@ -277,8 +368,19 @@ def delete_package(
             detail="You are not authorized to delete this package."
         )
 
+    # Capture affected lvl1 ids before deleting links via cascade
+    affected_lvl1_ids = [
+        r[0] for r in db.execute(
+            select(rop_package_lvl1.c.lvl1_id).where(rop_package_lvl1.c.package_id == id)
+        ).all()
+    ]
+
     db.delete(pkg)
     db.commit()
+
+    # Recompute consumption for affected lvl1s
+    if affected_lvl1_ids:
+        recompute_consumption_for_lvl1_ids(db, affected_lvl1_ids)
 
 
 # UTILITY ENDPOINTS

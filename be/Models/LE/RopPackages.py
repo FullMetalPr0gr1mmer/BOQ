@@ -39,4 +39,6 @@ rop_package_lvl1 = Table(
     Column("package_id", Integer, ForeignKey("rop_packages.id", ondelete="CASCADE"), primary_key=True),
     Column("lvl1_id", String(200), ForeignKey("rop_lvl1.id", ondelete="CASCADE"), primary_key=True),
     Column("quantity", Integer, nullable=True),
+    # New column: quantity of this lvl1 multiplied by its package quantity
+    Column("total_quantity", Integer, nullable=True),
 )

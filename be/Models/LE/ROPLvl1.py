@@ -11,6 +11,8 @@ class ROPLvl1(Base):
     item_name = Column(String(100), nullable=False)
     region = Column(String(100), nullable=True)
     total_quantity = Column(Integer, nullable=True)
+    # New: sum of total quantities across all packages this lvl1 is linked to
+    consumption = Column(Integer, nullable=True)
     price = Column(Float, nullable=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)

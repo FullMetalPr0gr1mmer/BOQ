@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../css/RopLvl1.css';
 import { apiCall, setTransient } from '../api';
@@ -105,6 +106,7 @@ export default function RopLvl1() {
 	const [lvl2Details, setLvl2Details] = useState({});
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
+	const [insufficientModal, setInsufficientModal] = useState({ open: false, items: [] });
 	const [currentPage, setCurrentPage] = useState(1);
 	const [expandedRows, setExpandedRows] = useState({});
 	const [lvl2Items, setLvl2Items] = useState({});
@@ -473,6 +475,11 @@ export default function RopLvl1() {
 			fetchEntries();
 			navigate('/rop-package');
 		} catch (err) {
+			// Handle backend validation error for insufficient PCIs
+			if (err && err.message === 'API_VALIDATION_ERROR' && err.payload && err.payload.insufficient) {
+				setInsufficientModal({ open: true, items: err.payload.insufficient });
+				return;
+			}
 			setTransient(setError, err.message || 'Failed to create package');
 		}
 	};
@@ -1009,6 +1016,49 @@ export default function RopLvl1() {
 									</div>
 								</div>
 							)}
+
+		{/* Insufficient quantities modal */}
+		{insufficientModal.open && createPortal((
+			<div className="dashboard-modal" style={{ zIndex: 2147483000 }} onClick={() => setInsufficientModal({ open: false, items: [] })}>
+				<div className="dashboard-modal-content" style={{ minWidth: 600, maxWidth: 900 }} onClick={e => e.stopPropagation()}>
+					<div className="dashboard-modal-header">
+						<h2 className="dashboard-modal-title">The Remaining quantities are not sufficient</h2>
+						<button className="dashboard-modal-close" onClick={() => setInsufficientModal({ open: false, items: [] })} type="button">✕</button>
+					</div>
+					<div style={{ marginTop: 8 }}>
+						<table className="dashboard-table" style={{ width: '100%' }}>
+							<thead>
+								<tr>
+									<th></th>
+									<th style={{ textAlign: 'center' }}>#</th>
+									
+									<th style={{ textAlign: 'center' }}>PCI</th>
+									<th style={{ textAlign: 'center' }}>Required</th>
+									<th style={{ textAlign: 'center' }}>Available</th>
+									<th style={{ textAlign: 'center' }}>Total</th>
+									<th style={{ textAlign: 'center' }}>Consumption</th>
+								</tr>
+							</thead>
+							<tbody>
+								{insufficientModal.items.map((it, idx) => (
+									<tr key={it.id}>
+										
+										<td style={{ textAlign: 'center' }}>{idx + 1}</td>
+										<td style={{ textAlign: 'center' }}>{it.name || it.id}</td>
+										<td style={{ textAlign: 'center', color: '#d32f2f', fontWeight: 600 }}>{(it.required || 0).toLocaleString()}</td>
+										<td style={{ textAlign: 'center' }}>{(it.available || 0).toLocaleString()}</td>
+										<td style={{ textAlign: 'center' }}>{(it.total_quantity || 0).toLocaleString()}</td>
+										<td style={{ textAlign: 'center' }}>{(it.consumption || 0).toLocaleString()}</td>
+									</tr>) )}
+							</tbody>
+						</table>
+						<div style={{ marginTop: 12, textAlign: 'right' }}>
+							<button className="new-entry-btn" onClick={() => setInsufficientModal({ open: false, items: [] })}>OK</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		), document.body)}
 
 							<div className="form-group" style={{ position: 'relative' }}>
 								<label htmlFor="lvl1-select">Select PCI Items:</label>

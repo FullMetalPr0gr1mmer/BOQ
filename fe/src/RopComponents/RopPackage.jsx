@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, forwardRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useLocation } from "react-router-dom";
@@ -7,6 +7,7 @@ import moment from "moment";
 import { apiCall, setTransient } from '../api';
 
 const MONTH_WIDTH = 60; // width of 1 month column in px
+
 const formatCurrency = (num) => {
   if (num === null || num === undefined) return '';
   if (Math.abs(num) >= 1_000_000) {
@@ -17,6 +18,15 @@ const formatCurrency = (num) => {
   }
   return num.toString();
 };
+
+// Custom component for the date picker input field
+const CustomDateInput = forwardRef(({ value, onClick }, ref) => (
+  <div className="date-picker-wrapper" onClick={onClick} ref={ref}>
+    <span className="date-picker-icon">🗓️</span>
+    <input type="text" className="date-picker-input" value={value} readOnly />
+  </div>
+));
+
 export default function RopPackage() {
   const location = useLocation();
   const projectState = location.state;
@@ -632,7 +642,7 @@ export default function RopPackage() {
       {error && <div className="dashboard-alert dashboard-alert-error">⚠️ {error}</div>}
       {success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>}
 
-      <div className="dashboard-content-section">
+      <div className="dashboard-content-section" >
         <div className="dashboard-section-header">📋 Package Timeline</div>
 
         <div className="gantt-table-container">
@@ -716,12 +726,15 @@ export default function RopPackage() {
                         </div>
                       </td>
                       <td>
-                        <DatePicker
+                        <DatePicker 
                           selected={pkg.start_date ? moment(pkg.start_date).toDate() : null}
                           onChange={(date) => handleDateChange(pkg, 'start_date', date)}
                           dateFormat="yyyy-MM-dd"
-                          customInput={<input style={{ width: '100px' }} readOnly />}
-                          calendarIcon
+                          customInput={<CustomDateInput />}
+                          popperProps={{ strategy: 'fixed' }}
+                          popperPlacement="bottom-start"
+                          portalId="rop-datepicker-portal"
+                          showPopperArrow
                         />
                       </td>
                       <td>
@@ -729,8 +742,11 @@ export default function RopPackage() {
                           selected={pkg.end_date ? moment(pkg.end_date).toDate() : null}
                           onChange={(date) => handleDateChange(pkg, 'end_date', date)}
                           dateFormat="yyyy-MM-dd"
-                          customInput={<input style={{ width: '100px' }} readOnly />}
-                          calendarIcon
+                          customInput={<CustomDateInput />}
+                          popperProps={{ strategy: 'fixed' }}
+                          popperPlacement="bottom-start"
+                          portalId="rop-datepicker-portal"
+                          showPopperArrow
                         />
                       </td>
                       <td style={{ minWidth: 120 }}>

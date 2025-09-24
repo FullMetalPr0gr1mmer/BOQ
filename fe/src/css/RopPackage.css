@@ -267,3 +267,72 @@
     margin-top: 7px;
     white-space: nowrap; 
 }
+
+/* Custom Date Picker Styles */
+.date-picker-wrapper {
+    display: flex;
+    align-items: center;
+    background-color: #ffffff;
+    border: 1px solid #dfe1e5;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    width: 140px; /* Give it a bit more width */
+}
+
+/* Add a subtle blue glow on hover for a "cool" effect */
+.date-picker-wrapper:hover {
+    border-color: #004d9c; /* Nokia blue from your theme */
+    box-shadow: 0 0 0 3px rgba(0, 77, 156, 0.1);
+}
+
+.date-picker-icon {
+    margin-right: 8px;
+    color: #555;
+    font-size: 1.1rem;
+    line-height: 1; /* Helps with vertical alignment */
+}
+
+/* This styles the actual text input part */
+.date-picker-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background-color: transparent;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 0.9rem;
+    color: #333;
+    cursor: pointer;
+}
+
+/* Ensure DatePicker calendar appears above other elements */
+.react-datepicker-wrapper,
+.react-datepicker__input-container {
+    display: block; /* Fix for layout issues */
+}
+
+.react-datepicker-popper {
+        z-index: 2147483647 !important;
+        position: fixed !important;
+        /* Ensure it's not clipped by any parent overflow */
+}
+
+.react-datepicker {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #dfe1e5;
+    border-radius: 8px;
+}
+
+/* Portal container for react-datepicker so it renders above layout */
+#rop-datepicker-portal {
+    position: relative;
+    z-index: 2147483647;
+}
+
+/* Prevent clipping: some ancestors might set overflow hidden on table header/cells */
+.gantt-table th, .gantt-table td {
+    overflow: visible;
+}
