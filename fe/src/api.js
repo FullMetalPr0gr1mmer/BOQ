@@ -60,9 +60,7 @@ export async function apiCall(endpoint, options = {}) {
         }
         throw new Error(detail);
       }
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    // Handle empty or no-content responses safely
+      throw new Error(`HTTP error! status: ${response.status}`);}
     if (response.status === 204) {
       return null;
     }
@@ -89,38 +87,4 @@ export function setTransient(setter, message, ms = 3000) {
   if (ms > 0) {
     setTimeout(() => setter(''), ms);
   }
-}
-
-// Install a global fetch interceptor so any raw fetch() still benefits from auth + logout handling
-export function installFetchInterceptor() {
-  if (typeof window === 'undefined' || window.__fetchInterceptInstalled) return;
-  const originalFetch = window.fetch.bind(window);
-  window.fetch = async (input, init = {}) => {
-    try {
-      // Ensure headers include auth by default
-      const defaultHeaders = getAuthHeaders();
-      const headers = { ...(defaultHeaders || {}), ...((init && init.headers) || {}) };
-      const config = { ...init, headers };
-      const response = await originalFetch(input, config);
-      if (!response.ok) {
-        let errorData = {};
-        try { errorData = await response.clone().json(); } catch {}
-        if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-          throw new Error('Unauthorized or Forbidden access. Please log in again.');
-        }
-        const detail = errorData?.detail;
-        if (typeof detail === 'string' && /invalid\s*credentials|unauthorized|token\s*(expired|invalid)/i.test(detail)) {
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-          throw new Error('Unauthorized or Forbidden access. Please log in again.');
-        }
-      }
-      return response;
-    } catch (e) {
-      throw e;
-    }
-  };
-  window.__fetchInterceptInstalled = true;
 }

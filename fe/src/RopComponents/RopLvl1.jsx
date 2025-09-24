@@ -1148,7 +1148,7 @@ export default function RopLvl1() {
 															padding: '2px 6px',
 															borderRadius: '3px'
 														}}>
-															Available: {entry.total_quantity?.toLocaleString() || 0}
+															Available: {entry.total_quantity - (entry.consumption || 0) || 0}
 														</span>
 														{isSelected && (
 															<span style={{ display: 'flex', alignItems: 'center' }}>

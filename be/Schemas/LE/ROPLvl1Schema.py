@@ -19,6 +19,6 @@ class ROPLvl1Out(ROPLvl1Base):
     id: str
     start_date: Optional[date] = None
     end_date: Optional[date] = None
-
+    consumption: Optional[int] = None
     class Config:
         from_attributes = True
