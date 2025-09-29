@@ -1,28 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
+import { apiCall, setTransient } from "../api.js";
 import "../css/Dismantling.css";
 
-const VITE_API_URL = import.meta.env.VITE_API_URL;
 const ROWS_PER_PAGE = 50;
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
-};
-
-const getAuthHeadersForFormData = () => {
-  const token = localStorage.getItem('token');
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 export default function RANInventory() {
   const [rows, setRows] = useState([]);
@@ -60,18 +40,14 @@ export default function RANInventory() {
   // NEW: Function to fetch user's accessible projects
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${VITE_API_URL}/ran-projects`, { 
-        headers: getAuthHeaders() 
-      });
-      if (!res.ok) throw new Error('Could not fetch projects');
-      const data = await res.json();
+      const data = await apiCall('/ran-projects');
       setProjects(data || []);
       // Optionally, auto-select the first project
       if (data && data.length > 0) {
         setSelectedProject(data[0].pid_po);
       }
     } catch (err) {
-      setError('Failed to load projects. Please ensure you have project access.');
+      setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);
     }
   };
@@ -90,23 +66,9 @@ export default function RANInventory() {
       params.set("limit", String(ROWS_PER_PAGE));
       if (search.trim()) params.set("search", search.trim());
 
-      const res = await fetch(`${VITE_API_URL}/raninventory?${params.toString()}`, {
-        signal: controller.signal,  
-        headers: getAuthHeaders(),
+      const { records, total } = await apiCall(`/raninventory?${params.toString()}`, {
+        signal: controller.signal,
       });
-
-      if (!res.ok) {
-        let errorMessage = 'Failed to fetch RAN Inventory records';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (e) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const { records, total } = await res.json();
 
       setRows(
         (records || []).map((r) => ({
@@ -124,7 +86,7 @@ export default function RANInventory() {
       setTotal(total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== "AbortError") setError(err.message || "Failed to fetch records");
+      if (err.name !== "AbortError") setTransient(setError, err.message || "Failed to fetch records");
     } finally {
       setLoading(false);
     }
@@ -149,7 +111,7 @@ export default function RANInventory() {
 
     // Check if a project is selected
     if (!selectedProject) {
-      setError("Please select a project before uploading.");
+      setTransient(setError, "Please select a project before uploading.");
       e.target.value = '';
       return;
     }
@@ -159,28 +121,17 @@ export default function RANInventory() {
     setSuccess("");
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("pid_po", selectedProject);
 
     try {
-      const res = await fetch(`${VITE_API_URL}/raninventory/upload-csv`, {
-        headers: getAuthHeadersForFormData(),
+      const result = await apiCall('/raninventory/upload-csv', {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) {
-        let errorMessage = 'Upload failed';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      const result = await res.json();
-      setSuccess(`Upload successful! ${result.message}`);
+      setTransient(setSuccess, `Upload successful! ${result.message}`);
       fetchInventory(1, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -190,24 +141,13 @@ export default function RANInventory() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/raninventory/${id}`, {
-        headers: getAuthHeaders(),
+      await apiCall(`/raninventory/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to delete record';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Record deleted successfully");
+      setTransient(setSuccess, "Record deleted successfully");
       fetchInventory(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     }
   };
 
@@ -236,26 +176,15 @@ export default function RANInventory() {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${VITE_API_URL}/raninventory/${editingRow.id}`, {
-        headers: getAuthHeaders(),
+      await apiCall(`/raninventory/${editingRow.id}`, {
         method: "PUT",
         body: JSON.stringify(editForm),
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to update record';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Record updated successfully!");
+      setTransient(setSuccess, "Record updated successfully!");
       closeModal();
       fetchInventory(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUpdating(false);
     }
@@ -264,7 +193,7 @@ export default function RANInventory() {
   // NEW: Functions for creating records
   const openCreateModal = () => {
     if (!selectedProject) {
-      setError('Please select a project to create a new record.');
+      setTransient(setError, 'Please select a project to create a new record.');
       return;
     }
     setCreateForm({
@@ -308,26 +237,15 @@ export default function RANInventory() {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${VITE_API_URL}/raninventory/`, {
+      await apiCall('/raninventory/', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify(createForm),
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to create record';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess('Record created successfully!');
+      setTransient(setSuccess, 'Record created successfully!');
       fetchInventory(currentPage, searchTerm);
       setTimeout(() => closeCreateModal(), 1200);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setCreating(false);
     }

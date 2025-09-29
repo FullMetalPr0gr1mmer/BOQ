@@ -148,7 +148,7 @@ def update_ranlvl3(db: Session, ranlvl3_id: int, ranlvl3_data: RANLvl3Update):
     db_ranlvl3.total_price = ranlvl3_data.total_price
     db_ranlvl3.service_type = ranlvl3_data.service_type
     db_ranlvl3.category = ranlvl3_data.category
-    db_ranlvl3.po_line = ranlvl3_data.po_line,
+    db_ranlvl3.po_line = ranlvl3_data.po_line
     db_ranlvl3.upl_line=ranlvl3_data.upl_line
 
     db.commit()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import csv
@@ -309,18 +309,27 @@ def delete_ran_inventory_record(
 @RANInventoryRouter.post("/upload-csv", response_model=dict)
 def upload_ran_inventory_csv(
         file: UploadFile = File(...),
+        pid_po: str = Form(...),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Uploads a CSV file to bulk-add RAN Inventory records.
     The CSV must have headers matching the RANInventory schema fields.
+    The pid_po parameter will be used for all records in the CSV.
     """
     # Users cannot upload CSV files
     if current_user.role.name == "user":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Users are not authorized to upload CSV files. Contact the Senior Admin."
+        )
+
+    # Check access for the provided project
+    if not check_raninventory_project_access(current_user, pid_po, db, "edit"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to upload CSV files for this project. Contact the Senior Admin."
         )
 
     if not file.filename.endswith('.csv'):
@@ -332,21 +341,24 @@ def upload_ran_inventory_csv(
 
         new_records = []
         for row in csv_reader:
-            pid_po = row.get('pid_po')
-
-            # Check access for each record's project if pid_po is provided
-            if pid_po and not check_raninventory_project_access(current_user, pid_po, db, "edit"):
-                continue  # Skip records for projects the user doesn't have access to
+            # Try different possible column names for flexibility
+            mrbts = row.get('MRBTS') or row.get('mrbts') or row.get('Mrbts')
+            site_id = row.get('Site ID') or row.get('site_id') or row.get('SiteID') or row.get('Site_ID')
+            identification_code = row.get('identificationCode') or row.get('identification_code') or row.get('IdentificationCode') or row.get('Identification Code')
+            user_label = row.get('userLabel') or row.get('user_label') or row.get('UserLabel') or row.get('User Label')
+            serial_number = row.get('serialNumber') or row.get('serial_number') or row.get('SerialNumber') or row.get('Serial Number')
+            duplicate = row.get('Duplicate') or row.get('duplicate')
+            duplicate_remarks = row.get('Duplicate remarks') or row.get('duplicate_remarks') or row.get('Duplicate_remarks') or row.get('DuplicateRemarks')
 
             new_record = RANInventory(
-                mrbts=row.get('MRBTS'),
-                site_id=row.get('Site ID'),
-                identification_code=row.get('identificationCode'),
-                user_label=row.get('userLabel'),
-                serial_number=row.get('serialNumber'),
-                duplicate=True if row.get('Duplicate') else False,
-                duplicate_remarks=row.get('Duplicate remarks'),
-                pid_po=pid_po,
+                mrbts=mrbts,
+                site_id=site_id,
+                identification_code=identification_code,
+                user_label=user_label,
+                serial_number=serial_number,
+                duplicate=True if duplicate and str(duplicate).lower() in ['true', '1', 'yes', 'y'] else False,
+                duplicate_remarks=duplicate_remarks,
+                pid_po=pid_po,  # Use the form parameter for all records
             )
             new_records.append(new_record)
 
@@ -354,7 +366,7 @@ def upload_ran_inventory_csv(
             db.add_all(new_records)
             db.commit()
 
-        return {"message": f"Successfully added {len(new_records)} records from CSV."}
+        return {"message": f"Successfully added {len(new_records)} records from CSV with pid_po: {pid_po}"}
 
     except Exception as e:
         db.rollback()

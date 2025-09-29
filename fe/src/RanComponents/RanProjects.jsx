@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiCall, setTransient } from '../api.js';
 import '../css/Dismantling.css';
 
 const PROJECTS_PER_PAGE = 5;
@@ -13,20 +14,6 @@ export default function RanProjects() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [authError, setAuthError] = useState('');
-
-    const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-        return { 'Content-Type': 'application/json' };
-    };
 
     useEffect(() => {
         fetchProjects();
@@ -34,22 +21,10 @@ export default function RanProjects() {
 
     const fetchProjects = async () => {
         try {
-            const res = await fetch(`${VITE_API_URL}/ran-projects`, {
-                method: 'GET',
-                headers: getAuthHeaders()
-            });
-
-            if (res.status === 401 || res.status === 403) {
-                const err = await res.json();
-                setAuthError(err.detail || "You are not authorized to view projects.");
-                setProjects([]);
-                return;
-            }
-
-            const data = await res.json();
+            const data = await apiCall('/ran-projects');
             setProjects(data);
         } catch (err) {
-            setError('Failed to fetch projects');
+            setTransient(setError, 'Failed to fetch projects');
         }
     };
 
@@ -57,34 +32,20 @@ export default function RanProjects() {
         e.preventDefault();
         setError('');
         setSuccess('');
-        setAuthError('');
         const projectData = { po, project_name: projectName, pid };
         try {
-            let res;
             if (editingProject) {
-                res = await fetch(`${VITE_API_URL}/ran-projects/${editingProject.pid_po}`, {
+                await apiCall(`/ran-projects/${editingProject.pid_po}`, {
                     method: 'PUT',
-                    headers: getAuthHeaders(),
                     body: JSON.stringify({ project_name: projectName }),
                 });
             } else {
-                res = await fetch(`${VITE_API_URL}/ran-projects`, {
+                await apiCall('/ran-projects', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
                     body: JSON.stringify(projectData),
                 });
             }
-            if (res.status === 401 || res.status === 403) {
-                const err = await res.json();
-                setAuthError(err.detail || "You are not authorized to perform this action.");
-                return;
-            }
-            if (!res.ok) {
-                const err = await res.json();
-                setError(err.detail || 'Failed to save project');
-                return;
-            }
-            setSuccess(editingProject ? 'Project updated successfully!' : 'Project created successfully!');
+            setTransient(setSuccess, editingProject ? 'Project updated successfully!' : 'Project created successfully!');
             setShowForm(false);
             setEditingProject(null);
             setPo('');
@@ -92,7 +53,7 @@ export default function RanProjects() {
             setPid('');
             fetchProjects();
         } catch (err) {
-            setError('Failed to save project');
+            setTransient(setError, err.message || 'Failed to save project');
         }
     };
 
@@ -107,19 +68,13 @@ export default function RanProjects() {
     const handleDelete = async (project) => {
         if (!window.confirm(`Delete project ${project.project_name}?`)) return;
         try {
-            const res = await fetch(`${VITE_API_URL}/ran-projects/${project.pid_po}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
+            await apiCall(`/ran-projects/${project.pid_po}`, {
+                method: 'DELETE'
             });
-            if (!res.ok) {
-                const err = await res.json();
-                setError(err.detail || 'Failed to delete project');
-                return;
-            }
-            setSuccess('Project deleted successfully!');
+            setTransient(setSuccess, 'Project deleted successfully!');
             fetchProjects();
         } catch (err) {
-            setError('Failed to delete project');
+            setTransient(setError, err.message || 'Failed to delete project');
         }
     };
 
@@ -138,16 +93,6 @@ export default function RanProjects() {
             </div>
             {error && <div className="dismantling-message error">{error}</div>}
             {success && <div className="dismantling-message success">{success}</div>}
-            {authError && (
-                <div className="">
-                    <div className="">
-                        <span className="" onClick={() => setAuthError('')}>&times;</span>
-                        <div className="">
-                            <p>{authError}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
             {showForm && (
                 <div className="modal-overlay">
                     <div className="modal-content">

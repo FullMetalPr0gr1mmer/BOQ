@@ -1,28 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
+import { apiCall, setTransient } from "../api.js";
 import "../css/Dismantling.css";
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
-};
-
-const getAuthHeadersForFormData = () => {
-  const token = localStorage.getItem('token');
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
-
 const ROWS_PER_PAGE = 50;
-const VITE_API_URL = import.meta.env.VITE_API_URL;
 
 // Helper functions to parse and stringify CSV data
 const parseCSV = (csvString) => {
@@ -88,18 +68,14 @@ export default function RANLLD() {
   // NEW: Function to fetch user's accessible projects
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${VITE_API_URL}/ran-projects`, { 
-        headers: getAuthHeaders() 
-      });
-      if (!res.ok) throw new Error('Could not fetch projects');
-      const data = await res.json();
+      const data = await apiCall('/ran-projects');
       setProjects(data || []);
       // Optionally, auto-select the first project
       if (data && data.length > 0) {
         setSelectedProject(data[0].pid_po);
       }
     } catch (err) {
-      setError('Failed to load projects. Please ensure you have project access.');
+      setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);
     }
   };
@@ -118,23 +94,9 @@ export default function RANLLD() {
       params.set("limit", String(ROWS_PER_PAGE));
       if (search.trim()) params.set("search", search.trim());
 
-      const res = await fetch(`${VITE_API_URL}/ran-sites?${params.toString()}`, {
-        headers: getAuthHeaders(),
+      const { records, total } = await apiCall(`/ran-sites?${params.toString()}`, {
         signal: controller.signal,
       });
-
-      if (!res.ok) {
-        let errorMessage = 'Failed to fetch RAN Sites';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (e) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const { records, total } = await res.json();
 
       setRows(
         (records || []).map((r) => ({
@@ -150,7 +112,7 @@ export default function RANLLD() {
       setTotal(total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== "AbortError") setError(err.message || "Failed to fetch sites");
+      if (err.name !== "AbortError") setTransient(setError, err.message || "Failed to fetch sites");
     } finally {
       setLoading(false);
     }
@@ -168,33 +130,18 @@ export default function RANLLD() {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${VITE_API_URL}/ran-sites/${row.id}/generate-boq`, {
-        headers: getAuthHeaders(),
-      });
-
-      if (!res.ok) {
-        let errorMessage = 'Failed to generate BoQ';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (e) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-     
       // Get the CSV data as text instead of blob
-      const csvContent = await res.text();
-      
+      const csvContent = await apiCall(`/ran-sites/${row.id}/generate-boq`);
+
       // Parse the CSV and open the modal
       setEditableCsvData(parseCSV(csvContent));
       setCurrentSiteId(row.site_id);
       setShowCsvModal(true);
 
-      setSuccess(`BoQ for site ${row.site_id} generated successfully.`);
+      setTransient(setSuccess, `BoQ for site ${row.site_id} generated successfully.`);
 
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setGeneratingBoqId(null); // Reset loading state for the row
     }
@@ -248,7 +195,7 @@ export default function RANLLD() {
 
     // Check if a project is selected
     if (!selectedProject) {
-      setError("Please select a project before uploading.");
+      setTransient(setError, "Please select a project before uploading.");
       e.target.value = '';
       return;
     }
@@ -258,28 +205,17 @@ export default function RANLLD() {
     setSuccess("");
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("pid_po", selectedProject);
 
     try {
-      const res = await fetch(`${VITE_API_URL}/ran-sites/upload-csv`, {
+      const result = await apiCall('/ran-sites/upload-csv', {
         method: "POST",
-        headers: getAuthHeadersForFormData(),
         body: formData,
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to upload RAN Sites CSV';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      const result = await res.json();
-      setSuccess(`Upload successful! ${result.inserted || "?"} rows inserted.`);
+      setTransient(setSuccess, `Upload successful! ${result.inserted || "?"} rows inserted.`);
       fetchSites(1, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -289,31 +225,20 @@ export default function RANLLD() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this site?")) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/ran-sites/${id}`, {
-        headers: getAuthHeaders(),
+      await apiCall(`/ran-sites/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to delete site';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Site deleted successfully");
+      setTransient(setSuccess, "Site deleted successfully");
       fetchSites(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     }
   };
 
   // NEW: Functions for creating records
   const openCreateModal = () => {
     if (!selectedProject) {
-      setError('Please select a project to create a new RAN Site record.');
+      setTransient(setError, 'Please select a project to create a new RAN Site record.');
       return;
     }
     setCreateForm({
@@ -360,26 +285,15 @@ export default function RANLLD() {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${VITE_API_URL}/ran-sites/`, {
+      await apiCall('/ran-sites/', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify(createForm),
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to create site';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess('Site created successfully!');
+      setTransient(setSuccess, 'Site created successfully!');
       fetchSites(currentPage, searchTerm);
       setTimeout(() => closeCreateModal(), 1200);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setCreating(false);
     }
@@ -417,26 +331,15 @@ export default function RANLLD() {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${VITE_API_URL}/ran-sites/${editingRow.id}`, {
+      await apiCall(`/ran-sites/${editingRow.id}`, {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify(editForm),
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to update site';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Site updated successfully!");
+      setTransient(setSuccess, "Site updated successfully!");
       closeModal();
       fetchSites(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUpdating(false);
     }

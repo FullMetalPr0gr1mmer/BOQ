@@ -1,28 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
+import { apiCall, setTransient } from "../api.js";
 import "../css/Dismantling.css";
 
 const ROWS_PER_PAGE = 50;
-const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
-};
-
-const getAuthHeadersForFormData = () => {
-  const token = localStorage.getItem('token');
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 // Define the Service Type mapping for the dropdown
 const serviceTypes = {
@@ -66,18 +46,14 @@ export default function RANLvl3() {
   // NEW: Function to fetch user's accessible projects
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${VITE_API_URL}/ran-projects`, { 
-        headers: getAuthHeaders() 
-      });
-      if (!res.ok) throw new Error('Could not fetch projects');
-      const data = await res.json();
+      const data = await apiCall('/ran-projects');
       setProjects(data || []);
       // Optionally, auto-select the first project
       if (data && data.length > 0) {
         setSelectedProject(data[0].pid_po);
       }
     } catch (err) {
-      setError('Failed to load projects. Please ensure you have project access.');
+      setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);
     }
   };
@@ -96,23 +72,9 @@ export default function RANLvl3() {
       params.set("limit", String(ROWS_PER_PAGE));
       if (search.trim()) params.set("search", search.trim());
 
-      const res = await fetch(`${VITE_API_URL}/ranlvl3?${params.toString()}`, {
-        headers: getAuthHeaders(),
+      const { records, total } = await apiCall(`/ranlvl3?${params.toString()}`, {
         signal: controller.signal,
       });
-
-      if (!res.ok) {
-        let errorMessage = 'Failed to fetch RAN Level 3 records';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (e) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const { records, total } = await res.json();
 
       setRows(
         (records || []).map((r) => ({
@@ -133,7 +95,7 @@ export default function RANLvl3() {
       setTotal(total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== "AbortError") setError(err.message || "Failed to fetch records");
+      if (err.name !== "AbortError") setTransient(setError, err.message || "Failed to fetch records");
     } finally {
       setLoading(false);
     }
@@ -154,34 +116,22 @@ export default function RANLvl3() {
   const handleChildUpload = async (e, parentId) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     setChildUploading(true);
     setError("");
     setSuccess("");
     const formData = new FormData();
     formData.append("file", file);
-    
+
     try {
-      const res = await fetch(`${VITE_API_URL}/ranlvl3/${parentId}/items/upload-csv`, {
+      const result = await apiCall(`/ranlvl3/${parentId}/items/upload-csv`, {
         method: "POST",
-        headers: getAuthHeadersForFormData(),
         body: formData,
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to upload items CSV';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      const result = await res.json();
-      setSuccess(`Upload successful! ${result.inserted || "?"} items inserted.`);
+      setTransient(setSuccess, `Upload successful! ${result.inserted || "?"} items inserted.`);
       fetchRANLvl3(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setChildUploading(false);
       e.target.value = "";
@@ -191,48 +141,26 @@ export default function RANLvl3() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/ranlvl3/${id}`, {
-        headers: getAuthHeaders(),
+      await apiCall(`/ranlvl3/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to delete record';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Record deleted successfully");
+      setTransient(setSuccess, "Record deleted successfully");
       fetchRANLvl3(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     }
   };
 
   const handleChildDelete = async (parentId, childId) => {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/ranlvl3/${parentId}/items/${childId}`, {
+      await apiCall(`/ranlvl3/${parentId}/items/${childId}`, {
         method: "DELETE",
-        headers: getAuthHeaders(),
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to delete item';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Item deleted successfully");
+      setTransient(setSuccess, "Item deleted successfully");
       fetchRANLvl3(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     }
   };
 
@@ -305,26 +233,15 @@ export default function RANLvl3() {
         service_type: createForm.service_type ? [createForm.service_type] : [],
         items: []
       };
-      const res = await fetch(`${VITE_API_URL}/ranlvl3/`, {
+      await apiCall('/ranlvl3/', {
         method: "POST",
-        headers: getAuthHeaders(),
         body: JSON.stringify(createData),
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to create record';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Record created successfully!");
+      setTransient(setSuccess, "Record created successfully!");
       closeCreateModal();
       fetchRANLvl3(1, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setCreating(false);
     }
@@ -378,26 +295,15 @@ export default function RANLvl3() {
         service_type: editForm.service_type ? [editForm.service_type] : [],
         items: editingRow.items || []
       };
-      const res = await fetch(`${VITE_API_URL}/ranlvl3/${editingRow.id}`, {
+      await apiCall(`/ranlvl3/${editingRow.id}`, {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify(updateData),
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to update record';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Record updated successfully!");
+      setTransient(setSuccess, "Record updated successfully!");
       closeModal();
       fetchRANLvl3(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUpdating(false);
     }
@@ -447,26 +353,15 @@ export default function RANLvl3() {
         ...childEditForm,
         service_type: childEditForm.service_type ? childEditForm.service_type.split(',').map(s => s.trim()) : []
       };
-      const res = await fetch(`${VITE_API_URL}/ranlvl3/${childEditingRow.parentId}/items/${childEditingRow.id}`, {
+      await apiCall(`/ranlvl3/${childEditingRow.parentId}/items/${childEditingRow.id}`, {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify(updateData),
       });
-      if (!res.ok) {
-        let errorMessage = 'Failed to update item';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-      setSuccess("Item updated successfully!");
+      setTransient(setSuccess, "Item updated successfully!");
       closeChildModal();
       fetchRANLvl3(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setChildUpdating(false);
     }

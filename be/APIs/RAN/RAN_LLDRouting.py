@@ -2,7 +2,7 @@ import csv
 from io import StringIO
 from typing import List
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status, Form
 from sqlalchemy.orm import Session
 import io
 from fastapi.responses import StreamingResponse
@@ -265,11 +265,13 @@ def delete_ran_site(
 @ran_lld_router.post("/upload-csv")
 def upload_csv(
         file: UploadFile = File(...),
+        pid_po: str = Form(...),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Upload CSV file to bulk-add RAN Site records.
+    The pid_po parameter will be used for all records in the CSV.
     """
     # Users cannot upload CSV files
     if current_user.role.name == "user":
@@ -278,34 +280,49 @@ def upload_csv(
             detail="Users are not authorized to upload CSV files. Contact the Senior Admin."
         )
 
+    # Check access for the provided project
+    if not check_ranlld_project_access(current_user, pid_po, db, "edit"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to upload CSV files for this project. Contact the Senior Admin."
+        )
+
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files allowed")
 
     try:
+        print(f"DEBUG: Received pid_po parameter: {pid_po}")
         content = file.file.read().decode("utf-8")
         reader = csv.DictReader(StringIO(content))
         inserted_count = 0
 
         for row in reader:
-            pid_po = row.get("pid_po")
+            print(f"DEBUG: Creating RAN Site record with pid_po: {pid_po}")
+            print(f"DEBUG: CSV row keys: {list(row.keys())}")
 
-            # Check access for each record's project if pid_po is provided
-            if pid_po and not check_ranlld_project_access(current_user, pid_po, db, "edit"):
-                continue  # Skip records for projects the user doesn't have access to
+            # Try different possible column names for flexibility
+            site_id = row.get("Site ID") or row.get("site_id") or row.get("SiteID") or row.get("Site_ID")
+            new_antennas = row.get("New Antennas") or row.get("new_antennas") or row.get("NewAntennas") or row.get("New_Antennas")
+            total_antennas = row.get("Total Antennas") or row.get("total_antennas") or row.get("TotalAntennas") or row.get("Total_Antennas")
+            technical_boq = row.get("Technical BoQ") or row.get("technical_boq") or row.get("TechnicalBoQ") or row.get("Technical_BoQ")
+            key = row.get("Technical BoQ Key") or row.get("technical_boq_key") or row.get("TechnicalBoQKey") or row.get("key")
 
             site = RAN_LLD(
-                site_id=row.get("Site ID"),
-                new_antennas=row.get("New Antennas"),
-                total_antennas=safe_int(row.get("Total Antennas", 0)),
-                technical_boq=row.get("Technical BoQ"),
-                key=row.get("Technical BoQ Key"),
-                pid_po=pid_po,
+                site_id=site_id,
+                new_antennas=new_antennas,
+                total_antennas=safe_int(total_antennas, 0),
+                technical_boq=technical_boq,
+                key=key,
+                pid_po=pid_po,  # Use the form parameter for all records
             )
+            print(f"DEBUG: Created RAN Site record - pid_po: {site.pid_po}, site_id: {site.site_id}")
             db.add(site)
             inserted_count += 1
 
+        print(f"DEBUG: Adding {inserted_count} records to database")
         db.commit()
-        return {"inserted": inserted_count}
+        print(f"DEBUG: Successfully committed {inserted_count} records")
+        return {"inserted": inserted_count, "message": f"Successfully added {inserted_count} RAN Sites with pid_po: {pid_po}"}
     except Exception as e:
         db.rollback()
         raise HTTPException(

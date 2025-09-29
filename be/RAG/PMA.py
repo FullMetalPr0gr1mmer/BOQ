@@ -51,26 +51,29 @@
 # class Query(BaseModel):
 #     question: str
 
-# @pma.post("/query-doc")
+# @app.post("/query-doc")
 # async def query_doc(q: Query):
-#     # Embed query
-#     q_embedding = model.encode([q.question])
-#     D, I = index.search(q_embedding, k=3)  # top 3 chunks
+#     if index.ntotal == 0:
+#         return {"error": "No documents indexed yet. Please upload a document first."}
 
-#     # Gather context
+#     q_embedding = model.encode([q.question])
+#     D, I = index.search(q_embedding, k=3)
+
+#     if len(I[0]) == 0:
+#         return {"error": "No results found in index."}
+
 #     context = "\n".join([documents[i]["text"] for i in I[0]])
 
-#     # Call Ollama (local LLM)
-#     import subprocess, json
-#     prompt = f"Answer the question using only this context:\n\n{context}\n\nQuestion: {q.question}"
-#     result = subprocess.run(
-#         ["ollama", "run", "llama3"],
-#         input=prompt.encode(),
-#         capture_output=True
-#     )
+#     prompt = f"Use the following context to answer the question.\n\nContext:\n{context}\n\nQuestion: {q.question}"
 
-#     return {
-#         "question": q.question,
-#         "context_used": context,
-#         "answer": result.stdout.decode()
-#     }
+#     try:
+#         res = requests.post(
+#             "http://127.0.0.1:11434/api/generate",
+#             json={"model": "llama3", "prompt": prompt}
+#         )
+#         res.raise_for_status()
+#         answer = res.json()["response"]
+#     except Exception as e:
+#         answer = f"❌ Error calling Ollama API: {e}"
+
+#     return {"question": q.question, "context_used": context, "answer": answer}
