@@ -24,6 +24,7 @@ class RANLvl3(Base):
     po_line=Column(String(100), nullable=True)
     items = relationship("ItemsForRANLvl3", back_populates="ranlvl3", cascade="all, delete-orphan")
     category = Column(String(200), nullable=True)
+    upl_line=Column(String(100), nullable=True)
 
     @property
     def service_type(self):
@@ -51,7 +52,7 @@ class ItemsForRANLvl3(Base):
     uom = Column(Integer, nullable=True)
     quantity = Column(Integer, nullable=True)
     price = Column(Float, nullable=True)
-
+    upl_line=Column(String(100), nullable=True)
     ranlvl3 = relationship("RANLvl3", back_populates="items")
 
     @property

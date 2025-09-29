@@ -110,6 +110,7 @@ def create_ranlvl3(db: Session, ranlvl3: RANLvl3Create):
         total_price=ranlvl3.total_price,
         category=ranlvl3.category,
         po_line=ranlvl3.po_line,
+        upl_line=ranlvl3.upl_line
     )
     db_ranlvl3.service_type = ranlvl3.service_type
 
@@ -122,6 +123,7 @@ def create_ranlvl3(db: Session, ranlvl3: RANLvl3Create):
             uom=item.uom,
             quantity=item.quantity,
             price=item.price,
+            upl_line=item.upl_line
         )
         db_item.service_type = item.service_type
         db_ranlvl3.items.append(db_item)
@@ -146,7 +148,8 @@ def update_ranlvl3(db: Session, ranlvl3_id: int, ranlvl3_data: RANLvl3Update):
     db_ranlvl3.total_price = ranlvl3_data.total_price
     db_ranlvl3.service_type = ranlvl3_data.service_type
     db_ranlvl3.category = ranlvl3_data.category
-    db_ranlvl3.po_line = ranlvl3_data.po_line
+    db_ranlvl3.po_line = ranlvl3_data.po_line,
+    db_ranlvl3.upl_line=ranlvl3_data.upl_line
 
     db.commit()
     db.refresh(db_ranlvl3)
@@ -220,14 +223,14 @@ def update_ran_lvl3_item(
         db.refresh(db_item)
 
         # Recalculate parent totals after update
-        all_items = db.query(ItemsForRANLvl3).filter(ItemsForRANLvl3.ranlvl3_id == ranlvl3_id).all()
-        total_quantity = sum(item.quantity for item in all_items if item.quantity is not None)
-        total_price = sum(item.price for item in all_items if item.price is not None)
+        # all_items = db.query(ItemsForRANLvl3).filter(ItemsForRANLvl3.ranlvl3_id == ranlvl3_id).all()
+        # total_quantity = sum(item.quantity for item in all_items if item.quantity is not None)
+        # total_price = sum(item.price for item in all_items if item.price is not None)
 
-        parent_record.total_quantity = total_quantity
-        parent_record.total_price = total_price
-        db.commit()
-        db.refresh(parent_record)
+        # parent_record.total_quantity = total_quantity
+        # parent_record.total_price = total_price
+        # db.commit()
+        # db.refresh(parent_record)
 
         return db_item
     except Exception as e:
@@ -286,14 +289,14 @@ def delete_ran_lvl3_item(
         db.commit()
 
         # Recalculate parent totals after deletion
-        all_items = db.query(ItemsForRANLvl3).filter(ItemsForRANLvl3.ranlvl3_id == ranlvl3_id).all()
-        total_quantity = sum(item.quantity for item in all_items if item.quantity is not None)
-        total_price = sum(item.price for item in all_items if item.price is not None)
+        # all_items = db.query(ItemsForRANLvl3).filter(ItemsForRANLvl3.ranlvl3_id == ranlvl3_id).all()
+        # total_quantity = sum(item.quantity for item in all_items if item.quantity is not None)
+        # total_price = sum(item.price for item in all_items if item.price is not None)
 
-        parent_record.total_quantity = total_quantity
-        parent_record.total_price = total_price
-        db.commit()
-        db.refresh(parent_record)
+        # # parent_record.total_quantity = total_quantity
+        # # parent_record.total_price = total_price
+        # db.commit()
+        # db.refresh(parent_record)
 
         return {"message": "Item deleted successfully"}
     except Exception as e:
@@ -520,6 +523,7 @@ def upload_items_csv_to_ranlvl3(
                     item_details=row.get('Item Description'),
                     vendor_part_number=row.get('Vendor Part Number'),
                     service_type=['2'],  # Hardcoded as requested
+                    upl_line=row.get('UPL Line'),
                     category=row.get('L1 Category'),
                     uom=safe_int(row.get('UOM')),
                     quantity=1,

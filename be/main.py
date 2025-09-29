@@ -54,6 +54,9 @@ from APIs.RAN.RANLvl3Routing import RANLvl3Router
 from APIs.RAN.RANProjectRouting import RANProjectRoute
 from APIs.RAN.RAN_LLDRouting import ran_lld_router
 
+
+# # PMA (Project Management Assistant) API import
+# from RAG.PMA import pma
 # Database configuration
 from Database.session import engine, Base
 
@@ -105,6 +108,8 @@ app.include_router(ROPProjectrouter)    # ROP project management
 app.include_router(ROPLvl1router)       # ROP Level 1 operations
 app.include_router(ROPLvl2router)       # ROP Level 2 operations
 app.include_router(RopPackageRouter)    # ROP package management
+
+# app.include_router(pma)    # Project Management Assistant (PMA) routes
 
 # Application entry point
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ class ItemsForRANLvl3Base(BaseModel):
     uom: Optional[int] = None
     quantity: Optional[int] = None
     price: Optional[float] = None
-
+    upl_line: Optional[str] = None
 
 class ItemsForRANLvl3Create(ItemsForRANLvl3Base):
     pass
@@ -45,6 +45,7 @@ class RANLvl3Base(BaseModel):
     total_price: Optional[float] = None
     category: Optional[str] = None
     po_line: Optional[str] = None
+    upl_line: Optional[str] = None
 
 class RANLvl3Create(RANLvl3Base):
     items: List[ItemsForRANLvl3Create] = Field(default_factory=list)

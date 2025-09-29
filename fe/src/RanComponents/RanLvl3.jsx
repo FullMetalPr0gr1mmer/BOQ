@@ -126,6 +126,7 @@ export default function RANLvl3() {
           total_price: r.total_price,
           category: r.category,
           po_line: r.po_line,
+          upl_line:r.upl_line,
           items: r.items || [],
         }))
       );
@@ -262,7 +263,8 @@ export default function RANLvl3() {
       total_quantity: '',
       total_price: '',
       category: '',
-      po_line: ''
+      po_line: '',
+      upl_line:''
     });
     setIsCreateModalOpen(true);
     setError('');
@@ -543,6 +545,7 @@ export default function RANLvl3() {
               <th>Total Price</th>
               <th>Category</th>
               <th>PO Line</th>
+              <th>UPL Line</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -581,6 +584,7 @@ export default function RANLvl3() {
                     <td>{row.total_price}</td>
                     <td>{row.category}</td>
                     <td>{row.po_line}</td>
+                    <td>{row.upl_line}</td>
                     <td className="actions-cell">
                       <button className="clear-btn" onClick={() => openEditModal(row)}>
                         Edit
@@ -617,6 +621,7 @@ export default function RANLvl3() {
                                   <th>Service Type</th>
                                   <th>Category</th>
                                   <th>UOM</th>
+                                  <th>UPL Line</th>
                                   <th>Quantity</th>
                                   <th>Price</th>
                                   <th>Actions</th>
@@ -638,6 +643,7 @@ export default function RANLvl3() {
                                       <td>{Array.isArray(item.service_type) ? item.service_type.map(s => serviceTypes[s] || s).join(', ') : serviceTypes[item.service_type] || item.service_type}</td>
                                       <td>{item.category}</td>
                                       <td>{item.uom}</td>
+                                      <td>{item.upl_line}</td>
                                       <td>{item.quantity}</td>
                                       <td>{item.price}</td>
                                       <td className="actions-cell">
