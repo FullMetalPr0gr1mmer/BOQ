@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import '../css/Project.css';
+import { apiCall, setTransient } from '../api.js';
 
 const ENTRIES_PER_PAGE = 10;
 const SERVICE_LABELS = {
@@ -25,19 +26,16 @@ export default function Lvl1() {
     const [success, setSuccess] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
 
-    const VITE_API_URL = import.meta.env.VITE_API_URL;
-
     useEffect(() => {
         fetchLvl1();
     }, []);
 
     const fetchLvl1 = async () => {
         try {
-            const res = await fetch(`${VITE_API_URL}/get-lvl1`);
-            const data = await res.json();
+            const data = await apiCall('/get-lvl1');
             setEntries(data);
         } catch {
-            setError('Failed to fetch entries');
+            setTransient(setError, 'Failed to fetch entries');
         }
     };
 
@@ -63,31 +61,23 @@ export default function Lvl1() {
         };
 
         try {
-            let res;
             if (editingEntry) {
-                res = await fetch(`${VITE_API_URL}/update-lvl1/${editingEntry.id}`, {
+                await apiCall(`/update-lvl1/${editingEntry.id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } else {
-                res = await fetch(`${VITE_API_URL}/create-lvl1`, {
+                await apiCall('/create-lvl1', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             }
 
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to save entry');
-            }
-
-            setSuccess(editingEntry ? 'Lvl1 entry updated!' : 'Lvl1 entry created!');
+            setTransient(setSuccess, editingEntry ? 'Lvl1 entry updated!' : 'Lvl1 entry created!');
             clearForm();
             fetchLvl1();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
 
@@ -122,14 +112,13 @@ export default function Lvl1() {
     const handleDelete = async (entry) => {
         if (!window.confirm(`Delete entry ${entry.project_id} - ${entry.item_name}?`)) return;
         try {
-            const res = await fetch(`${VITE_API_URL}/delete-lvl1/${entry.id}`, {
+            await apiCall(`/delete-lvl1/${entry.id}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to delete entry');
-            setSuccess('Entry deleted!');
+            setTransient(setSuccess, 'Entry deleted!');
             fetchLvl1();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
 

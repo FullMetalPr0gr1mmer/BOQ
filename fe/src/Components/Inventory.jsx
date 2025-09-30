@@ -1,19 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import '../css/LLDManagment.css'; // Using the same styling
 import '../css/Dismantling.css'; // Using the same styling
+import { apiCall, setTransient } from '../api.js';
 
 const ROWS_PER_PAGE = 50;
-const VITE_API_URL = import.meta.env.VITE_API_URL;
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
-};
 export default function Inventory() {
   const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,6 +17,10 @@ export default function Inventory() {
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Project-related state
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+
   const fetchAbort = useRef(null);
 
   const initialForm = {
@@ -34,9 +28,23 @@ export default function Inventory() {
     company_id: '', mnemonic: '', clei_code: '', part_no: '', software_no: '',
     factory_id: '', serial_no: '', date_id: '', manufactured_date: '',
     customer_field: '', license_points_consumed: '', alarm_status: '',
-    Aggregated_alarm_status: ''
+    Aggregated_alarm_status: '', pid_po: ''
   };
   const [formData, setFormData] = useState(initialForm);
+
+  const fetchProjects = async () => {
+    try {
+      const data = await apiCall('/get_project');
+      setProjects(data || []);
+      // Auto-select the first project if available
+      if (data && data.length > 0) {
+        setSelectedProject(data[0].pid_po);
+      }
+    } catch (err) {
+      setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
+      console.error(err);
+    }
+  };
 
   const fetchInventory = async (page = 1, search = '') => {
     try {
@@ -53,24 +61,22 @@ export default function Inventory() {
         search: search.trim(),
       });
 
-      const res = await fetch(`${VITE_API_URL}/inventory?${params.toString()}`, {
-        signal: controller.signal, method: 'GET',
-        headers: getAuthHeaders()
+      const data = await apiCall(`/inventory?${params.toString()}`, {
+        signal: controller.signal,
+        method: 'GET'
       });
-      if (!res.ok) throw new Error('Failed to fetch inventory');
-
-      const data = await res.json();
       setRows(data.records || []);
       setTotal(data.total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== 'AbortError') setError(err.message || 'Failed to fetch inventory');
+      if (err.name !== 'AbortError') setTransient(setError, err.message || 'Failed to fetch inventory');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    fetchProjects();
     fetchInventory(1, '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -82,7 +88,16 @@ export default function Inventory() {
   };
 
   const openCreateForm = () => {
-    setFormData(initialForm);
+    // Validate project selection
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project to create a new inventory.');
+      return;
+    }
+
+    setFormData({
+      ...initialForm,
+      pid_po: selectedProject
+    });
     setIsEditing(false);
     setEditingId(null);
     setShowForm(true);
@@ -109,7 +124,6 @@ export default function Inventory() {
     setError('');
     setSuccess('');
     try {
-      let res;
       const payload = {
         ...formData,
         slot_id: parseInt(formData.slot_id || 0),
@@ -117,73 +131,64 @@ export default function Inventory() {
       };
 
       if (isEditing && editingId !== null) {
-        res = await fetch(`${VITE_API_URL}/update-inventory/${editingId}`, {
+        await apiCall(`/update-inventory/${editingId}`, {
           method: 'PUT',
-          body: JSON.stringify(payload),
-          headers: getAuthHeaders()
+          body: JSON.stringify(payload)
         });
       } else {
-        res = await fetch(`${VITE_API_URL}/create-inventory`, {
+        await apiCall('/create-inventory', {
           method: 'POST',
-          body: JSON.stringify(payload),
-          headers: getAuthHeaders()
+          body: JSON.stringify(payload)
         });
       }
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || 'Failed to save inventory');
-      }
-
-      setSuccess(isEditing ? 'Inventory updated' : 'Inventory created');
+      setTransient(setSuccess, isEditing ? 'Inventory updated' : 'Inventory created');
       setShowForm(false);
       fetchInventory(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message || 'Operation failed');
+      setTransient(setError, err.message || 'Operation failed');
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this inventory item?')) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/delete-inventory/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
+      await apiCall(`/delete-inventory/${id}`, {
+        method: 'DELETE'
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || 'Failed to delete inventory');
-      }
-      setSuccess('Inventory deleted');
+      setTransient(setSuccess, 'Inventory deleted');
       fetchInventory(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message || 'Delete failed');
+      setTransient(setError, err.message || 'Delete failed');
     }
   };
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Validate project selection
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project before uploading CSV.');
+      e.target.value = "";
+      return;
+    }
+
     setUploading(true);
     setError('');
     setSuccess('');
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("pid_po", selectedProject);
     try {
-      const res = await fetch(`${VITE_API_URL}/upload-inventory-csv`, {
+      const result = await apiCall('/upload-inventory-csv', {
         method: "POST",
-        body: formData,
-        headers: getAuthHeaders()
+        body: formData
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to upload CSV");
-      }
-      const result = await res.json();
-      setSuccess(`Upload successful! ${result.inserted_count} rows inserted.`);
+      setTransient(setSuccess, `Upload successful! ${result.inserted_count} rows inserted.`);
       fetchInventory(1, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -197,22 +202,51 @@ export default function Inventory() {
       <div className="dismantling-header-row">
         <h2>Inventory</h2>
         <div style={{ display: 'flex', gap: 16 }}>
-          <button className="stylish-btn" onClick={openCreateForm}>+ New Inventory</button>
-          <label className={`upload-btn ${uploading ? 'disabled' : ''}`}>
+          <button
+            className={`stylish-btn ${!selectedProject ? 'disabled' : ''}`}
+            onClick={openCreateForm}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Create a new inventory"}
+          >
+            + New Inventory
+          </button>
+          <label
+            className={`upload-btn ${uploading || !selectedProject ? 'disabled' : ''}`}
+            title={!selectedProject ? "Select a project first" : "Upload inventory CSV"}
+          >
             📤 Upload CSV
-            <input type="file" accept=".csv" style={{ display: "none" }} disabled={uploading} onChange={handleUpload} />
+            <input
+              type="file"
+              accept=".csv"
+              style={{ display: "none" }}
+              disabled={uploading || !selectedProject}
+              onChange={handleUpload}
+            />
           </label>
         </div>
       </div>
 
       <div className="dismantling-search-container">
-        <input
+      <input
           type="text"
           placeholder="Search by Site ID..."
           value={searchTerm}
           onChange={onSearchChange}
           className="search-input"
         />
+        <select
+          className="search-input"
+          value={selectedProject}
+          onChange={(e) => setSelectedProject(e.target.value)}
+        >
+          <option value="">-- Select a Project --</option>
+          {projects.map((p) => (
+            <option key={p.pid_po} value={p.pid_po}>
+              {p.project_name} ({p.pid_po})
+            </option>
+          ))}
+        </select>
+        
         {searchTerm && (
           <button onClick={() => { setSearchTerm(''); fetchInventory(1, ''); }} className="clear-btn">Clear</button>
         )}
@@ -302,6 +336,17 @@ export default function Inventory() {
                 </h3>
                 <button className="modal-close-btn" onClick={() => setShowForm(false)} type="button">&times;</button>
               </div>
+              <input
+                className="search-input"
+                type="text"
+                name="pid_po"
+                placeholder="Project ID (pid_po)"
+                value={formData.pid_po}
+                onChange={handleChange}
+                required
+                disabled={true}
+                style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+              />
               <input
                 className="search-input"
                 type="text"

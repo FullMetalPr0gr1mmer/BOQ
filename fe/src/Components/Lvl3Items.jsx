@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import '../css/Project.css'; // Reuse shared styling
+import { apiCall, setTransient } from '../api.js';
 
 const ENTRIES_PER_PAGE = 5;
 
@@ -28,19 +29,16 @@ export default function Lvl3Items() {
     const [success, setSuccess] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
 
-    const VITE_API_URL = import.meta.env.VITE_API_URL;
-
     useEffect(() => {
         fetchLvl3Items();
     }, []);
 
     const fetchLvl3Items = async () => {
         try {
-            const res = await fetch(`${VITE_API_URL}/get-lvl3-items`);
-            const data = await res.json();
+            const data = await apiCall('/get-lvl3-items');
             setEntries(data);
         } catch {
-            setError('Failed to fetch entries');
+            setTransient(setError, 'Failed to fetch entries');
         }
     };
 
@@ -67,31 +65,23 @@ export default function Lvl3Items() {
         };
 
         try {
-            let res;
             if (editingEntry) {
-                res = await fetch(`${VITE_API_URL}/update-lvl3-item/${editingEntry.id}`, {
+                await apiCall(`/update-lvl3-item/${editingEntry.id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } else {
-                res = await fetch(`${VITE_API_URL}/create-lvl3-item`, {
+                await apiCall('/create-lvl3-item', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             }
 
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to save entry');
-            }
-
-            setSuccess(editingEntry ? 'Lvl3 item updated!' : 'Lvl3 item created!');
+            setTransient(setSuccess, editingEntry ? 'Lvl3 item updated!' : 'Lvl3 item created!');
             clearForm();
             fetchLvl3Items();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
 
@@ -130,14 +120,13 @@ export default function Lvl3Items() {
     const handleDelete = async (entry) => {
         if (!window.confirm(`Delete item ${entry.project_id} - ${entry.item_name}?`)) return;
         try {
-            const res = await fetch(`${VITE_API_URL}/delete-lvl3-item/${entry.id}`, {
+            await apiCall(`/delete-lvl3-item/${entry.id}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to delete item');
-            setSuccess('Item deleted!');
+            setTransient(setSuccess, 'Item deleted!');
             fetchLvl3Items();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
 

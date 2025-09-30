@@ -1,29 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import "../css/Dismantling.css";
+import { apiCall, setTransient } from '../api.js';
 
 const ROWS_PER_PAGE = 50;
-const VITE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-// --- Helper Functions ---
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
-};
-
-const getAuthHeadersForFormData = () => {
-  const token = localStorage.getItem('token');
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 export default function Dismantling() {
   // --- State Variables ---
@@ -55,16 +34,14 @@ export default function Dismantling() {
   // --- Function to fetch user's projects ---
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${VITE_API_URL}/get_project`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Could not fetch projects');
-      const data = await res.json();
+      const data = await apiCall('/get_project');
       setProjects(data || []);
       // Optionally, auto-select the first project
       if (data && data.length > 0) {
         setSelectedProject(data[0].pid_po);
       }
     } catch (err) {
-      setError('Failed to load projects. Please ensure you have project access.');
+      setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);
     }
   };
@@ -83,19 +60,11 @@ export default function Dismantling() {
       params.set("skip", String(skip));
       params.set("limit", String(ROWS_PER_PAGE));
       if (search.trim()) params.set("search", search.trim());
-      
-      const res = await fetch(`${VITE_API_URL}/dismantling?${params.toString()}`, {
-        signal: controller.signal,
-        headers: getAuthHeaders(), // Added auth headers
+
+      const { records, total } = await apiCall(`/dismantling?${params.toString()}`, {
+        signal: controller.signal
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to fetch dismantling records");
-      }
-
-      const { records, total } = await res.json();
-      
       setRows(
         (records || []).map((r) => ({
           id: r.id,
@@ -109,7 +78,7 @@ export default function Dismantling() {
       setTotal(total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== "AbortError") setError(err.message || "Failed to fetch dismantling records");
+      if (err.name !== "AbortError") setTransient(setError, err.message || "Failed to fetch dismantling records");
     } finally {
       setLoading(false);
     }
@@ -133,7 +102,7 @@ export default function Dismantling() {
     if (!file) return;
 
     if (!selectedProject) {
-      setError("Please select a project before uploading.");
+      setTransient(setError, "Please select a project before uploading.");
       e.target.value = '';
       return;
     }
@@ -143,25 +112,17 @@ export default function Dismantling() {
 
     const formDataLocal = new FormData();
     formDataLocal.append("file", file);
+    formDataLocal.append("pid_po", selectedProject);
 
     try {
-      // Pass pid_po as part of the URL path
-      const url = `${VITE_API_URL}/dismantling/upload-csv`;
-      const res = await fetch(url, {
+      const result = await apiCall('/dismantling/upload-csv', {
         method: "POST",
-        body: formDataLocal,
-        headers: getAuthHeadersForFormData()
+        body: formDataLocal
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to upload dismantling CSV");
-      }
-      const result = await res.json();
-      setSuccess(`Upload successful! ${result.inserted} rows inserted.`);
+      setTransient(setSuccess, `Upload successful! ${result.inserted} rows inserted.`);
       fetchDismantling(1, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -171,7 +132,7 @@ export default function Dismantling() {
   // --- MODIFIED: Create / Edit / Delete to handle project_id ---
   const openCreateModal = () => {
     if (!selectedProject) {
-      setError('Please select a project to create a new record.');
+      setTransient(setError, 'Please select a project to create a new record.');
       return;
     }
     setFormData({
@@ -189,21 +150,13 @@ export default function Dismantling() {
 
   const openEditModal = async (row) => {
     if (!row || !row.id) {
-      setError('Cannot edit: missing id');
+      setTransient(setError, 'Cannot edit: missing id');
       return;
     }
     setEditingRow(row);
     try {
       setLoading(true);
-      const res = await fetch(`${VITE_API_URL}/dismantling/${row.id}`, {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to fetch record');
-      }
-      const data = await res.json();
+      const data = await apiCall(`/dismantling/${row.id}`);
       setFormData({
         nokia_link_id: data.nokia_link_id || '',
         nec_dismantling_link_id: data.nec_dismantling_link_id || '',
@@ -215,7 +168,7 @@ export default function Dismantling() {
       setError('');
       setSuccess('');
     } catch (err) {
-      setError(err.message || 'Failed to load record for editing');
+      setTransient(setError, err.message || 'Failed to load record for editing');
     } finally {
       setLoading(false);
     }
@@ -247,34 +200,22 @@ export default function Dismantling() {
     setSuccess('');
     try {
       if (editingRow) {
-        const url = `${VITE_API_URL}/dismantling/${editingRow.id}`;
-        const res = await fetch(url, {
+        await apiCall(`/dismantling/${editingRow.id}`, {
           method: 'PUT',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(formData),
+          body: JSON.stringify(formData)
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || 'Failed to update record');
-        }
-        setSuccess('Record updated successfully!');
+        setTransient(setSuccess, 'Record updated successfully!');
       } else {
-        const url = `${VITE_API_URL}/dismantling`;
-        const res = await fetch(url, {
+        await apiCall('/dismantling', {
           method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(formData),
+          body: JSON.stringify(formData)
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || 'Failed to create record');
-        }
-        setSuccess('Record created successfully!');
+        setTransient(setSuccess, 'Record created successfully!');
       }
       fetchDismantling(currentPage, searchTerm);
       setTimeout(() => closeFormModal(), 1200);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setSubmitting(false);
     }
@@ -284,18 +225,13 @@ export default function Dismantling() {
     if (!row || !row.id) return;
     if (!window.confirm(`Are you sure you want to delete this record?`)) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/dismantling/${row.id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
+      await apiCall(`/dismantling/${row.id}`, {
+        method: 'DELETE'
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to delete record');
-      }
-      setSuccess('Record deleted successfully!');
+      setTransient(setSuccess, 'Record deleted successfully!');
       fetchDismantling(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     }
   };
 

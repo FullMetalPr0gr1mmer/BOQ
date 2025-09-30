@@ -42,6 +42,7 @@ export async function apiCall(endpoint, options = {}) {
       // Handle 401/403 globally
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         window.location.href = '/login';
         throw new Error('Unauthorized or Forbidden access. Please log in again.');
       }
@@ -50,6 +51,7 @@ export async function apiCall(endpoint, options = {}) {
         // If backend reports invalid credentials in any form, force logout
         if (typeof detail === 'string' && /invalid\s*credentials|unauthorized|token\s*(expired|invalid)/i.test(detail)) {
           localStorage.removeItem('token');
+          localStorage.removeItem('user');
           window.location.href = '/login';
           throw new Error('Unauthorized or Forbidden access. Please log in again.');
         }

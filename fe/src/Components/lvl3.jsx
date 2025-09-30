@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import '../css/Project.css'; // Shared styling
 import { MdExpandMore, MdExpandLess } from 'react-icons/md';
+import { apiCall, setTransient } from '../api.js';
 
 const ENTRIES_PER_PAGE = 10;
 
@@ -37,26 +38,6 @@ const initialItemState = {
     price: ''
 };
 
-// Helper function to get auth headers
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-    }
-    return { 'Content-Type': 'application/json' };
-};
-
-const getAuthHeadersForFormData = () => {
-    const token = localStorage.getItem('token');
-    const headers = {};
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-    return headers;
-};
 
 export default function Lvl3() {
     const [entries, setEntries] = useState([]);
@@ -77,8 +58,6 @@ export default function Lvl3() {
     const [selectedProject, setSelectedProject] = useState('');
     const [userPermissions, setUserPermissions] = useState({});
 
-    const VITE_API_URL = import.meta.env.VITE_API_URL;
-
     useEffect(() => {
         fetchProjects(); // Fetch projects on component mount
         fetchLvl3();
@@ -87,20 +66,14 @@ export default function Lvl3() {
     // NEW: Function to fetch user's accessible projects
     const fetchProjects = async () => {
         try {
-            const res = await fetch(`${VITE_API_URL}/get_project`, { 
-                headers: getAuthHeaders() 
-            });
-            if (!res.ok) {
-                throw new Error('Could not fetch projects');
-            }
-            const data = await res.json();
+            const data = await apiCall('/get_project');
             setProjects(data || []);
             // Auto-select the first project if available
             if (data && data.length > 0) {
                 setSelectedProject(data[0].pid_po);
             }
         } catch (err) {
-            setError('Failed to load projects. Please ensure you have project access.');
+            setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
             console.error(err);
         }
     };
@@ -108,25 +81,10 @@ export default function Lvl3() {
     const fetchLvl3 = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${VITE_API_URL}/lvl3/`, {
-                headers: getAuthHeaders()
-            });
-            
-            if (!res.ok) {
-                let errorMessage = 'Failed to fetch entries';
-                try {
-                    const errorData = await res.json();
-                    errorMessage = errorData.detail || errorData.message || errorMessage;
-                } catch (e) {
-                    errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-                }
-                throw new Error(errorMessage);
-            }
-            
-            const data = await res.json();
+            const data = await apiCall('/lvl3/');
             setEntries(data);
         } catch (err) {
-            setError(err.message || 'Failed to fetch entries');
+            setTransient(setError, err.message || 'Failed to fetch entries');
         } finally {
             setLoading(false);
         }
@@ -135,18 +93,13 @@ export default function Lvl3() {
     // NEW: Function to check permissions for a specific Lvl3 entry
     const checkLvl3Permission = async (lvl3Id) => {
         try {
-            const res = await fetch(`${VITE_API_URL}/lvl3/check_permission/${lvl3Id}`, {
-                headers: getAuthHeaders()
-            });
-            if (res.ok) {
-                const permissions = await res.json();
-                setUserPermissions(prev => ({ ...prev, [lvl3Id]: permissions }));
-                return permissions;
-            }
+            const permissions = await apiCall(`/lvl3/check_permission/${lvl3Id}`);
+            setUserPermissions(prev => ({ ...prev, [lvl3Id]: permissions }));
+            return permissions;
         } catch (err) {
             console.error('Failed to check permissions:', err);
+            return { can_view: false, can_edit: false, can_delete: false };
         }
-        return { can_view: false, can_edit: false, can_delete: false };
     };
 
     const handleChange = (e) => {
@@ -191,62 +144,49 @@ export default function Lvl3() {
         const { lvl3Id, itemId } = editingItemData;
 
         try {
-            let res;
             if (itemId) {
                 // Update existing item
-                res = await fetch(`${VITE_API_URL}/lvl3/${lvl3Id}/items/${itemId}`, {
+                await apiCall(`/lvl3/${lvl3Id}/items/${itemId}`, {
                     method: 'PUT',
-                    headers: getAuthHeaders(),
                     body: JSON.stringify(payload)
                 });
             } else {
                 // Create new item for an existing Lvl3
-                res = await fetch(`${VITE_API_URL}/lvl3/${lvl3Id}/items`, {
+                await apiCall(`/lvl3/${lvl3Id}/items`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
                     body: JSON.stringify(payload)
                 });
             }
 
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to save item');
-            }
-
-            setSuccess(itemId ? 'Item updated successfully!' : 'Item added successfully!');
+            setTransient(setSuccess, itemId ? 'Item updated successfully!' : 'Item added successfully!');
             setShowItemForm(false);
             setEditingItemData(null);
             fetchLvl3();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
 
     const handleDeleteItem = async (lvl3Id, itemId) => {
         if (!window.confirm("Are you sure you want to delete this item?")) return;
         try {
-            const res = await fetch(`${VITE_API_URL}/lvl3/${lvl3Id}/items/${itemId}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
+            await apiCall(`/lvl3/${lvl3Id}/items/${itemId}`, {
+                method: 'DELETE'
             });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to delete item');
-            }
-            setSuccess('Item deleted!');
+            setTransient(setSuccess, 'Item deleted!');
             fetchLvl3();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
 
     // MODIFIED: Create new Lvl3 entry with project validation
     const openCreateModal = () => {
         if (!selectedProject) {
-            setError('Please select a project to create a new Lvl3 entry.');
+            setTransient(setError, 'Please select a project to create a new Lvl3 entry.');
             return;
         }
-        
+
         const selectedProjectObj = projects.find(p => p.pid_po === selectedProject);
         setFormData({
             ...initialLvl3State,
@@ -272,31 +212,23 @@ export default function Lvl3() {
         };
 
         try {
-            let res;
             if (editingEntry) {
-                res = await fetch(`${VITE_API_URL}/lvl3/${editingEntry.id}`, {
+                await apiCall(`/lvl3/${editingEntry.id}`, {
                     method: 'PUT',
-                    headers: getAuthHeaders(),
                     body: JSON.stringify(payload)
                 });
             } else {
-                res = await fetch(`${VITE_API_URL}/lvl3/create`, {
+                await apiCall('/lvl3/create', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
                     body: JSON.stringify(payload)
                 });
             }
 
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to save entry');
-            }
-
-            setSuccess(editingEntry ? 'Lvl3 entry updated!' : 'Lvl3 entry created!');
+            setTransient(setSuccess, editingEntry ? 'Lvl3 entry updated!' : 'Lvl3 entry created!');
             clearForm();
             fetchLvl3();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
 
@@ -314,7 +246,7 @@ export default function Lvl3() {
             const lines = text.split('\n').filter(line => line.trim() !== '');
 
             if (lines.length === 0) {
-                setError('CSV file is empty.');
+                setTransient(setError, 'CSV file is empty.');
                 return;
             }
 
@@ -347,7 +279,7 @@ export default function Lvl3() {
                 const columns = parseCSVLine(line);
                 
                 if (columns.length < 4) {
-                    setError(`Error on row ${i + 1}: Expected at least 4 columns, got ${columns.length}.`);
+                    setTransient(setError, `Error on row ${i + 1}: Expected at least 4 columns, got ${columns.length}.`);
                     return;
                 }
 
@@ -365,7 +297,7 @@ export default function Lvl3() {
                 const parsedPrice = parseFloat(cleanedPriceString);
 
                 if (isNaN(parsedPrice)) {
-                    setError(`Error on row ${i + 1}: Could not parse price from "${priceColumn}".`);
+                    setTransient(setError, `Error on row ${i + 1}: Could not parse price from "${priceColumn}".`);
                     return;
                 }
 
@@ -382,22 +314,16 @@ export default function Lvl3() {
             }
 
             try {
-                const res = await fetch(`${VITE_API_URL}/lvl3/${lvl3Id}/items/bulk`, {
+                await apiCall(`/lvl3/${lvl3Id}/items/bulk`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
                     body: JSON.stringify(payloadItems)
                 });
 
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || 'Failed to upload items from CSV.');
-                }
-
-                setSuccess('Items uploaded successfully!');
+                setTransient(setSuccess, 'Items uploaded successfully!');
                 e.target.value = null;
                 fetchLvl3();
             } catch (err) {
-                setError(err.message);
+                setTransient(setError, err.message);
                 e.target.value = null;
             }
         };
@@ -415,7 +341,7 @@ export default function Lvl3() {
         // Check permissions before allowing edit
         const permissions = await checkLvl3Permission(entry.id);
         if (!permissions.can_edit) {
-            setError('You do not have permission to edit this entry.');
+            setTransient(setError, 'You do not have permission to edit this entry.');
             return;
         }
 
@@ -427,7 +353,7 @@ export default function Lvl3() {
             uom: entry.uom,
             total_quantity: entry.total_quantity,
             total_price: entry.total_price,
-            service_type: (entry.service_type && entry.service_type.length > 0) 
+            service_type: (entry.service_type && entry.service_type.length > 0)
                 ? (SERVICE_VALUES[entry.service_type[0]] || entry.service_type[0])
                 : '',
         });
@@ -438,24 +364,19 @@ export default function Lvl3() {
         // Check permissions before allowing delete
         const permissions = await checkLvl3Permission(entry.id);
         if (!permissions.can_delete) {
-            setError('You do not have permission to delete this entry.');
+            setTransient(setError, 'You do not have permission to delete this entry.');
             return;
         }
 
         if (!window.confirm(`Delete entry ${entry.project_id} - ${entry.item_name}?`)) return;
         try {
-            const res = await fetch(`${VITE_API_URL}/lvl3/${entry.id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
+            await apiCall(`/lvl3/${entry.id}`, {
+                method: 'DELETE'
             });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to delete entry');
-            }
-            setSuccess('Entry deleted!');
+            setTransient(setSuccess, 'Entry deleted!');
             fetchLvl3();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
 

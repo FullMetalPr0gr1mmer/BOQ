@@ -36,9 +36,11 @@ const getSectionFromPath = (pathname) => {
 
 function AppContent() {
   const location = useLocation();
-  const [auth, setAuth] = useState({
-    token: localStorage.getItem('token'),
-    user: null
+  const [auth, setAuth] = useState(() => {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    return { token, user };
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -65,11 +67,13 @@ function AppContent() {
 
   const handleLogin = ({ token, user }) => {
     localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
     setAuth({ token, user });
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     localStorage.removeItem('activeSection');
     setAuth({ token: null, user: null });
   };

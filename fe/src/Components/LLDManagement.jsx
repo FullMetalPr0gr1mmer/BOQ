@@ -1,27 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import '../css/LLDManagment.css';
+import { apiCall, setTransient } from '../api.js';
 
 const ROWS_PER_PAGE = 50;
-const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-// --- Helper Functions from BOQGeneration.jsx ---
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
-
-const getAuthHeadersForFormData = () => {
-  const token = localStorage.getItem('token');
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
 
 export default function LLDManagement() {
   const [rows, setRows] = useState([]);
@@ -73,15 +54,13 @@ export default function LLDManagement() {
   // NEW: Function to fetch user's projects
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${VITE_API_URL}/get_project`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Could not fetch projects');
-      const data = await res.json();
+      const data = await apiCall('/get_project');
       setProjects(data || []);
       if (data && data.length > 0) {
         setSelectedProject(data[0].pid_po);
       }
     } catch (err) {
-      setError('Failed to load projects. Please ensure you have project access.');
+      setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);
     }
   };
@@ -103,18 +82,15 @@ export default function LLDManagement() {
       if (search.trim()) params.set('link_id', search.trim());
       // NEW: Don't filter by project ID on the front end, let the backend handle it based on user access.
 
-      const res = await fetch(`${VITE_API_URL}/lld?${params.toString()}`, {
+      const data = await apiCall(`/lld?${params.toString()}`, {
         signal: controller.signal,
-        headers: getAuthHeaders(), // Add auth headers
       });
-      if (!res.ok) throw new Error('Failed to fetch LLD rows');
-      const data = await res.json();
 
       setRows(data.items || []);
       setTotal(data.total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== 'AbortError') setError(err.message || 'Failed to fetch LLD rows');
+      if (err.name !== 'AbortError') setTransient(setError, err.message || 'Failed to fetch LLD rows');
     } finally {
       setLoading(false);
     }
@@ -139,7 +115,7 @@ export default function LLDManagement() {
 
     // Check if a project is selected
     if (!selectedProject) {
-      setError("Please select a project before uploading.");
+      setTransient(setError, "Please select a project before uploading.");
       e.target.value = '';
       return;
     }
@@ -152,22 +128,14 @@ export default function LLDManagement() {
     formData.append('file', file);
 
     try {
-      const url = `${VITE_API_URL}/lld/upload-csv?project_id=${selectedProject}`;
-      const res = await fetch(url, {
+      const result = await apiCall(`/lld/upload-csv?project_id=${selectedProject}`, {
         method: 'POST',
         body: formData,
-        headers: getAuthHeadersForFormData(), // Use appropriate headers for FormData
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to upload CSV');
-      }
-      const result = await res.json();
-      setSuccess(`Upload successful! ${result.rows_inserted} rows inserted.`);
+      setTransient(setSuccess, `Upload successful! ${result.rows_inserted} rows inserted.`);
       fetchLLD(1, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -178,18 +146,13 @@ export default function LLDManagement() {
   const handleDelete = async (link_id) => {
     if (!window.confirm(`Delete LLD row ${link_id}?`)) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/lld/${link_id}`, {
+      await apiCall(`/lld/${link_id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(), // Add auth headers
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to delete LLD row');
-      }
-      setSuccess(`Deleted ${link_id} successfully`);
+      setTransient(setSuccess, `Deleted ${link_id} successfully`);
       fetchLLD(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     }
   };
 
@@ -202,7 +165,7 @@ export default function LLDManagement() {
   // Open create modal
   const handleOpenCreate = () => {
     if (!selectedProject) {
-      setError('Please select a project to create a new LLD record.');
+      setTransient(setError, 'Please select a project to create a new LLD record.');
       return;
     }
     const emptyFormData = getEmptyFormData();
@@ -223,21 +186,16 @@ export default function LLDManagement() {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${VITE_API_URL}/lld`, {
+      await apiCall('/lld', {
         method: 'POST',
-        headers: getAuthHeaders(), // Add auth headers
         body: JSON.stringify(editRow),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to create LLD row');
-      }
-      setSuccess('Row created successfully!');
+      setTransient(setSuccess, 'Row created successfully!');
       fetchLLD(currentPage, searchTerm);
       setShowModal(false);
       setEditRow(null);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUpdating(false);
     }
@@ -250,21 +208,16 @@ export default function LLDManagement() {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${VITE_API_URL}/lld/${editRow.link_id}`, {
+      await apiCall(`/lld/${editRow.link_id}`, {
         method: 'PUT',
-        headers: getAuthHeaders(), // Add auth headers
         body: JSON.stringify(editRow),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to update LLD row');
-      }
-      setSuccess('Row updated successfully!');
+      setTransient(setSuccess, 'Row updated successfully!');
       fetchLLD(currentPage, searchTerm);
       setShowModal(false);
       setEditRow(null);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUpdating(false);
     }

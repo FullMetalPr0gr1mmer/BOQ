@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiCall, setTransient } from '../api.js';
 
 // Changed 'handleLogin' to 'onLogin' to avoid prop name conflict
 export default function AuthForm({ onLogin }) {
@@ -14,27 +15,26 @@ export default function AuthForm({ onLogin }) {
   const [regSuccess, setRegSuccess] = useState('');
 
   const navigate = useNavigate();
-  const VITE_API_URL = import.meta.env.VITE_API_URL;
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch(`${VITE_API_URL}/login`, {
+      const data = await apiCall('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
+        skipAuth: true  // Skip auth header for login
       });
-      const data = await res.json();
       if (data.access_token) {
         // Now calling the prop passed from the parent component
         onLogin({ token: data.access_token, user: { role: data.role, username } });
         navigate('/*');
       } else {
-        setError(data.detail || 'Login failed');
+        setTransient(setError, data.detail || 'Login failed');
       }
     } catch (err) {
-      setError('Login error');
+      setTransient(setError, err.message || 'Login error');
     }
   };
 
@@ -43,23 +43,18 @@ export default function AuthForm({ onLogin }) {
     setRegError('');
     setRegSuccess('');
     try {
-      const res = await fetch(`${VITE_API_URL}/register`, {
+      await apiCall('/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: regUsername,
           email: regEmail,
           password: regPassword,
-        })
+        }),
+        skipAuth: true  // Skip auth header for registration
       });
-      const data = await res.json();
-      if (res.ok) {
-        setRegSuccess('Registration successful! You can now log in.');
-      } else {
-        setRegError(data.detail || 'Registration failed');
-      }
+      setTransient(setRegSuccess, 'Registration successful! You can now log in.');
     } catch (err) {
-      setRegError('Registration error');
+      setTransient(setRegError, err.message || 'Registration failed');
     }
   };
 

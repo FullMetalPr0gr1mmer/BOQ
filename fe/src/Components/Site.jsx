@@ -1,18 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import "../css/Site.css"; // We'll create this CSS file
+import { apiCall, setTransient } from '../api.js';
 
 const ROWS_PER_PAGE = 50;
-const VITE_API_URL = import.meta.env.VITE_API_URL;
-const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-        return { 'Content-Type': 'application/json' };
-    };
 export default function Site() {
   const [rows, setRows] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -26,6 +16,10 @@ export default function Site() {
   const [searchTerm, setSearchTerm] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Project-related state
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+
   // Form state
   const [formData, setFormData] = useState({
     site_id: '',
@@ -34,6 +28,20 @@ export default function Site() {
   });
 
   const fetchAbort = useRef(null);
+
+  const fetchProjects = async () => {
+    try {
+      const data = await apiCall('/get_project');
+      setProjects(data || []);
+      // Auto-select the first project if available
+      if (data && data.length > 0) {
+        setSelectedProject(data[0].pid_po);
+      }
+    } catch (err) {
+      setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
+      console.error(err);
+    }
+  };
 
   const fetchSites = async (page = 1, search = "") => {
     try {
@@ -49,15 +57,10 @@ export default function Site() {
       params.set("limit", String(ROWS_PER_PAGE));
       if (search.trim()) params.set("search", search.trim());
 
-      const res = await fetch(`${VITE_API_URL}/sites?${params.toString()}`, {
+      const { records, total } = await apiCall(`/sites?${params.toString()}`, {
         signal: controller.signal,
-        method: 'GET',
-        headers: getAuthHeaders()
+        method: 'GET'
       });
-
-      if (!res.ok) throw new Error("Failed to fetch site records");
-      
-      const { records, total } = await res.json();
 
       setRows(
         (records || []).map((r) => ({
@@ -67,17 +70,18 @@ export default function Site() {
           pid_po: r.pid_po,
         }))
       );
-      
+
       setTotal(total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== "AbortError") setError(err.message || "Failed to fetch site records");
+      if (err.name !== "AbortError") setTransient(setError, err.message || "Failed to fetch site records");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    fetchProjects();
     fetchSites(1, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -91,26 +95,29 @@ export default function Site() {
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Validate project selection
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project before uploading CSV.');
+      e.target.value = "";
+      return;
+    }
+
     setUploading(true);
     setError("");
     setSuccess("");
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("pid_po", selectedProject);
     try {
-      const res = await fetch(`${VITE_API_URL}/sites/upload-csv`, {
+      const result = await apiCall('/sites/upload-csv', {
         method: "POST",
-        body: formData,
-                headers: getAuthHeaders()
+        body: formData
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to upload sites CSV");
-      }
-      const result = await res.json();
-      setSuccess(`Upload successful! ${result.inserted} sites inserted.`);
+      setTransient(setSuccess, `Upload successful! ${result.inserted} sites inserted.`);
       fetchSites(1, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -118,10 +125,16 @@ export default function Site() {
   };
 
   const openCreateModal = () => {
+    // Validate project selection
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project to create a new site.');
+      return;
+    }
+
     setFormData({
       site_id: '',
       site_name: '',
-      pid_po: ''
+      pid_po: selectedProject
     });
     setEditingRow(null);
     setShowForm(true);
@@ -164,34 +177,27 @@ export default function Site() {
     setSuccess("");
 
     try {
-      const url = editingRow 
-        ? `${VITE_API_URL}/update-site/${editingRow.id}`
-        : `${VITE_API_URL}/add-site`;
-      
+      const endpoint = editingRow
+        ? `/update-site/${editingRow.id}`
+        : '/add-site';
+
       const method = editingRow ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      await apiCall(endpoint, {
         method,
-              headers: getAuthHeaders(),
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formData)
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `Failed to ${editingRow ? 'update' : 'create'} site`);
-      }
-
-      const result = await res.json();
-      setSuccess(`Site ${editingRow ? 'updated' : 'created'} successfully!`);
+      setTransient(setSuccess, `Site ${editingRow ? 'updated' : 'created'} successfully!`);
       fetchSites(currentPage, searchTerm);
-      
+
       // Close modal after a short delay to show success message
       setTimeout(() => {
         closeModal();
       }, 1500);
 
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setSubmitting(false);
     }
@@ -199,22 +205,16 @@ export default function Site() {
 
   const handleDelete = async (row) => {
     if (!confirm(`Are you sure you want to delete site "${row.site_name}"?`)) return;
-    
+
     try {
-      const res = await fetch(`${VITE_API_URL}/delete-site/${row.site_id}`, {
-        method: 'DELETE',
-                headers: getAuthHeaders()
+      await apiCall(`/delete-site/${row.site_id}`, {
+        method: 'DELETE'
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to delete site');
-      }
-
-      setSuccess('Site deleted successfully!');
+      setTransient(setSuccess, 'Site deleted successfully!');
       fetchSites(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     }
   };
 
@@ -225,24 +225,51 @@ export default function Site() {
       <div className="dismantling-header-row">
         <h2>Sites</h2>
         <div style={{ display: 'flex', gap: 16 }}>
-          <button className="upload-btn" onClick={openCreateModal}>
+          <button
+            className={`upload-btn ${!selectedProject ? 'disabled' : ''}`}
+            onClick={openCreateModal}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Create a new site"}
+          >
             + New Site
           </button>
-          <label className={`upload-btn ${uploading ? 'disabled' : ''}`}>
+          <label
+            className={`upload-btn ${uploading || !selectedProject ? 'disabled' : ''}`}
+            title={!selectedProject ? "Select a project first" : "Upload sites CSV"}
+          >
             📤 Upload Sites CSV
-            <input type="file" accept=".csv" style={{ display: "none" }} disabled={uploading} onChange={handleUpload} />
+            <input
+              type="file"
+              accept=".csv"
+              style={{ display: "none" }}
+              disabled={uploading || !selectedProject}
+              onChange={handleUpload}
+            />
           </label>
         </div>
       </div>
 
       <div className="dismantling-search-container">
-        <input
+      <input
           type="text"
           placeholder="Filter by Site ID, Site Name"
           value={searchTerm}
           onChange={onSearchChange}
           className="search-input"
         />
+        <select
+          className="search-input"
+          value={selectedProject}
+          onChange={(e) => setSelectedProject(e.target.value)}
+        >
+          <option value="">-- Select a Project --</option>
+          {projects.map((p) => (
+            <option key={p.pid_po} value={p.pid_po}>
+              {p.project_name} ({p.pid_po})
+            </option>
+          ))}
+        </select>
+        
         {searchTerm && (
           <button onClick={() => { setSearchTerm(''); fetchSites(1, ''); }} className="clear-btn">Clear</button>
         )}
@@ -316,7 +343,8 @@ export default function Site() {
                 value={formData.pid_po}
                 onChange={handleInputChange}
                 required
-                disabled={!!editingRow}
+                disabled={true}
+                style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
               />
               
               <input

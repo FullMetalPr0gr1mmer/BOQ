@@ -1,30 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { apiCall, setTransient } from '../api.js';
 import '../css/Dismantling.css';
 
 const ROWS_PER_PAGE = 100;
-const VITE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // --- Helper Functions (No changes here) ---
-const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-        return { 'Content-Type': 'application/json' };
-    };
-
-const getAuthHeadersForFormData = () => {
-  const token = localStorage.getItem('token');
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
-
 const parseCSV = (csvString) => {
   if (!csvString) return [];
   const lines = csvString.split('\n');
@@ -36,7 +16,7 @@ const parseCSV = (csvString) => {
 };
 
 const stringifyCSV = (data) => {
-  return data.map(row => 
+  return data.map(row =>
     row.map(field => {
       const fieldStr = String(field || '');
       if (fieldStr.includes(',') || fieldStr.includes('"')) {
@@ -82,16 +62,14 @@ export default function BOQGeneration() {
   // --- NEW: Function to fetch user's projects ---
   const fetchProjects = async () => {
     try {
-      const res = await fetch(`${VITE_API_URL}/get_project`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Could not fetch projects');
-      const data = await res.json();
+      const data = await apiCall('/get_project');
       setProjects(data || []);
       // Optionally, auto-select the first project
       if (data && data.length > 0) {
         setSelectedProject(data[0].pid_po);
       }
     } catch (err) {
-      setError('Failed to load projects. Please ensure you have project access.');
+      setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);
     }
   };
@@ -109,25 +87,11 @@ export default function BOQGeneration() {
       const params = new URLSearchParams({ skip: skip.toString(), limit: ROWS_PER_PAGE.toString() });
       if (search.trim()) params.set('search', search.trim());
 
-      const url = `${VITE_API_URL}/boq/references?${params.toString()}`;
-      const res = await fetch(url, { 
+      const data = await apiCall(`/boq/references?${params.toString()}`, {
         signal: controller.signal,
         method: 'GET',
-        headers: getAuthHeaders()
       });
 
-      if (!res.ok) {
-        let errorMessage = 'Failed to fetch references';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (e) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await res.json();
       setRows((data.items || []).map(r => ({
         id: r.id,
         linkedIp: r.linkid,
@@ -140,7 +104,7 @@ export default function BOQGeneration() {
       setCurrentPage(page);
     } catch (err) {
       if (err.name !== 'AbortError') {
-        setError(err.message || 'Failed to fetch');
+        setTransient(setError, err.message || 'Failed to fetch');
       }
     } finally {
       setLoading(false);
@@ -166,7 +130,7 @@ export default function BOQGeneration() {
 
     // Check if a project is selected
     if (!selectedProject) {
-      setError("Please select a project before uploading.");
+      setTransient(setError, "Please select a project before uploading.");
       e.target.value = ''; // Clear file input
       return;
     }
@@ -180,29 +144,15 @@ export default function BOQGeneration() {
 
     try {
       // Append project_id as a query parameter
-      const url = `${VITE_API_URL}/boq/upload-reference?project_id=${selectedProject}`;
-      const res = await fetch(url, { 
-        method: 'POST', 
+      const result = await apiCall(`/boq/upload-reference?project_id=${selectedProject}`, {
+        method: 'POST',
         body: formDataLocal,
-        headers: getAuthHeadersForFormData()
       });
 
-      if (!res.ok) {
-        let errorMessage = 'Upload failed';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (err) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const result = await res.json();
-      setSuccess(`Upload successful! ${result.rows_inserted} rows inserted.`);
+      setTransient(setSuccess, `Upload successful! ${result.rows_inserted} rows inserted.`);
       fetchReferences(1, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -210,9 +160,9 @@ export default function BOQGeneration() {
   };
 
   // --- Unchanged Functions ---
-  const handleGenerateRow = async (row) => { /* ... no changes needed ... */ 
+  const handleGenerateRow = async (row) => { /* ... no changes needed ... */
         if (!row || !row.linkedIp) {
-      setError('Selected row is invalid');
+      setTransient(setError, 'Selected row is invalid');
       return;
     }
 
@@ -221,25 +171,10 @@ export default function BOQGeneration() {
     setLinkedIp(row.linkedIp);
 
     try {
-      const url = `${VITE_API_URL}/boq/generate-boq`;
-      const res = await fetch(url, {
+      const data = await apiCall('/boq/generate-boq', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ siteA: row.siteA, siteB: row.siteB, linkedIp: row.linkedIp }),
       });
-
-      if (!res.ok) {
-        let errorMessage = 'Failed to generate BOQ';
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
-        } catch (e) {
-          errorMessage = `HTTP ${res.status}: ${res.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await res.json();
 
       if (data.csv_content) {
         setEditableCsvData(parseCSV(data.csv_content));
@@ -248,28 +183,28 @@ export default function BOQGeneration() {
         throw new Error('No CSV content received from the server.');
       }
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setGenerating(false);
     }
   };
-  const handleCellChange = (rowIndex, cellIndex, value) => { /* ... no changes needed ... */ 
-      const updatedData = editableCsvData.map((row, rIdx) => 
+  const handleCellChange = (rowIndex, cellIndex, value) => { /* ... no changes needed ... */
+      const updatedData = editableCsvData.map((row, rIdx) =>
       rIdx === rowIndex ? row.map((cell, cIdx) => (cIdx === cellIndex ? value : cell)) : row
     );
     setEditableCsvData(updatedData);
   };
-  const handleAddRow = () => { /* ... no changes needed ... */ 
+  const handleAddRow = () => { /* ... no changes needed ... */
       const numColumns = editableCsvData[0]?.length || 1;
     const newRow = Array(numColumns).fill('----------------');
     const updatedData = [editableCsvData[0], ...editableCsvData.slice(1), newRow];
     setEditableCsvData(updatedData);
   };
-  const handleDeleteRow = (rowIndexToDelete) => { /* ... no changes needed ... */ 
-      if (rowIndexToDelete === 0) return; 
+  const handleDeleteRow = (rowIndexToDelete) => { /* ... no changes needed ... */
+      if (rowIndexToDelete === 0) return;
     setEditableCsvData(editableCsvData.filter((_, index) => index !== rowIndexToDelete));
   };
-  const downloadCSV = () => { /* ... no changes needed ... */ 
+  const downloadCSV = () => { /* ... no changes needed ... */
       if (!editableCsvData.length) return;
     const csvContent = stringifyCSV(editableCsvData);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -285,7 +220,7 @@ export default function BOQGeneration() {
   // --- MODIFIED: Create / Edit / Delete to handle project_id ---
   const openCreateModal = () => {
     if (!selectedProject) {
-      setError('Please select a project to create a new reference.');
+      setTransient(setError, 'Please select a project to create a new reference.');
       return;
     }
     setFormData({
@@ -303,21 +238,15 @@ export default function BOQGeneration() {
 
   const openEditModal = async (row) => {
     if (!row || !row.id) {
-      setError('Cannot edit: missing id');
+      setTransient(setError, 'Cannot edit: missing id');
       return;
     }
     setEditingRow(row);
     try {
       setLoading(true);
-      const res = await fetch(`${VITE_API_URL}/boq/reference/${row.id}`, {
+      const data = await apiCall(`/boq/reference/${row.id}`, {
         method: 'GET',
-        headers: getAuthHeaders()
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to fetch reference');
-      }
-      const data = await res.json();
       setFormData({
         linkid: data.linkid || '',
         InterfaceName: data.InterfaceName || '',
@@ -329,13 +258,13 @@ export default function BOQGeneration() {
       setError('');
       setSuccess('');
     } catch (err) {
-      setError(err.message || 'Failed to load reference for editing');
+      setTransient(setError, err.message || 'Failed to load reference for editing');
     } finally {
       setLoading(false);
     }
   };
 
-  const closeFormModal = () => { /* ... no changes needed ... */ 
+  const closeFormModal = () => { /* ... no changes needed ... */
       setShowForm(false);
     setEditingRow(null);
     setFormData({
@@ -349,11 +278,11 @@ export default function BOQGeneration() {
     setSuccess('');
   };
 
-  const handleFormInputChange = (e) => { /* ... no changes needed ... */ 
+  const handleFormInputChange = (e) => { /* ... no changes needed ... */
       const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   // No changes needed here, as formData now includes pid_po
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -367,55 +296,38 @@ export default function BOQGeneration() {
         pid_po: formData.pid_po || selectedProject
       };
       if (editingRow) {
-        const url = `${VITE_API_URL}/boq/reference/${editingRow.id}`;
-        const res = await fetch(url, {
+        await apiCall(`/boq/reference/${editingRow.id}`, {
           method: 'PUT',
-          headers: getAuthHeaders(),
           body: JSON.stringify(submitData),
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || 'Failed to update reference');
-        }
-        setSuccess('Reference updated successfully!');
+        setTransient(setSuccess, 'Reference updated successfully!');
       } else {
-        const url = `${VITE_API_URL}/boq/reference`;
-        const res = await fetch(url, {
+        await apiCall('/boq/reference', {
           method: 'POST',
-          headers: getAuthHeaders(),
           body: JSON.stringify(submitData),
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || 'Failed to create reference');
-        }
-        setSuccess('Reference created successfully!');
+        setTransient(setSuccess, 'Reference created successfully!');
       }
       fetchReferences(currentPage, searchTerm);
       setTimeout(() => closeFormModal(), 1200);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (row) => { /* ... no changes needed ... */ 
+  const handleDelete = async (row) => { /* ... no changes needed ... */
         if (!row || !row.id) return;
     if (!confirm(`Are you sure you want to delete reference "${row.linkedIp}"?`)) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/boq/reference/${row.id}`, {
+      await apiCall(`/boq/reference/${row.id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders()
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Failed to delete reference');
-      }
-      setSuccess('Reference deleted successfully!');
+      setTransient(setSuccess, 'Reference deleted successfully!');
       fetchReferences(currentPage, searchTerm);
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message);
     }
   };
 
@@ -430,11 +342,11 @@ export default function BOQGeneration() {
         <h2>BOQ Generation</h2>
         {/* NEW: Project Selector */}
         <div className="project-selector-container">
-          
+
         </div>
         <div style={{ display: 'flex', gap: 16 }}>
-          <button 
-            className="upload-btn" 
+          <button
+            className="upload-btn"
             onClick={openCreateModal}
             disabled={!selectedProject} // Disable if no project is selected
             title={!selectedProject ? "Select a project first" : "Create a new reference"}
@@ -461,13 +373,13 @@ export default function BOQGeneration() {
         {searchTerm && (
           <button onClick={() => { setSearchTerm(''); fetchReferences(1, ''); }} className="clear-btn">Clear</button>
         )}
-        
+
           <select
             id="project-select"
             className="search-input"
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-           
+
           >
             <option value="">-- Select a Project --</option>
             {projects.map((p) => (
@@ -644,7 +556,7 @@ export default function BOQGeneration() {
             />
              <button className="upload-btn" type="submit" disabled={submitting}>
               {submitting ? 'Saving...' : (editingRow ? 'Update' : 'Save')}
-            </button>
+             </button>
            </form>
          </div>
         </div>

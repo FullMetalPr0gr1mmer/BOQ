@@ -1,6 +1,6 @@
 # routes/inventoryRoute.py
 import json
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, Request, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional
@@ -421,19 +421,26 @@ async def delete_site(
 @inventoryRoute.post("/sites/upload-csv", response_model=UploadResponse)
 async def upload_sites_csv(
         file: UploadFile = File(...),
+        pid_po: str = Form(...),
         request: Request = None,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Uploads a CSV file and creates sites based on the link data.
-    Only senior_admin can perform bulk uploads.
+    The pid_po parameter will be used for all sites in the CSV.
+    Users need 'edit' or 'all' permission on the project to upload sites.
     """
-    # Only senior_admin can perform bulk uploads
-    if current_user.role.name != "senior_admin":
+    # Check if project exists
+    project = db.query(Project).filter(Project.pid_po == pid_po).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check project access - need edit permission to add sites
+    if not check_project_access(current_user, project, db, "edit"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to perform bulk uploads. Contact the Senior Admin."
+            detail="You are not authorized to upload sites for this project. Contact the Senior Admin."
         )
 
     if not file.filename.endswith('.csv'):
@@ -486,7 +493,7 @@ async def upload_sites_csv(
                     new_site_a = Site(
                         site_id=site_ipa,
                         site_name=site_name_a,
-                        project_id="SophiaSophia"
+                        project_id=pid_po  # Use the form parameter for all sites
                     )
                     db.add(new_site_a)
                     inserted_count += 1
@@ -500,7 +507,7 @@ async def upload_sites_csv(
                     new_site_b = Site(
                         site_id=site_ipb,
                         site_name=site_name_b,
-                        project_id="SophiaSophia"
+                        project_id=pid_po  # Use the form parameter for all sites
                     )
                     db.add(new_site_b)
                     inserted_count += 1
@@ -577,24 +584,40 @@ async def create_inventory(
 ):
     """
     Create inventory for a site.
-    Users need 'edit' or 'all' permission on the project that contains the site.
+    Users need 'edit' or 'all' permission on the project.
+    If the site doesn't exist, it will be created automatically.
     """
-    # Check if site exists
-    site = db.query(Site).filter(Site.site_id == inventory_data.site_id).first()
-    if not site:
-        raise HTTPException(status_code=404, detail="Site not found. Please add the site first.")
+    # Check if project exists (using pid_po from inventory_data)
+    if not inventory_data.pid_po:
+        raise HTTPException(status_code=400, detail="Project ID (pid_po) is required")
 
-    # Check site access (which checks project access)
-    if not check_site_access(current_user, site, db, "edit"):
+    project = db.query(Project).filter(Project.pid_po == inventory_data.pid_po).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check project access - need edit permission
+    if not check_project_access(current_user, project, db, "edit"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to create inventory for this site. Contact the Senior Admin."
+            detail="You are not authorized to create inventory for this project. Contact the Senior Admin."
         )
 
+    # Check if site exists, create it if it doesn't
+    site = db.query(Site).filter(Site.site_id == inventory_data.site_id).first()
+    if not site:
+        # Auto-create the site
+        site = Site(
+            site_id=inventory_data.site_id,
+            site_name=inventory_data.site_name,
+            project_id=inventory_data.pid_po
+        )
+        db.add(site)
+        db.flush()  # Flush to get the site ID without committing yet
+
     try:
-        # Set pid_po from the site's project
+        # Set pid_po from inventory data
         inventory_data_dict = inventory_data.dict()
-        inventory_data_dict['pid_po'] = site.project_id
+        inventory_data_dict['pid_po'] = inventory_data.pid_po
 
         new_inventory = Inventory(**inventory_data_dict)
         db.add(new_inventory)
@@ -803,19 +826,26 @@ async def delete_inventory(
 @inventoryRoute.post("/upload-inventory-csv")
 async def upload_inventory_csv(
         file: UploadFile = File(...),
+        pid_po: str = Form(...),
         request: Request = None,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Upload inventory CSV.
-    Only senior_admin can perform bulk uploads.
+    The pid_po parameter will be used for all inventory records in the CSV.
+    Users need 'edit' or 'all' permission on the project to upload inventory.
     """
-    # Only senior_admin can perform bulk uploads
-    if current_user.role.name != "senior_admin":
+    # Check if project exists
+    project = db.query(Project).filter(Project.pid_po == pid_po).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check project access - need edit permission to add inventory
+    if not check_project_access(current_user, project, db, "edit"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to perform bulk uploads. Contact the Senior Admin."
+            detail="You are not authorized to upload inventory for this project. Contact the Senior Admin."
         )
 
     if not file.filename.endswith(".csv"):
@@ -862,6 +892,9 @@ async def upload_inventory_csv(
             # Convert integers
             inventory_data['slot_id'] = int(inventory_data.get('slot_id') or 0)
             inventory_data['port_id'] = int(inventory_data.get('port_id') or 0)
+
+            # Add project ID from form parameter
+            inventory_data['pid_po'] = pid_po
 
             db_obj = Inventory(**inventory_data)
             db.add(db_obj)

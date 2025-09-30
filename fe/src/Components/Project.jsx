@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import '../css/Dismantling.css';
+import { apiCall, setTransient } from '../api.js';
 
 const PROJECTS_PER_PAGE = 5;
 
@@ -15,41 +16,18 @@ export default function Project() {
     const [currentPage, setCurrentPage] = useState(1);
     const [authError, setAuthError] = useState('');
 
-    const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-        return { 'Content-Type': 'application/json' };
-    };
-
     useEffect(() => {
         fetchProjects();
     }, []);
 
     const fetchProjects = async () => {
         try {
-            const res = await fetch(`${VITE_API_URL}/get_project`, {
-                method: 'GET',
-                headers: getAuthHeaders()
+            const data = await apiCall('/get_project', {
+                method: 'GET'
             });
-
-            if (res.status === 401 || res.status === 403) {
-                const err = await res.json();
-                setAuthError(err.detail || "You are not authorized to view projects.");
-                setProjects([]);
-                return;
-            }
-
-            const data = await res.json();
             setProjects(data);
         } catch (err) {
-            setError('Failed to fetch projects');
+            setTransient(setError, 'Failed to fetch projects');
         }
     };
 
@@ -58,41 +36,27 @@ export default function Project() {
         setError('');
         setSuccess('');
         setAuthError('');
-        
+
         const projectData = { po, project_name: projectName, pid };
 
         try {
-            let res;
             if (editingProject) {
-                res = await fetch(`${VITE_API_URL}/update_project/${editingProject.pid + editingProject.po}`, {
+                await apiCall(`/update_project/${editingProject.pid + editingProject.po}`, {
                     method: 'PUT',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ project_name: projectName }),
+                    body: JSON.stringify({ project_name: projectName })
                 });
             } else {
-                res = await fetch(`${VITE_API_URL}/create_project`, {
+                await apiCall('/create_project', {
                     method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(projectData),
+                    body: JSON.stringify(projectData)
                 });
             }
 
-            if (res.status === 401 || res.status === 403) {
-                const err = await res.json();
-                setAuthError(err.detail || 'You are not authorized to perform this action.');
-                return;
-            }
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to save project');
-            }
-
-            setSuccess(editingProject ? 'Project updated successfully!' : 'Project created successfully!');
+            setTransient(setSuccess, editingProject ? 'Project updated successfully!' : 'Project created successfully!');
             clearForm();
             fetchProjects();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
     
@@ -116,26 +80,14 @@ export default function Project() {
         if (!window.confirm(`Delete project ${proj.pid} - ${proj.project_name}?`)) return;
 
         try {
-            const res = await fetch(`${VITE_API_URL}/delete_project/${proj.pid + proj.po}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders(),
+            await apiCall(`/delete_project/${proj.pid + proj.po}`, {
+                method: 'DELETE'
             });
 
-            if (res.status === 401 || res.status === 403) {
-                const err = await res.json();
-                setAuthError(err.detail || 'You are not authorized to delete this project.');
-                return;
-            }
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || 'Failed to delete project');
-            }
-
-            setSuccess('Project deleted successfully!');
+            setTransient(setSuccess, 'Project deleted successfully!');
             fetchProjects();
         } catch (err) {
-            setError(err.message);
+            setTransient(setError, err.message);
         }
     };
     
