@@ -420,10 +420,15 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
     # Write data rows from matching parents and their children
     for parent in matching_parents:
+        # Safe concatenation for parent merge line
+        po_line_str = str(parent.po_line) if parent.po_line is not None else "NA"
+        upl_line_str = str(parent.upl_line) if parent.upl_line is not None else "NA"
+        parent_merge_line = f"{po_line_str}-{upl_line_str}"
+
         parent_row = [
             parent.po_line,
             parent.upl_line or "NA",
-            parent.po_line + "-" + parent.upl_line ,
+            parent_merge_line,
             "NA",  # Item Code
             parent.category,
             get_service_type_name(parent.service_type),
@@ -436,8 +441,13 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
         writer.writerow(parent_row)
 
         for child in parent.items:
-            # ✨ NEW: Repeat child row based on its UOM value
-            repeat_count = int(child.uom) if child.uom and int(child.uom) > 0 else 1
+            # ✨ NEW: Repeat child row based on its UOM value (with safe conversion)
+            try:
+                uom_value = int(child.uom) if child.uom else 0
+                repeat_count = uom_value if uom_value > 0 else 1
+            except (ValueError, TypeError):
+                repeat_count = 1
+
             for _ in range(repeat_count):
                 # ✨ NEW: Find a unique serial number for this child instance
                 serial_to_use = _find_matching_serial(child, inventory_pool, used_serials)
@@ -446,10 +456,15 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                 # Note: Per your schema, the child's description is `item_details`
                 description = f"{child.item_details or ''}".strip()
 
+                # Safe concatenation for child merge line
+                child_po_line = str(parent.po_line) if parent.po_line is not None else "NA"
+                child_upl_line = str(child.upl_line) if child.upl_line is not None else "NA"
+                child_merge_line = f"{child_po_line}-{child_upl_line}"
+
                 child_row = [
                     parent.po_line or "NA",
                     child.upl_line or "NA",
-                    parent.po_line + "-" + child.upl_line ,
+                    child_merge_line,
                     child.vendor_part_number,
                     child.category or "NA",
                     get_service_type_name(parent.service_type),
