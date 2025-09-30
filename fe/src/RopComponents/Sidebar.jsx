@@ -1,8 +1,8 @@
-import { FaSignOutAlt, FaTimes } from 'react-icons/fa';
+import { FaSignOutAlt, FaTimes, FaClipboardList } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
 import { useNavigate } from 'react-router-dom';
 
-function Sidebar({ isOpen, onClose, onSelect }) {
+function Sidebar({ isOpen, onClose, onSelect, user }) {
     const navigate = useNavigate();
 
     const handleClick = (section) => {
@@ -15,6 +15,9 @@ function Sidebar({ isOpen, onClose, onSelect }) {
         else if(section==='ran-boq'){
             navigate('/ran-lld')
         }
+        else if(section==='logs'){
+            navigate('/logs')
+        }
     };
 
     return (
@@ -26,8 +29,11 @@ function Sidebar({ isOpen, onClose, onSelect }) {
             <button onClick={() => handleClick('boq')}>MW BOQ</button>
             <button onClick={() => handleClick('le-automation')}>LE Automation</button>
             <button onClick={() => handleClick('ran-boq')}>RAN BOQ</button>
+            {user?.role === 'senior_admin' && (
+                <button onClick={() => handleClick('logs')}><FaClipboardList/> System Logs</button>
+            )}
             <button onClick={() => handleClick('logout')}><FaSignOutAlt/>LogOut</button>
-            
+
         </div>
     );
 }

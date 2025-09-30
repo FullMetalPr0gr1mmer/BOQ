@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116.0-green.svg)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-19.1.0-blue.svg)](https://reactjs.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue.svg)](https://postgresql.org)
+[![SQL Server](https://img.shields.io/badge/SQL%20Server-Database-red.svg)](https://www.microsoft.com/sql-server)
 
 ## Table of Contents
 
@@ -53,7 +53,8 @@ BOQ Manager is a full-stack web application designed for telecommunications infr
 ### Backend
 - **FastAPI** - Modern, fast web framework for building APIs
 - **SQLAlchemy** - SQL toolkit and Object-Relational Mapping
-- **PostgreSQL** - Primary database
+- **Microsoft SQL Server** - Primary database
+- **PyODBC** - SQL Server database driver
 - **Alembic** - Database migration tool
 - **JWT** - Authentication and authorization
 - **Bcrypt** - Password hashing
@@ -85,7 +86,8 @@ BOQ Manager is a full-stack web application designed for telecommunications infr
 
 - Python 3.11+
 - Node.js 18+
-- PostgreSQL 12+
+- Microsoft SQL Server 2019+ (or SQL Server Express)
+- ODBC Driver 17 for SQL Server
 - Git
 
 ### Backend Setup
@@ -187,7 +189,7 @@ Create a `.env` file in the `be/` directory:
 
 ```env
 # Database Configuration
-DATABASE_URL=postgresql://username:password@localhost:5432/boq_db
+DATABASE_URL=mssql+pyodbc://username:password@localhost:1433/boq_db?driver=ODBC+Driver+17+for+SQL+Server
 
 # JWT Authentication
 SECRET_KEY=your_super_secret_jwt_key_here
@@ -204,12 +206,26 @@ MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
 
 ### Database Setup
 
-The application uses PostgreSQL. Ensure your database is created and accessible:
+The application uses Microsoft SQL Server. Ensure your database is created and accessible:
 
 ```sql
+-- Using SQL Server Management Studio or sqlcmd
 CREATE DATABASE boq_db;
-CREATE USER boq_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE boq_db TO boq_user;
+GO
+
+-- Create login and user
+CREATE LOGIN boq_user WITH PASSWORD = 'your_password';
+GO
+
+USE boq_db;
+GO
+
+CREATE USER boq_user FOR LOGIN boq_user;
+GO
+
+-- Grant permissions
+ALTER ROLE db_owner ADD MEMBER boq_user;
+GO
 ```
 
 ## API Documentation
@@ -320,7 +336,7 @@ npm run lint
 ### Common Issues
 
 **Q: Database connection fails**
-A: Ensure PostgreSQL is running and credentials in `.env` are correct.
+A: Ensure SQL Server is running and credentials in `.env` are correct. Verify ODBC Driver 17 is installed and the connection string format is correct.
 
 **Q: Frontend can't reach backend API**
 A: Check that backend is running on port 8003 and CORS is properly configured.

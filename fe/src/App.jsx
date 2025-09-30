@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Header from './Components/Header';
 import Logs from './Components/Logs';
 import './App.css';
@@ -24,13 +24,44 @@ import RANLvl3 from './RanComponents/RanLvl3';
 import RANInventory from './RanComponents/RanInventory';
 import RanProjects from './RanComponents/RanProjects';
 
-function App() {
+// Helper function to determine section from URL
+const getSectionFromPath = (pathname) => {
+  if (pathname.startsWith('/rop-') || pathname.startsWith('/rop_')) {
+    return 'le-automation';
+  } else if (pathname.startsWith('/ran-') || pathname.startsWith('/ran_')) {
+    return 'ran-boq';
+  }
+  return 'boq';
+};
+
+function AppContent() {
+  const location = useLocation();
   const [auth, setAuth] = useState({
     token: localStorage.getItem('token'),
     user: null
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('boq');
+
+  // Initialize activeSection from localStorage or URL
+  const [activeSection, setActiveSection] = useState(() => {
+    const savedSection = localStorage.getItem('activeSection');
+    if (savedSection) {
+      return savedSection;
+    }
+    return getSectionFromPath(location.pathname);
+  });
+
+  // Update activeSection when URL changes
+  useEffect(() => {
+    const section = getSectionFromPath(location.pathname);
+    setActiveSection(section);
+    localStorage.setItem('activeSection', section);
+  }, [location.pathname]);
+
+  // Save activeSection to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('activeSection', activeSection);
+  }, [activeSection]);
 
   const handleLogin = ({ token, user }) => {
     localStorage.setItem('token', token);
@@ -39,11 +70,12 @@ function App() {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('activeSection');
     setAuth({ token: null, user: null });
   };
 
   return (
-    <Router>
+    <>
       {/* Check if a token exists in state to determine what to render */}
       {!auth.token ? (
         // Pass the function reference, NOT the result of calling it
@@ -83,6 +115,7 @@ function App() {
           <Sidebar
             isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
+            user={auth.user}
             onSelect={(section) => {
               if (section === 'logout') {
                 logout();
@@ -94,6 +127,14 @@ function App() {
           />
         </>
       )}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }

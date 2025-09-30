@@ -28,7 +28,12 @@ export default function Home({ setActiveSection, user }) {
               <h2>Revenue Sheet Automation</h2>
               <p>Automate and manage revenue sheet BOQ processes. 📈</p>
             </div>
-
+            {user?.role === 'senior_admin' && (
+              <div className="home-card card-link" onClick={() => navigate('/logs')}>
+                <h2>System Logs</h2>
+                <p>View and manage system logs and activities. 📋</p>
+              </div>
+            )}
           </>
         ) : (
           <>
