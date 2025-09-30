@@ -1,17 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { apiCall, setTransient } from '../api.js';
 import '../css/RopLvl2.css';
 const ENTRIES_PER_PAGE = 5;
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
-  return { 'Content-Type': 'application/json' };
-};
 
 export default function RopLvl2() {
   const location = useLocation();
@@ -41,22 +32,19 @@ export default function RopLvl2() {
   const [showLE, setShowLE] = useState(false);
   const [showTableView, setShowTableView] = useState(false);
 
-  const VITE_API_URL = import.meta.env.VITE_API_URL;
-
   useEffect(() => {
     fetchEntries();
   }, []);
 
   const fetchEntries = async () => {
     try {
-      const url = formData.lvl1_id
-        ? `${VITE_API_URL}/rop-lvl2/by-lvl1/${formData.lvl1_id}`
-        : `${VITE_API_URL}/rop-lvl2/`;
-      const res = await fetch(url, { headers: getAuthHeaders() });
-      const data = await res.json();
+      const endpoint = formData.lvl1_id
+        ? `/rop-lvl2/by-lvl1/${formData.lvl1_id}`
+        : `/rop-lvl2/`;
+      const data = await apiCall(endpoint);
       setEntries(data);
-    } catch {
-      setError('Failed to fetch ROP Lvl2 entries');
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to fetch ROP Lvl2 entries');
     }
   };
 
@@ -113,11 +101,11 @@ export default function RopLvl2() {
 
     // Basic validation
     if (!formData.start_date || !formData.end_date) {
-      setError('Start date and end date are required');
+      setTransient(setError, 'Start date and end date are required');
       return;
     }
     if (new Date(formData.start_date) > new Date(formData.end_date)) {
-      setError('Start date cannot be after end date');
+      setTransient(setError, 'Start date cannot be after end date');
       return;
     }
 
@@ -142,38 +130,21 @@ export default function RopLvl2() {
     console.log('Submitting payload:', payload);
 
     try {
-      const url = isEditing && editId
-        ? `${VITE_API_URL}/rop-lvl2/update/${editId}`
-        : `${VITE_API_URL}/rop-lvl2/create`;
+      const endpoint = isEditing && editId
+        ? `/rop-lvl2/update/${editId}`
+        : `/rop-lvl2/create`;
 
-      const res = await fetch(url, {
+      await apiCall(endpoint, {
         method: isEditing ? 'PUT' : 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
 
-      console.log('Response status:', res.status);
-
-      // Try JSON first, fallback to text
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        data = await res.text();
-      }
-      console.log('Response data:', data);
-
-      if (!res.ok) {
-        const message = data?.detail || data || 'Failed to save entry';
-        throw new Error(message);
-      }
-
-      setSuccess(isEditing ? 'ROP Lvl2 updated successfully!' : 'ROP Lvl2 created successfully!');
+      setTransient(setSuccess, isEditing ? 'ROP Lvl2 updated successfully!' : 'ROP Lvl2 created successfully!');
       resetForm();
       fetchEntries();
     } catch (err) {
       console.error('Error submitting:', err);
-      setError(err.message);
+      setTransient(setError, err.message || 'Failed to save entry');
     }
   };
 
@@ -204,12 +175,11 @@ export default function RopLvl2() {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this entry?')) return;
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-lvl2/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to delete entry');
+      await apiCall(`/rop-lvl2/${id}`, { method: 'DELETE' });
       setEntries(entries.filter((e) => e.id !== id));
-      setSuccess('Entry deleted successfully!');
+      setTransient(setSuccess, 'Entry deleted successfully!');
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || 'Failed to delete entry');
     }
   };
 
@@ -285,18 +255,16 @@ export default function RopLvl2() {
       };
     });
     try {
-      const res = await fetch(`${VITE_API_URL}/rop-lvl2/update/${entry.id}`, {
+      await apiCall(`/rop-lvl2/update/${entry.id}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ ...entry, distributions: newDistributions })
       });
-      if (!res.ok) throw new Error('Failed to save distributions');
-      setSuccess('Distributions updated!');
+      setTransient(setSuccess, 'Distributions updated!');
       setEditedDistributions(prev => ({ ...prev, [entry.id]: {} }));
       setShowSaveRow(prev => ({ ...prev, [entry.id]: false }));
       fetchEntries();
     } catch (err) {
-      setError(err.message);
+      setTransient(setError, err.message || 'Failed to save distributions');
     }
   };
 

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import insert, delete, select, and_, update, func
-from typing import List
+from typing import List, Optional
 
 # --- Core Imports for Security and DB ---
 from APIs.Core import get_db, get_current_user
@@ -230,16 +230,33 @@ def create_package(
 # READ ALL (Filtered by user's project access)
 @RopPackageRouter.get("/", response_model=List[RopPackageOut])
 def get_all_packages(
+        project_id: Optional[str] = Query(None, description="Filter packages by project ID"),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
+    """
+    Get all packages accessible to the current user.
+    Optionally filter by project_id query parameter.
+    """
     # Get IDs of projects the user can access
     accessible_pids = get_user_accessible_rop_projects(current_user, db)
     if not accessible_pids:
         return []
 
-    # Query only for packages within those projects
-    pkgs = db.query(RopPackage).filter(RopPackage.project_id.in_(accessible_pids)).all()
+    # Build query for packages within accessible projects
+    query = db.query(RopPackage).filter(RopPackage.project_id.in_(accessible_pids))
+
+    # Apply project_id filter if provided
+    if project_id:
+        # Verify user has access to the requested project
+        if project_id not in accessible_pids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to packages in this project"
+            )
+        query = query.filter(RopPackage.project_id == project_id)
+
+    pkgs = query.all()
 
     result = []
     for pkg in pkgs:

@@ -32,6 +32,8 @@ export default function RopPackage() {
   const projectState = location.state;
 
   const [packages, setPackages] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState("all");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [expandedRows, setExpandedRows] = useState({});
@@ -93,8 +95,13 @@ export default function RopPackage() {
   };
 
   useEffect(() => {
+    fetchProjects();
     fetchPackages();
   }, []);
+
+  useEffect(() => {
+    fetchPackages();
+  }, [selectedProject]);
 
   useEffect(() => {
     if (packages.length > 0) {
@@ -102,9 +109,21 @@ export default function RopPackage() {
     }
   }, [packages]);
 
+  const fetchProjects = async () => {
+    try {
+      const data = await apiCall(`/rop-projects/`);
+      setProjects(data);
+    } catch (err) {
+      setTransient(setError, err.message || "Failed to fetch projects");
+    }
+  };
+
   const fetchPackages = async () => {
     try {
-      const data = await apiCall(`/rop-package/`);
+      const endpoint = selectedProject === "all"
+        ? `/rop-package/`
+        : `/rop-package/?project_id=${selectedProject}`;
+      const data = await apiCall(endpoint);
       setPackages(data);
     } catch (err) {
       setTransient(setError, err.message || "Failed to fetch packages");
@@ -643,7 +662,36 @@ export default function RopPackage() {
       {success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>}
 
       <div className="dashboard-content-section" >
-        <div className="dashboard-section-header">📋 Package Timeline</div>
+        <div className="dashboard-section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <span>📋 Package Timeline</span>
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '2px solid #00bcd4',
+              backgroundColor: '#fff',
+              color: '#333',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 2px 4px rgba(0,188,212,0.1)',
+              transition: 'all 0.2s ease',
+              minWidth: '200px'
+            }}
+            onMouseOver={(e) => e.target.style.borderColor = '#0097a7'}
+            onMouseOut={(e) => e.target.style.borderColor = '#00bcd4'}
+          >
+            <option value="all">All Projects</option>
+            {projects.map((proj) => (
+              <option key={proj.pid_po} value={proj.pid_po}>
+                {proj.project_name} ({proj.pid_po})
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="gantt-table-container">
           <table className="gantt-table">
