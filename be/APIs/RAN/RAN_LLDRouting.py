@@ -422,8 +422,8 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     for parent in matching_parents:
         parent_row = [
             parent.po_line,
-            parent_row.upl_line or "NA",
-            parent.po_line + "-" + parent_row.upl_line ,
+            parent.upl_line or "NA",
+            parent.po_line + "-" + parent.upl_line ,
             "NA",  # Item Code
             parent.category,
             get_service_type_name(parent.service_type),
@@ -448,8 +448,8 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
                 child_row = [
                     parent.po_line or "NA",
-                    child_row.upl_line or "NA",
-                    parent.po_line + "-" + child_row.upl_line ,
+                    child.upl_line or "NA",
+                    parent.po_line + "-" + child.upl_line ,
                     child.vendor_part_number,
                     child.category or "NA",
                     get_service_type_name(parent.service_type),
