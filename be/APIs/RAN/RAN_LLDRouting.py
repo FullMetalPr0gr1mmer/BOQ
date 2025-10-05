@@ -385,7 +385,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     output = io.StringIO()
     writer = csv.writer(output)
     headers = [
-        "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","L1 Category", "Service Type", "Seq.-L2",
+        "Site ID", "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","L1 Category", "Service Type", "Seq.-L2",
         "Model Name / Description", "Serial number", "Quantity", "Notes"
     ]
     writer.writerow(headers)
@@ -395,9 +395,10 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
         # Safe concatenation for parent merge line
         po_line_str = str(parent.po_line) if parent.po_line is not None else "NA"
         upl_line_str = str(parent.upl_line) if parent.upl_line is not None else "NA"
-        parent_merge_line = f"{po_line_str}-{upl_line_str}"
+        parent_merge_line = f"{po_line_str} / {upl_line_str}"
 
         parent_row = [
+            site.site_id,  # Site ID
             parent.po_line,
             parent.upl_line or "NA",
             parent_merge_line,
@@ -434,6 +435,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                 child_merge_line = f"{child_po_line}-{child_upl_line}"
 
                 child_row = [
+                    site.site_id,  # Site ID
                     parent.po_line or "NA",
                     child.upl_line or "NA",
                     child_merge_line,
@@ -455,6 +457,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             antenna_count = int(site.total_antennas)
             for _ in range(antenna_count):
                 antenna_row = [
+                    site.site_id,"NA"  # Site ID
                     "NA","NA","NA","NA", "NA", "NA", "NA",
                     site.new_antennas,  # Model Name / Description
                     "XXXXXXXX",  # Serial Number

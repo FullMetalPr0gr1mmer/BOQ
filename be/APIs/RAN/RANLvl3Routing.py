@@ -101,6 +101,11 @@ def get_all_ranlvl3(db: Session, skip: int = 0, limit: int = 100, search: Option
 
 
 def create_ranlvl3(db: Session, ranlvl3: RANLvl3Create):
+    # Determine ran_category based on category
+    ran_category = None
+    if ranlvl3.category:
+        ran_category = "FTK Radio" if "FTK" in ranlvl3.category else "Radio"
+
     db_ranlvl3 = RANLvl3(
         project_id=ranlvl3.project_id,
         item_name=ranlvl3.item_name,
@@ -110,7 +115,8 @@ def create_ranlvl3(db: Session, ranlvl3: RANLvl3Create):
         total_price=ranlvl3.total_price,
         category=ranlvl3.category,
         po_line=ranlvl3.po_line,
-        upl_line=ranlvl3.upl_line
+        upl_line=ranlvl3.upl_line,
+        ran_category=ran_category
     )
     db_ranlvl3.service_type = ranlvl3.service_type
 
@@ -139,6 +145,11 @@ def update_ranlvl3(db: Session, ranlvl3_id: int, ranlvl3_data: RANLvl3Update):
     if not db_ranlvl3:
         return None
 
+    # Determine ran_category based on category
+    ran_category = None
+    if ranlvl3_data.category:
+        ran_category = "FTK Radio" if "FTK" in ranlvl3_data.category else "Radio"
+
     # Only update the parent's attributes
     db_ranlvl3.project_id = ranlvl3_data.project_id
     db_ranlvl3.item_name = ranlvl3_data.item_name
@@ -150,6 +161,7 @@ def update_ranlvl3(db: Session, ranlvl3_id: int, ranlvl3_data: RANLvl3Update):
     db_ranlvl3.category = ranlvl3_data.category
     db_ranlvl3.po_line = ranlvl3_data.po_line
     db_ranlvl3.upl_line=ranlvl3_data.upl_line
+    db_ranlvl3.ran_category = ran_category
 
     db.commit()
     db.refresh(db_ranlvl3)

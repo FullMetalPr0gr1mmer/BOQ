@@ -25,6 +25,7 @@ class RANLvl3(Base):
     items = relationship("ItemsForRANLvl3", back_populates="ranlvl3", cascade="all, delete-orphan")
     category = Column(String(200), nullable=True)
     upl_line=Column(String(100), nullable=True)
+    ran_category = Column(String(100), nullable=True)
 
     @property
     def service_type(self):

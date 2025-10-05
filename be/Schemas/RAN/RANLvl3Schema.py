@@ -46,6 +46,7 @@ class RANLvl3Base(BaseModel):
     category: Optional[str] = None
     po_line: Optional[str] = None
     upl_line: Optional[str] = None
+    ran_category: Optional[str] = None
 
 class RANLvl3Create(RANLvl3Base):
     items: List[ItemsForRANLvl3Create] = Field(default_factory=list)

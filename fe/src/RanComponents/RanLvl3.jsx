@@ -89,6 +89,7 @@ export default function RANLvl3() {
           category: r.category,
           po_line: r.po_line,
           upl_line:r.upl_line,
+          ran_category: r.ran_category,
           items: r.items || [],
         }))
       );
@@ -439,6 +440,7 @@ export default function RANLvl3() {
               <th>Total Quantity</th>
               <th>Total Price</th>
               <th>Category</th>
+              <th>RAN Category</th>
               <th>PO Line</th>
               <th>UPL Line</th>
               <th>Actions</th>
@@ -447,7 +449,7 @@ export default function RANLvl3() {
           <tbody>
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={11} className="no-results">
+                <td colSpan={13} className="no-results">
                   No results
                 </td>
               </tr>
@@ -478,6 +480,7 @@ export default function RANLvl3() {
                     <td>{row.total_quantity}</td>
                     <td>{row.total_price}</td>
                     <td>{row.category}</td>
+                    <td>{row.ran_category}</td>
                     <td>{row.po_line}</td>
                     <td>{row.upl_line}</td>
                     <td className="actions-cell">
@@ -491,7 +494,7 @@ export default function RANLvl3() {
                   </tr>
                   {expandedRows.has(row.id) && (
                     <tr>
-                      <td colSpan={11} style={{ padding: 0, background: '#f8fafb' }}>
+                      <td colSpan={13} style={{ padding: 0, background: '#f8fafb' }}>
                         <div style={{ padding: '1rem', borderLeft: '4px solid var(--primary-color)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 style={{ margin: 0, color: 'var(--primary-color)' }}>Items for {row.item_name}</h4>
