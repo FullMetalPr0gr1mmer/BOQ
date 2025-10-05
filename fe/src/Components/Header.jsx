@@ -3,13 +3,13 @@ import '../css/header.css';
 
 const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Generation', 'LLD', 'Dismantling', 'LogOut'];
 const leAutomationTabs = ['ROP Project', 'ROP Package', 'LogOut'];
-const ranBoqTabs=['Ran Projects','Ran LLD','Ran Level3','Ran Inventory','LogOut']
+const ranBoqTabs = ['Ran Projects', 'RAN BOQ Generation', 'Ran Level3', 'Ran Inventory', 'LogOut']
 export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();
   const location = useLocation();
 
   // Hide the header if the current path is the home page
-  if (location.pathname === '/*') {
+  if (location.pathname === '/*' || location.pathname === '/logs' || location.pathname === '/') {
     return null;
   }
 

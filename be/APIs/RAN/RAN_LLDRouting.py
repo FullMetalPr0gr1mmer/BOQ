@@ -92,13 +92,6 @@ def create_ran_site(
                 detail="You are not authorized to create RAN Site records for this project. Contact the Senior Admin."
             )
 
-    # Users cannot create records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to create RAN Site records. Contact the Senior Admin."
-        )
-
     try:
         db_site = RAN_LLD(**site.dict())
         db.add(db_site)
@@ -199,13 +192,6 @@ def update_ran_site(
                 detail="You are not authorized to update this RAN Site record. Contact the Senior Admin."
             )
 
-    # Users cannot update records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to update RAN Site records. Contact the Senior Admin."
-        )
-
     try:
         for key, value in site.dict().items():
             setattr(db_site, key, value)
@@ -243,13 +229,6 @@ def delete_ran_site(
                 detail="You are not authorized to delete this RAN Site record. Contact the Senior Admin."
             )
 
-    # Users cannot delete records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to delete RAN Site records. Contact the Senior Admin."
-        )
-
     try:
         db.delete(db_site)
         db.commit()
@@ -273,13 +252,6 @@ def upload_csv(
     Upload CSV file to bulk-add RAN Site records.
     The pid_po parameter will be used for all records in the CSV.
     """
-    # Users cannot upload CSV files
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to upload CSV files. Contact the Senior Admin."
-        )
-
     # Check access for the provided project
     if not check_ranlld_project_access(current_user, pid_po, db, "edit"):
         raise HTTPException(

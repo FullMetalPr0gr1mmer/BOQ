@@ -451,47 +451,62 @@ export default function BOQGeneration() {
       )}
 
       {showModal && (
-        <div className="modal-overlay">
-        {/* ... editable CSV modal jsx ... */}
-                <div className="modal-content" style={{ maxWidth: '1200px', width: '100%', maxHeight: '90vh', overflow: 'auto', padding: '24px' }}>
-            <div className="modal-header-row" style={{ justifyContent: 'space-between' }}>
-              <h3 className="modal-title">Edit BOQ Data for {linkedIp}</h3>
-              <button className="modal-close-btn" onClick={() => setShowModal(false)} type="button">&times;</button>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', padding: 24, borderRadius: 8, width: '95%', height: '90%', display: 'flex', flexDirection: 'column' }}>
+
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
+              <h3 style={{ margin: 0 }}>Edit BOQ Data for {linkedIp}</h3>
+              <button onClick={() => setShowModal(false)} style={{ fontSize: 18, cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px' }}>
+                ✖
+              </button>
             </div>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-              <button className="upload-btn" onClick={handleAddRow}>➕ Add Row</button>
-              <button className="upload-btn" onClick={downloadCSV}>⬇ Download CSV</button>
-              <span style={{ color: '#666', alignSelf: 'center' }}>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexShrink: 0 }}>
+              <button onClick={handleAddRow} style={{ padding: '8px 16px', borderRadius: 6, cursor: 'pointer', background: '#4CAF50', color: 'white', border: 'none' }}>
+                ➕ Add Row
+              </button>
+              <button onClick={downloadCSV} style={{ padding: '8px 16px', borderRadius: 6, cursor: 'pointer', background: '#2196F3', color: 'white', border: 'none' }}>
+                ⬇ Download CSV
+              </button>
+               <span style={{ color: '#666', alignSelf: 'center' }}>
                 {csvBody.filter(row => row.join('').trim() !== '').length} rows
               </span>
             </div>
-            <div className="dismantling-table-container" style={{ overflow: 'auto' }}>
-              <table className="dismantling-table" style={{ minWidth: '400px', fontSize: '12px' }}>
-                <thead>
+
+            {/* Editable Table Container */}
+            <div style={{ flex: 1, overflow: 'auto', border: '1px solid #ddd', borderRadius: 6 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1200px' }}>
+                <thead style={{ background: '#f5f5f5', position: 'sticky', top: 0, zIndex: 1 }}>
                   <tr>
-                    <th style={{ padding: '4px 2px', fontSize: '12px', textAlign: 'center' }}>Action</th>
+                    <th style={{ padding: '12px 8px', border: '1px solid #ddd', textAlign: 'left', minWidth: '80px' }}>Action</th>
                     {csvHeaders.map((header, index) => (
-                      <th key={index} style={{ padding: '4px 2px', fontSize: '12px', textAlign: 'center' }}>{header}</th>
+                      <th key={index} style={{ padding: '12px 8px', border: '1px solid #ddd', textAlign: 'left', minWidth: '200px', whiteSpace: 'nowrap' }}>
+                        {header}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {csvBody.length === 0 ? (
-                    <tr><td colSpan={csvHeaders.length + 1} className="no-results" style={{ textAlign: 'center' }}>No data rows.</td></tr>
+                    <tr><td colSpan={csvHeaders.length + 1} style={{ textAlign: 'center', padding: 20 }}>No data rows.</td></tr>
                   ) : (
                     csvBody.map((row, rowIndex) => (
+                      // Filter out empty rows that might come from the BE
                       row.join("").trim() && <tr key={rowIndex}>
-                        <td style={{ textAlign: 'center', padding: '2px' }}>
-                          <button className="clear-btn" style={{ background: 'transparent' }} onClick={() => handleDeleteRow(rowIndex + 1)} title="Remove row">🗑</button>
+                        <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                           <button onClick={() => handleDeleteRow(rowIndex + 1)} style={{ background: '#f44336', color: 'white', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: '12px'}} title="Remove row">
+                            🗑
+                          </button>
                         </td>
                         {row.map((cell, cellIndex) => (
-                          <td key={cellIndex} style={{ padding: '2px', textAlign: 'center' }}>
+                          <td key={cellIndex} style={{ padding: '4px', border: '1px solid #ddd' }}>
                             <input
                               type="text"
                               value={cell}
                               onChange={(e) => handleCellChange(rowIndex + 1, cellIndex, e.target.value)}
-                              className="search-input"
-                              style={{ fontSize: '12px', padding: '2px', textAlign: 'center' }}
+                              style={{ width: '100%', border: 'none', padding: '8px', background: 'transparent', fontSize: '14px' }}
                             />
                           </td>
                         ))}
@@ -501,6 +516,7 @@ export default function BOQGeneration() {
                 </tbody>
               </table>
             </div>
+
           </div>
         </div>
       )}

@@ -23,6 +23,8 @@ import RANLLD from './RanComponents/RanLLD';
 import RANLvl3 from './RanComponents/RanLvl3';
 import RANInventory from './RanComponents/RanInventory';
 import RanProjects from './RanComponents/RanProjects';
+import { ToastProvider, useToast } from './context/ToastContext';
+import { setGlobalToast } from './api';
 
 // Helper function to determine section from URL
 const getSectionFromPath = (pathname) => {
@@ -36,6 +38,7 @@ const getSectionFromPath = (pathname) => {
 
 function AppContent() {
   const location = useLocation();
+  const { showToast } = useToast();
   const [auth, setAuth] = useState(() => {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
@@ -52,6 +55,11 @@ function AppContent() {
     }
     return getSectionFromPath(location.pathname);
   });
+
+  // Set global toast function for API calls
+  useEffect(() => {
+    setGlobalToast(showToast);
+  }, [showToast]);
 
   // Update activeSection when URL changes
   useEffect(() => {
@@ -104,7 +112,7 @@ function AppContent() {
               <Route path="/rop-package" element={<RopPackage />} />
               <Route path="/lld" element={<LLDManagement />} />
               <Route path="/dismantling" element={<Dismantling />} />
-              <Route path="/ran-lld" element={<RANLLD />} />
+              <Route path="/ran-boq-generation" element={<RANLLD />} />
               <Route path="/ran-level3" element={<RANLvl3 />} />
               <Route path="/ran-inventory" element={<RANInventory />} />
               <Route path="/ran-projects" element={<RanProjects />} />
@@ -138,7 +146,9 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </Router>
   );
 }

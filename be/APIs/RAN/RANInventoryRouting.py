@@ -151,13 +151,6 @@ def create_ran_inventory(
                 detail="You are not authorized to create RAN Inventory records for this project. Contact the Senior Admin."
             )
 
-    # Users cannot create records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to create RAN Inventory records. Contact the Senior Admin."
-        )
-
     try:
         db_raninventory = create_raninventory(db=db, raninventory=raninventory_data)
         if not db_raninventory:
@@ -245,13 +238,6 @@ def update_ran_inventory_record(
                 detail="You are not authorized to update this RAN Inventory record. Contact the Senior Admin."
             )
 
-    # Users cannot update records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to update RAN Inventory records. Contact the Senior Admin."
-        )
-
     try:
         db_raninventory = update_raninventory(db=db, raninventory_id=raninventory_id,
                                               raninventory_data=raninventory_data)
@@ -286,13 +272,6 @@ def delete_ran_inventory_record(
                 detail="You are not authorized to delete this RAN Inventory record. Contact the Senior Admin."
             )
 
-    # Users cannot delete records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to delete RAN Inventory records. Contact the Senior Admin."
-        )
-
     try:
         success = delete_raninventory(db=db, raninventory_id=raninventory_id)
         if not success:
@@ -318,13 +297,6 @@ def upload_ran_inventory_csv(
     The CSV must have headers matching the RANInventory schema fields.
     The pid_po parameter will be used for all records in the CSV.
     """
-    # Users cannot upload CSV files
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to upload CSV files. Contact the Senior Admin."
-        )
-
     # Check access for the provided project
     if not check_raninventory_project_access(current_user, pid_po, db, "edit"):
         raise HTTPException(

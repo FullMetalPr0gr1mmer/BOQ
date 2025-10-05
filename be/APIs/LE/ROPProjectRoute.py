@@ -197,16 +197,8 @@ def update_project(
     """
     Update a ROP project.
     - senior_admin: Can update any project
-    - admin: Can update only projects they have "edit" or "all" permission for
-    - user: Cannot update projects
+    - Users with "edit" or "all" permission: Can update projects they have access to
     """
-    # Users cannot update projects
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to update ROP projects. Contact the Senior Admin."
-        )
-
     project = db.query(ROPProject).filter(ROPProject.pid_po == pid_po).first()
     if not project:
         raise HTTPException(status_code=404, detail="ROP Project not found")
@@ -246,16 +238,8 @@ def delete_project(
     """
     Delete a ROP project.
     - senior_admin: Can delete any project
-    - admin: Can delete only projects they have "all" permission for
-    - user: Cannot delete projects
+    - Users with "all" permission: Can delete projects they have full access to
     """
-    # Users cannot delete projects
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to delete ROP projects. Contact the Senior Admin."
-        )
-
     project = db.query(ROPProject).filter(ROPProject.pid_po == pid_po).first()
     if not project:
         raise HTTPException(status_code=404, detail="ROP Project not found")

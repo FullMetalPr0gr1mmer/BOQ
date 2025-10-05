@@ -13,7 +13,7 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
             navigate('/rop-project');
         }
         else if(section==='ran-boq'){
-            navigate('/ran-lld')
+            navigate('/ran-projects')
         }
         else if(section==='logs'){
             navigate('/logs')

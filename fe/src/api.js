@@ -3,6 +3,30 @@
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 
+// Global toast function - will be set by App.jsx
+let globalShowToast = null;
+
+export const setGlobalToast = (showToastFn) => {
+  globalShowToast = showToastFn;
+};
+
+const handleUnauthorized = (message = 'Unauthorized access. Redirecting to login...') => {
+  // Show toast notification
+  if (globalShowToast) {
+    globalShowToast(message, 'error', 3000);
+  }
+
+  // Clear auth data
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  localStorage.removeItem('activeSection');
+
+  // Redirect after 3 seconds
+  setTimeout(() => {
+    window.location.href = '/login';
+  }, 3000);
+};
+
 export const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -41,19 +65,16 @@ export async function apiCall(endpoint, options = {}) {
       } catch {}
       // Handle 401/403 globally
       if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        throw new Error('Unauthorized or Forbidden access. Please log in again.');
+        const errorMessage = errorData?.detail || 'Unauthorized access. Redirecting to login...';
+        handleUnauthorized(errorMessage);
+        throw new Error(errorMessage);
       }
       if (errorData && typeof errorData.detail !== 'undefined') {
         const detail = errorData.detail;
         // If backend reports invalid credentials in any form, force logout
         if (typeof detail === 'string' && /invalid\s*credentials|unauthorized|token\s*(expired|invalid)/i.test(detail)) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
-          throw new Error('Unauthorized or Forbidden access. Please log in again.');
+          handleUnauthorized('Session expired. Redirecting to login...');
+          throw new Error('Session expired. Please log in again.');
         }
         if (detail && typeof detail === 'object') {
           const err = new Error('API_VALIDATION_ERROR');

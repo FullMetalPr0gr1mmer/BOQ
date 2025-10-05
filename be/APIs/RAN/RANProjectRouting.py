@@ -174,16 +174,8 @@ def update_ran_project(
     """
     Update a RAN project.
     - senior_admin: Can update any project
-    - admin: Can update only projects they have "edit" or "all" permission for
-    - user: Cannot update projects
+    - Users with "edit" or "all" permission: Can update projects they have access to
     """
-    # Users cannot update projects
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to update RAN projects. Contact the Senior Admin."
-        )
-
     project = db.query(RanProject).filter(RanProject.pid_po == pid_po).first()
     if not project:
         raise HTTPException(status_code=404, detail="RAN Project not found")
@@ -220,16 +212,8 @@ def delete_ran_project(
     """
     Delete a RAN project.
     - senior_admin: Can delete any project
-    - admin: Can delete only projects they have "all" permission for
-    - user: Cannot delete projects
+    - Users with "all" permission: Can delete projects they have full access to
     """
-    # Users cannot delete projects
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to delete RAN projects. Contact the Senior Admin."
-        )
-
     project = db.query(RanProject).filter(RanProject.pid_po == pid_po).first()
     if not project:
         raise HTTPException(status_code=404, detail="RAN Project not found")

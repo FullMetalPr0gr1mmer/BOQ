@@ -195,13 +195,6 @@ def update_ran_lvl3_item(
             detail="You are not authorized to edit items in this project. Contact the Senior Admin."
         )
 
-    # Users cannot edit items
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to update RAN Level 3 items. Contact the Senior Admin."
-        )
-
     db_item = db.query(ItemsForRANLvl3).filter(
         ItemsForRANLvl3.id == item_id,
         ItemsForRANLvl3.ranlvl3_id == ranlvl3_id
@@ -266,13 +259,6 @@ def delete_ran_lvl3_item(
             detail="You are not authorized to delete items in this project. Contact the Senior Admin."
         )
 
-    # Users cannot delete items
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to delete RAN Level 3 items. Contact the Senior Admin."
-        )
-
     db_item = db.query(ItemsForRANLvl3).filter(
         ItemsForRANLvl3.id == item_id,
         ItemsForRANLvl3.ranlvl3_id == ranlvl3_id
@@ -325,13 +311,6 @@ def create_ran_lvl3(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to create RAN Level 3 records in this project. Contact the Senior Admin."
-        )
-
-    # Users cannot create records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to create RAN Level 3 records. Contact the Senior Admin."
         )
 
     try:
@@ -411,19 +390,20 @@ def update_ran_lvl3(
     if existing_record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RAN Level 3 record not found")
 
-    # Check if user has edit permission for the project
+    # Check if user has edit permission for the EXISTING project
     if not check_ranlvl3_project_access(current_user, existing_record.project_id, db, "edit"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to update this RAN Level 3 record. Contact the Senior Admin."
         )
 
-    # Users cannot update records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to update RAN Level 3 records. Contact the Senior Admin."
-        )
+    # If project_id is being changed, check permission for the NEW project too
+    if ranlvl3_data.project_id != existing_record.project_id:
+        if not check_ranlvl3_project_access(current_user, ranlvl3_data.project_id, db, "edit"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to move this record to the new project. Contact the Senior Admin."
+            )
 
     try:
         db_ranlvl3 = update_ranlvl3(db=db, ranlvl3_id=ranlvl3_id, ranlvl3_data=ranlvl3_data)
@@ -455,13 +435,6 @@ def delete_ran_lvl3(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to delete this RAN Level 3 record. Contact the Senior Admin."
-        )
-
-    # Users cannot delete records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to delete RAN Level 3 records. Contact the Senior Admin."
         )
 
     try:
@@ -497,13 +470,6 @@ def upload_items_csv_to_ranlvl3(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to upload CSV files for this project. Contact the Senior Admin."
-        )
-
-    # Users cannot upload CSV files
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to upload CSV files. Contact the Senior Admin."
         )
 
     if not file.filename.endswith('.csv'):

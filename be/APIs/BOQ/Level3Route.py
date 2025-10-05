@@ -111,16 +111,8 @@ def create_lvl3(
     """
     Create a new Lvl3 record.
     - senior_admin: Can create Lvl3 for any project
-    - admin: Can create Lvl3 only for projects they have "edit" or "all" permission for
-    - user: Cannot create Lvl3 records
+    - Users with "edit" or "all" permission: Can create Lvl3 for projects they have access to
     """
-    # Users cannot create Lvl3 records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to create Lvl3 records. Contact the Senior Admin."
-        )
-
     # Verify project exists and user has edit access
     verify_project_exists_and_access(payload.project_id, current_user, db, "edit")
 
@@ -209,16 +201,8 @@ def update_lvl3(
     """
     Update a Lvl3 record.
     - senior_admin: Can update any Lvl3 record
-    - admin: Can update only Lvl3 records for projects they have "edit" or "all" permission for
-    - user: Cannot update Lvl3 records
+    - Users with "edit" or "all" permission: Can update Lvl3 records for projects they have access to
     """
-    # Users cannot update Lvl3 records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to update Lvl3 records. Contact the Senior Admin."
-        )
-
     lvl3 = db.query(Lvl3).filter(Lvl3.id == lvl3_id).first()
     if not lvl3:
         raise HTTPException(status_code=404, detail="Lvl3 not found")
@@ -258,16 +242,8 @@ def delete_lvl3(
     """
     Delete a Lvl3 record.
     - senior_admin: Can delete any Lvl3 record
-    - admin: Can delete only Lvl3 records for projects they have "all" permission for
-    - user: Cannot delete Lvl3 records
+    - Users with "all" permission: Can delete Lvl3 records for projects they have full access to
     """
-    # Users cannot delete Lvl3 records
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to delete Lvl3 records. Contact the Senior Admin."
-        )
-
     lvl3 = db.query(Lvl3).filter(Lvl3.id == lvl3_id).first()
     if not lvl3:
         raise HTTPException(status_code=404, detail="Lvl3 not found")
@@ -304,16 +280,8 @@ def add_item_to_lvl3(
     """
     Add an item to a Lvl3 record.
     - senior_admin: Can add items to any Lvl3 record
-    - admin: Can add items only to Lvl3 records for projects they have "edit" or "all" permission for
-    - user: Cannot add items to Lvl3 records
+    - Users with "edit" or "all" permission: Can add items to Lvl3 records for projects they have access to
     """
-    # Users cannot add items
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to add items to Lvl3 records. Contact the Senior Admin."
-        )
-
     lvl3 = db.query(Lvl3).filter(Lvl3.id == lvl3_id).first()
     if not lvl3:
         raise HTTPException(status_code=404, detail="Lvl3 not found")
@@ -362,15 +330,8 @@ def bulk_add_items_to_lvl3(
     Bulk add items to a Lvl3 record.
     - senior_admin: Can bulk add items to any Lvl3 record
     - admin: Can bulk add items only to Lvl3 records for projects they have "edit" or "all" permission for
-    - user: Cannot bulk add items to Lvl3 records
+    - Users with "edit" or "all" permission: Can bulk add items to Lvl3 records for projects they have access to
     """
-    # Users cannot bulk add items
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to bulk add items to Lvl3 records. Contact the Senior Admin."
-        )
-
     lvl3 = db.query(Lvl3).filter(Lvl3.id == lvl3_id).first()
     if not lvl3:
         raise HTTPException(status_code=404, detail="Lvl3 not found")
@@ -435,16 +396,8 @@ def update_item_for_lvl3(
     """
     Update an item for a Lvl3 record.
     - senior_admin: Can update items in any Lvl3 record
-    - admin: Can update items only in Lvl3 records for projects they have "edit" or "all" permission for
-    - user: Cannot update items in Lvl3 records
+    - Users with "edit" or "all" permission: Can update items in Lvl3 records for projects they have access to
     """
-    # Users cannot update items
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to update items in Lvl3 records. Contact the Senior Admin."
-        )
-
     item = db.query(ItemsForLvl3).filter(ItemsForLvl3.id == item_id, ItemsForLvl3.lvl3_id == lvl3_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found for this Lvl3")
@@ -491,15 +444,8 @@ def delete_item_for_lvl3(
     Delete an item from a Lvl3 record.
     - senior_admin: Can delete items from any Lvl3 record
     - admin: Can delete items only from Lvl3 records for projects they have "all" permission for
-    - user: Cannot delete items from Lvl3 records
+    - Users with "all" permission: Can delete items from Lvl3 records for projects they have full access to
     """
-    # Users cannot delete items
-    if current_user.role.name == "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users are not authorized to delete items from Lvl3 records. Contact the Senior Admin."
-        )
-
     item = db.query(ItemsForLvl3).filter(ItemsForLvl3.id == item_id, ItemsForLvl3.lvl3_id == lvl3_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found for this Lvl3")
