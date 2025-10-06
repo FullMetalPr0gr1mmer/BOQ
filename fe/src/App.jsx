@@ -22,6 +22,7 @@ import Home from './Components/Home';
 import RANLLD from './RanComponents/RanLLD';
 import RANLvl3 from './RanComponents/RanLvl3';
 import RANInventory from './RanComponents/RanInventory';
+import RANAntennaSerials from './RanComponents/RANAntennaSerials';
 import RanProjects from './RanComponents/RanProjects';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { setGlobalToast } from './api';
@@ -115,6 +116,7 @@ function AppContent() {
               <Route path="/ran-boq-generation" element={<RANLLD />} />
               <Route path="/ran-level3" element={<RANLvl3 />} />
               <Route path="/ran-inventory" element={<RANInventory />} />
+              <Route path="/ran-antenna-serials" element={<RANAntennaSerials />} />
               <Route path="/ran-projects" element={<RanProjects />} />
               <Route path="*" element={<Home setActiveSection={setActiveSection} user={auth.user}/>} />
             </Routes>

@@ -53,6 +53,7 @@ from APIs.RAN.RANInventoryRouting import RANInventoryRouter
 from APIs.RAN.RANLvl3Routing import RANLvl3Router
 from APIs.RAN.RANProjectRouting import RANProjectRoute
 from APIs.RAN.RAN_LLDRouting import ran_lld_router
+from APIs.RAN.RANAntennaSerialsRouting import RANAntennaSerialsRouter
 
 
 # # PMA (Project Management Assistant) API import
@@ -102,6 +103,7 @@ app.include_router(RANProjectRoute) # RAN project management
 app.include_router(RANInventoryRouter)  # RAN inventory management
 app.include_router(RANLvl3Router)   # RAN Level 3 operations
 app.include_router(ran_lld_router)  # RAN Low Level Design
+app.include_router(RANAntennaSerialsRouter)  # RAN Antenna Serials management
 
 # LE (Latest Estimate/ROP) Management
 app.include_router(ROPProjectrouter)    # ROP project management

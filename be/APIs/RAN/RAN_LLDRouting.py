@@ -10,6 +10,7 @@ from sqlalchemy.orm import joinedload
 
 from Models.RAN.RANInventory import RANInventory
 from Models.RAN.RANLvl3 import RANLvl3
+from Models.RAN.RANAntennaSerials import RANAntennaSerials
 from Models.Admin.User import UserProjectAccess, User
 from APIs.Core import safe_int, get_db, get_current_user
 from Models.RAN.RAN_LLD import RAN_LLD
@@ -455,14 +456,37 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     # ✨ NEW (Step 5): Add New Antennas at the end of the CSV
     if site.new_antennas and site.total_antennas and site.total_antennas > 0:
         try:
+            # Get MRBTS values from inventory pool (already fetched above) for this site
+            mrbts_values = set()
+            for inv_item in inventory_pool:
+                if inv_item.mrbts:
+                    mrbts_values.add(inv_item.mrbts)
+
+            # Fetch antenna serials filtered by MRBTS values
+            antenna_serials_pool = []
+            if mrbts_values:
+                antenna_serials_pool = db.query(RANAntennaSerials).filter(
+                    RANAntennaSerials.mrbts.in_(mrbts_values)
+                ).all()
+
+            used_antenna_serials = set()
+
             # Ensure total_antennas is a valid integer
             antenna_count = int(site.total_antennas)
             for _ in range(antenna_count):
+                # Find an unused serial number
+                serial_to_use = "XXXXXXXX"  # Default if no serial found
+                for antenna_serial in antenna_serials_pool:
+                    if antenna_serial.serial_number and antenna_serial.serial_number not in used_antenna_serials:
+                        serial_to_use = antenna_serial.serial_number
+                        used_antenna_serials.add(antenna_serial.serial_number)
+                        break
+
                 antenna_row = [
                     site.site_id,  # Site ID
                     "NA","NA","NA","NA", "NA", "NA", "NA", "NA",
                     site.new_antennas,  # Model Name / Description
-                    "XXXXXXXX",  # Serial Number
+                    serial_to_use,  # Serial Number
                     1,  # Quantity
                     "-------------"  # Notes
                 ]
