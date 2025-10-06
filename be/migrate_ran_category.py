@@ -6,13 +6,13 @@ This script updates all existing RANLvl3 records to set the ran_category field b
 - Otherwise -> ran_category = "Radio"
 """
 
-from Database.session import SessionLocal
+from Database.session import Session
 from Models.RAN.RANLvl3 import RANLvl3
 
 
 def migrate_ran_category():
     """Migrate ran_category for all existing RANLvl3 records."""
-    db = SessionLocal()
+    db = Session()
     try:
         # Fetch all RANLvl3 records
         all_records = db.query(RANLvl3).all()
@@ -41,18 +41,18 @@ def migrate_ran_category():
         # Commit all changes
         db.commit()
 
-        print(f"✅ Migration completed successfully!")
+        print(f"Migration completed successfully!")
         print(f"   - Updated: {updated_count} records")
         print(f"   - Skipped: {skipped_count} records")
 
     except Exception as e:
         db.rollback()
-        print(f"❌ Migration failed: {str(e)}")
+        print(f"Migration failed: {str(e)}")
         raise
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    print("🚀 Starting ran_category migration...")
+    print("Starting ran_category migration...")
     migrate_ran_category()
