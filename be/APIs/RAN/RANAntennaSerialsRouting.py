@@ -313,8 +313,8 @@ def upload_antenna_serials_csv(
         for row in csv_reader:
             # Try different possible column names for flexibility
             mrbts = row.get('MRBTS') or row.get('mrbts') or row.get('Mrbts')
-            antenna_model = row.get('Antenna Model') or row.get('antenna_model') or row.get('AntennaModel') or row.get('Antenna_Model')
-            serial_number = row.get('Serial Number') or row.get('serial_number') or row.get('SerialNumber') or row.get('Serial_Number')
+            antenna_model = row.get('Antenna Model') or row.get('antenna_model') or row.get('antModel') or row.get('Antenna_Model')
+            serial_number = row.get('Serial Number') or row.get('serial_number') or row.get('antSerial') or row.get('Serial_Number')
 
             new_record = RANAntennaSerials(
                 mrbts=mrbts,
