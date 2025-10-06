@@ -8,7 +8,11 @@ from APIs.Core import get_db, get_current_user
 from Models.Admin.User import UserProjectAccess, User
 from Models.RAN import RANProject
 from Models.RAN.RANProject import RanProject
-from Schemas.RAN.RANProjectSchema import CreateRANProject, UpdateRANProject, RANProjectOUT
+from Schemas.RAN.RANProjectSchema import CreateRANProject, UpdateRANProject, RANProjectOUT, UpdatePOSchema, UpdatePOResponse
+from Models.RAN.RANInventory import RANInventory
+from Models.RAN.RANAntennaSerials import RANAntennaSerials
+from Models.RAN.RANLvl3 import RANLvl3
+from Models.RAN.RAN_LLD import RAN_LLD
 
 RANProjectRoute = APIRouter(prefix="/ran-projects", tags=["RANProjects"])
 
@@ -293,3 +297,135 @@ def check_user_ran_project_permission(
         "can_delete": can_delete,
         "role": current_user.role.name
     }
+
+
+@RANProjectRoute.put("/{old_pid_po}/update-po", response_model=UpdatePOResponse)
+def update_project_purchase_order(
+        old_pid_po: str,
+        update_data: UpdatePOSchema,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Update the Purchase Order (PO) for a RAN project with cascading updates.
+    This will update the pid_po across all related tables.
+
+    CAUTION: This is a destructive operation - the old pid_po will no longer exist.
+    Only senior_admin can perform this operation.
+
+    Args:
+        old_pid_po: Current project identifier (pid + po)
+        update_data: New PO value
+
+    Returns:
+        UpdatePOResponse with details of all updated records
+    """
+    # Only senior_admin can execute this operation
+    if current_user.role.name != "senior_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Senior Admin can update project purchase orders. This is a destructive operation."
+        )
+
+    # Validate the old project exists
+    project = db.query(RanProject).filter(RanProject.pid_po == old_pid_po).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"RAN Project with pid_po '{old_pid_po}' not found"
+        )
+
+    # Validate new PO is not empty
+    new_po = update_data.new_po.strip()
+    if not new_po:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New purchase order cannot be empty"
+        )
+
+    # Calculate new pid_po
+    new_pid_po = project.pid + new_po
+
+    # Check that new pid_po doesn't already exist
+    existing_project = db.query(RanProject).filter(RanProject.pid_po == new_pid_po).first()
+    if existing_project:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A project with pid_po '{new_pid_po}' already exists. Cannot proceed with update."
+        )
+
+    try:
+        # Track affected records - count them first before any updates
+        affected_tables = {}
+        inventory_count = db.query(RANInventory).filter(RANInventory.pid_po == old_pid_po).count()
+        antenna_serials_count = db.query(RANAntennaSerials).filter(RANAntennaSerials.project_id == old_pid_po).count()
+        lvl3_count = db.query(RANLvl3).filter(RANLvl3.project_id == old_pid_po).count()
+        lld_count = db.query(RAN_LLD).filter(RAN_LLD.pid_po == old_pid_po).count()
+        user_access_count = db.query(UserProjectAccess).filter(UserProjectAccess.Ranproject_id == old_pid_po).count()
+
+        # STEP 1: Update the project itself FIRST (create the new primary key)
+        # Add a new project with the new pid_po
+        new_project = RanProject(
+            pid_po=new_pid_po,
+            pid=project.pid,
+            po=new_po,
+            project_name=project.project_name
+        )
+        db.add(new_project)
+        db.flush()  # Make the new project available for foreign key references
+
+        # STEP 2: Now update all foreign key references to point to the new pid_po
+        # Update RANInventory records
+        db.query(RANInventory).filter(RANInventory.pid_po == old_pid_po).update(
+            {"pid_po": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["ran_inventory"] = inventory_count
+
+        # Update RANAntennaSerials records
+        db.query(RANAntennaSerials).filter(RANAntennaSerials.project_id == old_pid_po).update(
+            {"project_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["ran_antenna_serials"] = antenna_serials_count
+
+        # Update RANLvl3 records
+        db.query(RANLvl3).filter(RANLvl3.project_id == old_pid_po).update(
+            {"project_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["ran_lvl3"] = lvl3_count
+
+        # Update RAN_LLD records
+        db.query(RAN_LLD).filter(RAN_LLD.pid_po == old_pid_po).update(
+            {"pid_po": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["ran_lld"] = lld_count
+
+        # Update UserProjectAccess records
+        db.query(UserProjectAccess).filter(UserProjectAccess.Ranproject_id == old_pid_po).update(
+            {"Ranproject_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["user_project_access"] = user_access_count
+
+        # STEP 3: Delete the old project record (now that all foreign keys point to new one)
+        db.delete(project)
+
+        # Commit all changes atomically
+        db.commit()
+        db.refresh(new_project)
+
+        # Calculate total records updated
+        total_records_updated = sum(affected_tables.values())
+
+        return UpdatePOResponse(
+            old_pid_po=old_pid_po,
+            new_pid_po=new_pid_po,
+            affected_tables=affected_tables,
+            total_records_updated=total_records_updated,
+            message=f"Successfully updated purchase order from '{old_pid_po}' to '{new_pid_po}'. Total {total_records_updated} related records updated across {len(affected_tables)} tables."
+        )
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating purchase order: {str(e)}"
+        )

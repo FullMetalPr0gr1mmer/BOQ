@@ -386,7 +386,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     output = io.StringIO()
     writer = csv.writer(output)
     headers = [
-        "Site ID", "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","L1 Category", "RAN Category", "Service Type", "Seq.-L2",
+        "Site ID", "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","L1 Category", "RAN Category", "Service Type", 
         "Model Name / Description", "Serial number", "Quantity", "Notes"
     ]
     writer.writerow(headers)
@@ -407,7 +407,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             parent.category,
             parent.ran_category or "NA",  # RAN Category
             get_service_type_name(parent.service_type),
-            "NA",
+            
             parent.item_name,  # Model Name / Description
             "NA",  # Serial number for parents is always NA
             1,#parent.total_quantity if parent.total_quantity is not None else 0,
@@ -445,7 +445,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                     child.category or "NA",
                     parent.ran_category or "NA",  # RAN Category - child takes parent's value
                     get_service_type_name(parent.service_type),
-                    "NA",
+                 
                     description,
                     serial_to_use,  # Use the matched serial number
                     1,  # Quantity is 1 because we are repeating the row
@@ -484,7 +484,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
                 antenna_row = [
                     site.site_id,  # Site ID
-                    "NA","NA","NA","NA", "NA", "NA", "NA", "NA",
+                    "NA","NA","NA","NA", "NA", "NA", "NA", 
                     site.new_antennas,  # Model Name / Description
                     serial_to_use,  # Serial Number
                     1,  # Quantity

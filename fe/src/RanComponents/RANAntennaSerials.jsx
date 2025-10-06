@@ -27,7 +27,7 @@ export default function RANAntennaSerials() {
     mrbts: '',
     antenna_model: '',
     serial_number: '',
-    pid_po: ''
+    project_id: ''
   });
   const [creating, setCreating] = useState(false);
 
@@ -72,7 +72,7 @@ export default function RANAntennaSerials() {
           mrbts: r.mrbts,
           antenna_model: r.antenna_model,
           serial_number: r.serial_number,
-          pid_po: r.pid_po,
+          project_id: r.project_id,
         }))
       );
       setTotal(total || 0);
@@ -192,7 +192,7 @@ export default function RANAntennaSerials() {
       mrbts: '',
       antenna_model: '',
       serial_number: '',
-      pid_po: selectedProject
+      project_id: selectedProject
     });
     setShowCreateModal(true);
     setError('');
@@ -205,7 +205,7 @@ export default function RANAntennaSerials() {
       mrbts: '',
       antenna_model: '',
       serial_number: '',
-      pid_po: ''
+      project_id: ''
     });
     setError('');
     setSuccess('');
@@ -333,7 +333,7 @@ export default function RANAntennaSerials() {
                     <td>{row.mrbts}</td>
                     <td>{row.antenna_model}</td>
                     <td>{row.serial_number}</td>
-                    <td>{row.pid_po}</td>
+                    <td>{row.project_id}</td>
                     <td className="actions-cell">
                       <button className="clear-btn" onClick={() => openEditModal(row)}>
                         Edit
@@ -379,7 +379,7 @@ export default function RANAntennaSerials() {
               <form onSubmit={handleCreate}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                   <h3>Create New Antenna Serial Record</h3>
-                  <button type="button" onClick={closeCreateModal} className="close-btn">Close</button>
+                  <button type="button" onClick={closeCreateModal} className="close-btn">✖</button>
                 </div>
 
                 {error && <div className="dismantling-message error">{error}</div>}
@@ -444,7 +444,7 @@ export default function RANAntennaSerials() {
             <div className="modal-content">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3>Edit Antenna Serial Record</h3>
-                <button onClick={closeModal} className="close-btn">Close</button>
+                <button type="button" onClick={closeModal} className="close-btn">✖</button>
               </div>
               <table className="dismantling-table" style={{ width: '100%', borderSpacing: 0, borderCollapse: 'collapse' }}>
                 <tbody>
@@ -466,12 +466,12 @@ export default function RANAntennaSerials() {
                       <input type="text" value={editForm.serial_number !== null && editForm.serial_number !== undefined ? editForm.serial_number : ''} onChange={e => onEditChange('serial_number', e.target.value)} style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} />
                     </td>
                   </tr>
-                  <tr key="pid_po">
+                  <tr key="project_id">
                     <td style={{ fontWeight: 'bold' }}>Project</td>
                     <td>
                       <select
-                        value={editForm.pid_po || ''}
-                        onChange={e => onEditChange('pid_po', e.target.value)}
+                        value={editForm.project_id || ''}
+                        onChange={e => onEditChange('project_id', e.target.value)}
                         style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                       >
                         <option value="">-- Select Project --</option>
