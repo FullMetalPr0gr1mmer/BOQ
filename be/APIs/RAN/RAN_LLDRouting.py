@@ -395,7 +395,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
         # Safe concatenation for parent merge line
         po_line_str = str(parent.po_line) if parent.po_line is not None else "NA"
         upl_line_str = str(parent.upl_line) if parent.upl_line is not None else "NA"
-        parent_merge_line = f"{po_line_str} / {upl_line_str}"
+        parent_merge_line = f"{po_line_str}\{upl_line_str}"
 
         parent_row = [
             site.site_id,  # Site ID
@@ -432,7 +432,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                 # Safe concatenation for child merge line
                 child_po_line = str(parent.po_line) if parent.po_line is not None else "NA"
                 child_upl_line = str(child.upl_line) if child.upl_line is not None else "NA"
-                child_merge_line = f"{child_po_line}-{child_upl_line}"
+                child_merge_line = f"{child_po_line}\{child_upl_line}"
 
                 child_row = [
                     site.site_id,  # Site ID

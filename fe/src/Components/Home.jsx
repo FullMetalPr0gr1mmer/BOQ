@@ -40,7 +40,7 @@ export default function Home({ setActiveSection, user }) {
             <div className="home-card card-link" onClick={() => setShowRevenueCards(false)} style={{ marginBottom: 24 }}>
               <h2 style={{ fontWeight: 600 }}>← Back</h2>
             </div>
-            <div className="home-card card-link" onClick={() => handleCardClick('/ran-lld', 'ran-boq')}>
+            <div className="home-card card-link" onClick={() => handleCardClick('/ran-projects', 'ran-boq')}>
               <h2>RAN BOQ</h2>
               <p>Access and manage RAN Bill of Quantities data. 📶</p>
             </div>
