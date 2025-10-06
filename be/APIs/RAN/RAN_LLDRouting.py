@@ -360,6 +360,14 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     if not site.key:
         raise HTTPException(status_code=400, detail="Site does not have a key for BoQ generation")
 
+    # Get the project's PO number
+    project_po = "NA"
+    if site.pid_po:
+        from Models.RAN.RANProject import RanProject
+        project = db.query(RanProject).filter(RanProject.pid_po == site.pid_po).first()
+        if project:
+            project_po = project.po or "NA"
+
     # ✨ NEW: Fetch all inventory records for the site's site_id
     inventory_pool = db.query(RANInventory).filter(RANInventory.site_id == site.site_id).all()
     used_serials = set()
@@ -386,7 +394,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     output = io.StringIO()
     writer = csv.writer(output)
     headers = [
-        "Site ID", "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","L1 Category", "RAN Category", "Service Type", 
+        "Site ID", "PO#", "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","L1 Category", "RAN Category", "Service Type",
         "Model Name / Description", "Serial number", "Quantity", "Notes"
     ]
     writer.writerow(headers)
@@ -400,6 +408,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
         parent_row = [
             site.site_id,  # Site ID
+            project_po,  # PO#
             parent.po_line,
             parent.upl_line or "NA",
             parent_merge_line,
@@ -407,7 +416,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             parent.category,
             parent.ran_category or "NA",  # RAN Category
             get_service_type_name(parent.service_type),
-            
+
             parent.item_name,  # Model Name / Description
             "NA",  # Serial number for parents is always NA
             1,#parent.total_quantity if parent.total_quantity is not None else 0,
@@ -438,6 +447,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
                 child_row = [
                     site.site_id,  # Site ID
+                    project_po,  # PO#
                     parent.po_line or "NA",
                     child.upl_line or "NA",
                     child_merge_line,
@@ -445,7 +455,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                     child.category or "NA",
                     parent.ran_category or "NA",  # RAN Category - child takes parent's value
                     get_service_type_name(parent.service_type),
-                 
+
                     description,
                     serial_to_use,  # Use the matched serial number
                     1,  # Quantity is 1 because we are repeating the row
@@ -484,7 +494,8 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
                 antenna_row = [
                     site.site_id,  # Site ID
-                    "NA","NA","NA","NA", "NA", "NA", "NA", 
+                    project_po,  # PO#
+                    "NA","NA","NA","NA", "NA", "NA", "NA",
                     site.new_antennas,  # Model Name / Description
                     serial_to_use,  # Serial Number
                     1,  # Quantity
