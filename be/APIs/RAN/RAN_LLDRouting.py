@@ -406,6 +406,9 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
         upl_line_str = str(parent.upl_line) if parent.upl_line is not None else "NA"
         parent_merge_line = f"{po_line_str}\{upl_line_str}"
 
+        # Determine quantity based on ran_category
+        parent_quantity = 3 if parent.ran_category == "FTK Radio" else 1
+
         parent_row = [
             site.site_id,  # Site ID
             project_po,  # PO#
@@ -419,7 +422,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
             parent.item_name,  # Model Name / Description
             "NA",  # Serial number for parents is always NA
-            1,#parent.total_quantity if parent.total_quantity is not None else 0,
+            parent_quantity,
             "-------------"
         ]
         writer.writerow(parent_row)
@@ -458,7 +461,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
                     description,
                     serial_to_use,  # Use the matched serial number
-                    1,  # Quantity is 1 because we are repeating the row
+                    parent_quantity,  # Quantity takes parent's quantity
                     "-------------"
                 ]
                 writer.writerow(child_row)

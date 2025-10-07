@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiCall, setTransient } from '../api.js';
-import '../css/Dismantling.css';
+import '../css/RAN.css';
 
 const PROJECTS_PER_PAGE = 5;
 

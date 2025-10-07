@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { apiCall, setTransient } from "../api.js";
-import "../css/Dismantling.css";
+import "../css/RAN.css";
 
 const ROWS_PER_PAGE = 50;
 
@@ -484,8 +484,8 @@ export default function RANLvl3() {
                     <td>{row.po_line}</td>
                     <td>{row.upl_line}</td>
                     <td className="actions-cell">
-                      <button className="clear-btn" onClick={() => openEditModal(row)}>
-                        Edit
+                      <button className="pagination-btn" onClick={() => openEditModal(row)}>
+                        Details
                       </button>
                       <button className="clear-btn" onClick={() => handleDelete(row.id)}>
                         Delete
@@ -545,8 +545,8 @@ export default function RANLvl3() {
                                       <td>{item.quantity}</td>
                                       <td>{item.price}</td>
                                       <td className="actions-cell">
-                                        <button className="clear-btn" onClick={() => openChildEditModal(row.id, item)}>
-                                          Edit
+                                        <button className="pagination-btn" onClick={() => openChildEditModal(row.id, item)}>
+                                          Details
                                         </button>
                                         <button className="clear-btn" onClick={() => handleChildDelete(row.id, item.id)}>
                                           Delete
