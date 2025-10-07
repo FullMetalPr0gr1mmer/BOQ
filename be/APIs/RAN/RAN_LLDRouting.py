@@ -406,8 +406,12 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
         upl_line_str = str(parent.upl_line) if parent.upl_line is not None else "NA"
         parent_merge_line = f"{po_line_str}\{upl_line_str}"
 
-        # Determine quantity based on ran_category
-        parent_quantity = 3 if parent.ran_category == "FTK Radio" else 1
+        # Determine quantity based on ran_category, service type, and model name
+        parent_quantity = 1  # Default quantity
+        if (parent.ran_category == "FTK Radio" and
+            parent.service_type and "1" in parent.service_type and
+            parent.item_name and ("LTE" in parent.item_name or "lte" in parent.item_name)):
+            parent_quantity = 3
 
         parent_row = [
             site.site_id,  # Site ID
@@ -469,6 +473,19 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     # ✨ NEW (Step 5): Add New Antennas at the end of the CSV
     if site.new_antennas and site.total_antennas and site.total_antennas > 0:
         try:
+            # Search RANLvl3 for matching antenna item to get po_line and upl_line
+            antenna_lvl3_item = db.query(RANLvl3).filter(
+                RANLvl3.item_name == site.new_antennas
+            ).first()
+
+            antenna_po_line = antenna_lvl3_item.po_line if antenna_lvl3_item and antenna_lvl3_item.po_line else "NA"
+            antenna_upl_line = antenna_lvl3_item.upl_line if antenna_lvl3_item and antenna_lvl3_item.upl_line else "NA"
+
+            # Create merge line for antenna
+            antenna_po_line_str = str(antenna_po_line) if antenna_po_line != "NA" else "NA"
+            antenna_upl_line_str = str(antenna_upl_line) if antenna_upl_line != "NA" else "NA"
+            antenna_merge_line = f"{antenna_po_line_str}\{antenna_upl_line_str}"
+
             # Get MRBTS values from inventory pool (already fetched above) for this site
             mrbts_values = set()
             for inv_item in inventory_pool:
@@ -498,7 +515,10 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                 antenna_row = [
                     site.site_id,  # Site ID
                     project_po,  # PO#
-                    "NA","NA","NA","NA", "NA", "NA", "NA",
+                    antenna_po_line,  # PO Line from RANLvl3
+                    antenna_upl_line,  # UPL Line from RANLvl3
+                    antenna_merge_line,  # Merge line
+                    "NA", "NA", "NA", "NA",
                     site.new_antennas,  # Model Name / Description
                     serial_to_use,  # Serial Number
                     1,  # Quantity
