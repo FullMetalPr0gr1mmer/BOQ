@@ -21,6 +21,7 @@ export default function Lvl3Items() {
         vendor_part_number: '',
         category: '',
         uom: '',
+        upl_line: '',
         quantity: '',
         price: '',
         service_type: []
@@ -93,6 +94,7 @@ export default function Lvl3Items() {
             vendor_part_number: '',
             category: '',
             uom: '',
+            upl_line: '',
             quantity: '',
             price: '',
             service_type: []
@@ -110,6 +112,7 @@ export default function Lvl3Items() {
             vendor_part_number: entry.vendor_part_number,
             category: entry.category,
             uom: entry.uom,
+            upl_line: entry.upl_line || '',
             quantity: entry.quantity,
             price: entry.price,
             service_type: entry.service_type || []
@@ -186,6 +189,7 @@ export default function Lvl3Items() {
                             <input type="text" name="vendor_part_number" placeholder="Vendor Part Number" value={formData.vendor_part_number} onChange={handleChange} />
                             <input type="text" name="category" placeholder="Category" value={formData.category} onChange={handleChange} />
                             <input type="number" name="uom" placeholder="UOM" value={formData.uom} onChange={handleChange} required />
+                            <input type="text" name="upl_line" placeholder="UPL Line" value={formData.upl_line} onChange={handleChange} />
                             <input type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} required />
                             <input type="number" name="price" placeholder="Price" value={formData.price} onChange={handleChange} required />
                             <select multiple name="service_type" value={formData.service_type} onChange={handleMultiSelectChange}>
@@ -214,6 +218,7 @@ export default function Lvl3Items() {
                             <th>Vendor Part</th>
                             <th>Category</th>
                             <th>UOM</th>
+                            <th>UPL Line</th>
                             <th>Quantity</th>
                             <th>Price</th>
                             <th>Service Type</th>
@@ -229,6 +234,7 @@ export default function Lvl3Items() {
                                 <td>{entry.vendor_part_number}</td>
                                 <td>{entry.category}</td>
                                 <td>{entry.uom}</td>
+                                <td>{entry.upl_line || 'N/A'}</td>
                                 <td>{entry.quantity}</td>
                                 <td>{entry.price}</td>
                                 <td>{entry.service_type.map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
