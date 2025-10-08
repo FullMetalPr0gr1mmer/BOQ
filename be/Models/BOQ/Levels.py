@@ -45,6 +45,7 @@ class Lvl3(Base):
     item_name = Column(String(200), index=True)  # removed unique=True
     _service_type = Column('service_type', String, default='[]')
     uom = Column(String(200), index=True)
+    upl_line = Column(String(200), nullable=True)
     total_quantity = Column(Integer, nullable=True)
     total_price = Column(Float, nullable=True)
 
@@ -82,6 +83,7 @@ class ItemsForLvl3(Base):
 
     category = Column(String(200), nullable=True)
     uom = Column(Integer, nullable=True)
+    upl_line = Column(String(200), nullable=True)
     quantity = Column(Integer, nullable=True)
     price = Column(Float, nullable=True)
 

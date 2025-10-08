@@ -36,6 +36,8 @@ from Models.LE.MonthlyDistribution import *
 from Models.RAN.RAN_LLD import *
 from Models.RAN.RANLvl3 import *
 from Models.RAN.RANInventory import *
+from Models.RAN.RANProject import *
+from Models.RAN.RANAntennaSerials import *
 # Add your project's root directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 

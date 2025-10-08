@@ -306,11 +306,12 @@ def upload_csv(
 
 def _find_matching_serial(child, inventory_pool, used_serials):
     """
-    Helper function to find an unused serial number from the inventory pool
+    Helper function to find an unused serial number and identification code from the inventory pool
     based on the matching logic.
+    Returns a tuple: (serial_number, identification_code)
     """
     if not child.item_details:
-        return "NA"
+        return ("NA", "NA")
 
     # Prepare match strings from the child's description
     child_description = child.item_details.strip()
@@ -333,20 +334,23 @@ def _find_matching_serial(child, inventory_pool, used_serials):
         # 1. Exact match on full description
         if child_description.lower() == inv_label.lower():
             used_serials.add(inv_item.serial_number)
-            return inv_item.serial_number
+            identification_code = inv_item.identification_code if hasattr(inv_item, 'identification_code') and inv_item.identification_code else "NA"
+            return (inv_item.serial_number, identification_code)
 
         # 2. First word of child description matches full inventory label
         if child_first_word.lower() == inv_label.lower():
             used_serials.add(inv_item.serial_number)
-            return inv_item.serial_number
+            identification_code = inv_item.identification_code if hasattr(inv_item, 'identification_code') and inv_item.identification_code else "NA"
+            return (inv_item.serial_number, identification_code)
 
         # 3. First word matches first word
         if child_first_word.lower() == inv_first_word.lower():
             used_serials.add(inv_item.serial_number)
-            return inv_item.serial_number
+            identification_code = inv_item.identification_code if hasattr(inv_item, 'identification_code') and inv_item.identification_code else "NA"
+            return (inv_item.serial_number, identification_code)
 
     # If no unused serial was found after checking all inventory
-    return "NA"
+    return ("NA", "NA")
 
 
 # ✅ Generate BoQ CSV from a RAN Site's key (UPDATED LOGIC)
@@ -395,7 +399,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     writer = csv.writer(output)
     headers = [
         "Site ID", "PO#", "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","L1 Category", "RAN Category", "Service Type",
-        "Model Name / Description", "Serial number", "Quantity", "Notes"
+        "Model Name / Description", "Serial number", "Identification Code", "Quantity", "Notes"
     ]
     writer.writerow(headers)
 
@@ -426,6 +430,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
             parent.item_name,  # Model Name / Description
             "NA",  # Serial number for parents is always NA
+            "NA",  # Identification Code for parents is always NA
             parent_quantity,
             "-------------"
         ]
@@ -440,8 +445,8 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                 repeat_count = 1
 
             for _ in range(repeat_count):
-                # ✨ NEW: Find a unique serial number for this child instance
-                serial_to_use = _find_matching_serial(child, inventory_pool, used_serials)
+                # ✨ NEW: Find a unique serial number and identification code for this child instance
+                serial_to_use, identification_code_to_use = _find_matching_serial(child, inventory_pool, used_serials)
 
                 # Combine Model Name and Description for child
                 # Note: Per your schema, the child's description is `item_details`
@@ -465,6 +470,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
                     description,
                     serial_to_use,  # Use the matched serial number
+                    identification_code_to_use,  # Use the matched identification code
                     parent_quantity,  # Quantity takes parent's quantity
                     "-------------"
                 ]
@@ -480,6 +486,9 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
 
             antenna_po_line = antenna_lvl3_item.po_line if antenna_lvl3_item and antenna_lvl3_item.po_line else "NA"
             antenna_upl_line = antenna_lvl3_item.upl_line if antenna_lvl3_item and antenna_lvl3_item.upl_line else "NA"
+            antenna_category = antenna_lvl3_item.category if antenna_lvl3_item and antenna_lvl3_item.category else "NA"
+            antenna_ran_category = antenna_lvl3_item.ran_category if antenna_lvl3_item and antenna_lvl3_item.ran_category else "NA"
+            antenna_service_type = get_service_type_name(antenna_lvl3_item.service_type) if antenna_lvl3_item and antenna_lvl3_item.service_type else "NA"
 
             # Create merge line for antenna
             antenna_po_line_str = str(antenna_po_line) if antenna_po_line != "NA" else "NA"
@@ -518,9 +527,13 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                     antenna_po_line,  # PO Line from RANLvl3
                     antenna_upl_line,  # UPL Line from RANLvl3
                     antenna_merge_line,  # Merge line
-                    "NA", "NA", "NA", "NA",
+                    "NA",  # Item Code
+                    antenna_category,  # L1 Category from RANLvl3
+                    antenna_ran_category,  # RAN Category from RANLvl3
+                    antenna_service_type,  # Service Type from RANLvl3
                     site.new_antennas,  # Model Name / Description
                     serial_to_use,  # Serial Number
+                    "NA",  # Identification Code (antennas don't use inventory items)
                     1,  # Quantity
                     "-------------"  # Notes
                 ]

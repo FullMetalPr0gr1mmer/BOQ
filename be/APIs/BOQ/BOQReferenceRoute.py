@@ -385,7 +385,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
 
         # CSV Headers
         headers = ["Site_IP", "Item Description", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
-                   "Total Qtts", "Discounted unit price", "SN", "SW Number"]
+                   "UPL Line", "Total Qtts", "Discounted unit price", "SN", "SW Number"]
         writer.writerow(headers)
 
         outdoor_idx = 0
@@ -405,6 +405,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         get_service_type_name(parent.service_type),
                         "MW",
                         "Link",
+                        parent.upl_line or "NA",  # UPL Line from parent
                         "1",
                         parent.total_price or "",
                         "-----------------",  # SN
@@ -459,6 +460,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                     get_service_type_name(item.service_type),
                     "MW",
                     item.uom or "1",
+                    item.upl_line or "NA",  # UPL Line from child item
                     "1",
                     item.price or "------------",
                     serial_no,
@@ -535,6 +537,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         get_service_type_name(item.service_type),
                         "MW",
                         item.uom or "1",
+                        item.upl_line or "NA",  # UPL Line from child item
                         "1",
                         item.price or "------------",
                         serial_no,

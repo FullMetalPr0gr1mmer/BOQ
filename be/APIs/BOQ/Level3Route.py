@@ -122,6 +122,7 @@ def create_lvl3(
             project_name=payload.project_name,
             item_name=payload.item_name,
             uom=payload.uom,
+            upl_line=payload.upl_line,
             total_quantity=payload.total_quantity,
             total_price=payload.total_price,
         )
@@ -301,6 +302,7 @@ def add_item_to_lvl3(
             vendor_part_number=payload.vendor_part_number,
             category=payload.category,
             uom=payload.uom,
+            upl_line=payload.upl_line,
             quantity=payload.quantity,
             price=payload.price,
         )
@@ -353,6 +355,7 @@ def bulk_add_items_to_lvl3(
                 vendor_part_number=payload.vendor_part_number,
                 category=payload.category,
                 uom=payload.uom,
+                upl_line=payload.upl_line,
                 quantity=payload.quantity,
                 price=payload.price,
             )
