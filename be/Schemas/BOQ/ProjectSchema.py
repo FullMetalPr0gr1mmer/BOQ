@@ -1,5 +1,6 @@
 # Schemas/ProjectSchema.py
 from pydantic import BaseModel
+from typing import Dict
 
 class CreateProject(BaseModel):
     pid: str
@@ -8,6 +9,16 @@ class CreateProject(BaseModel):
 
 class UpdateProject(BaseModel):
     project_name: str
+
+class UpdatePOSchema(BaseModel):
+    new_po: str
+
+class UpdatePOResponse(BaseModel):
+    old_pid_po: str
+    new_pid_po: str
+    affected_tables: Dict[str, int]
+    total_records_updated: int
+    message: str
 
 class Project(CreateProject):
     pid_po: str

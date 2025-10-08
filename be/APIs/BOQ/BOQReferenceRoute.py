@@ -346,6 +346,10 @@ def process_boq_data(site_a_ip: str, site_b_ip: str, linked_ip: str, db: Session
             dismantling_lvl3 = db.query(Lvl3).filter(Lvl3.item_name.ilike("%Dismantling%")).all()
             lvl3_rows.extend(dismantling_lvl3 * count)
 
+    # Fetch MW Planning services item and add it to lvl3_rows
+    mw_planning_lvl3 = db.query(Lvl3).filter(Lvl3.item_name == "MW Planning services").first()
+    if mw_planning_lvl3:
+        lvl3_rows.append(mw_planning_lvl3)
 
     return lvl3_rows, outdoor_inventory_a, indoor_inventory_a, outdoor_inventory_b, indoor_inventory_b, lld_row
 
@@ -377,14 +381,14 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
             project = get_project_for_boq(lvl3_rows[0].project_id, db=db)
         except Exception:
             pass
-        writer.writerow([" ", " ", " ", " ", " ", "MW BOQ", " ", " ", " ", " ", " "])
+        writer.writerow([" ", " ", " ", " ", " "," ", "MW BOQ", " ", " ", " ", " ", " "," "])
         writer.writerow(
             ["Project Name:", project.project_name, " ", " ", " ", " ", "PO Number:", project.po, " ", " ", " ", ])
         writer.writerow(["Scope:", lld_row.scope, " ", " ", " ", " ", " ", " ", " ", " ", " ", ])
         writer.writerow(["MW Code:", code, " ", " ", " ", " ", "Region:", lld_row.region, " ", " ", " ", ])
 
         # CSV Headers
-        headers = ["Site_IP", "Item Description", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
+        headers = ["Site_IP", "Item Name", "Item Description", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
                    "UPL Line", "Total Qtts", "Discounted unit price", "SN", "SW Number"]
         writer.writerow(headers)
 
@@ -396,10 +400,12 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
             if not parents_printed:
                 parents_printed = True
                 for parent in lvl3_rows:
-                    # Parent row
+                    # Parent row - Item Name = item_name + service type
+                    parent_item_name = f"{parent.item_name} ({get_service_type_name(parent.service_type)})" if parent.service_type else parent.item_name
                     writer.writerow([
                         site_display,
-                        parent.item_name,
+                        parent_item_name,  # Item Name column
+                        parent.item_name,  # Item Description
                         "MW links (HW,SW,Services,Passive)",
                         "-----------------",  # Vendor Part Number
                         get_service_type_name(parent.service_type),
@@ -452,9 +458,14 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                     vendor_part = "----------- "
                     serial_no = "--------------"
 
+                # Item Name = item_details + service type
+                item_desc = item.item_details or item.item_name
+                item_name_with_type = f"{item_desc} ({get_service_type_name(item.service_type)})" if item.service_type else item_desc
+
                 writer.writerow([
                     site_display,
-                    item.item_details or item.item_name,
+                    item_name_with_type,  # Item Name column
+                    item_desc,  # Item Description
                     "MW links (HW,SW,Services,Passive)",
                     vendor_part,
                     get_service_type_name(item.service_type),
@@ -529,9 +540,14 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         vendor_part = "----------- "
                         serial_no = "--------------"
 
+                    # Item Name = item_details + service type
+                    item_desc = item.item_details or item.item_name
+                    item_name_with_type = f"{item_desc} ({get_service_type_name(item.service_type)})" if item.service_type else item_desc
+
                     writer.writerow([
                         site_display,
-                        item.item_details or item.item_name,
+                        item_name_with_type,  # Item Name column
+                        item_desc,  # Item Description
                         "MW links (HW,SW,Services,Passive)",
                         vendor_part,
                         get_service_type_name(item.service_type),

@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 from APIs.Core import get_current_user, get_db
 from Models.BOQ.Project import Project
 from Models.Admin.User import User, UserProjectAccess
-from Schemas.BOQ.ProjectSchema import CreateProject, UpdateProject
+from Schemas.BOQ.ProjectSchema import CreateProject, UpdateProject, UpdatePOSchema, UpdatePOResponse
+from Models.BOQ.Levels import Lvl3
+from Models.BOQ.LLD import LLD
+from Models.BOQ.BOQReference import BOQReference
+from Models.BOQ.Inventory import Inventory
+from Models.BOQ.Site import Site
+from Models.BOQ.Dismantling import Dismantling
 from typing import List
 
 projectRoute = APIRouter(tags=["Projects"])
@@ -304,3 +310,149 @@ def get_project_for_boq(
     """
     project = db.query(Project).filter(Project.pid_po == pid_po).first()
     return project
+
+
+@projectRoute.put("/{old_pid_po}/update-po", response_model=UpdatePOResponse)
+def update_project_purchase_order(
+        old_pid_po: str,
+        update_data: UpdatePOSchema,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Update the Purchase Order (PO) for a MW project with cascading updates.
+    This will update the pid_po across all related tables.
+
+    CAUTION: This is a destructive operation - the old pid_po will no longer exist.
+    Only senior_admin can perform this operation.
+
+    Args:
+        old_pid_po: Current project identifier (pid + po)
+        update_data: New PO value
+
+    Returns:
+        UpdatePOResponse with details of all updated records
+    """
+    # Only senior_admin can execute this operation
+    if current_user.role.name != "senior_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Senior Admin can update project purchase orders. This is a destructive operation."
+        )
+
+    # Validate the old project exists
+    project = db.query(Project).filter(Project.pid_po == old_pid_po).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"MW Project with pid_po '{old_pid_po}' not found"
+        )
+
+    # Validate new PO is not empty
+    new_po = update_data.new_po.strip()
+    if not new_po:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New purchase order cannot be empty"
+        )
+
+    # Calculate new pid_po
+    new_pid_po = project.pid + new_po
+
+    # Check that new pid_po doesn't already exist
+    existing_project = db.query(Project).filter(Project.pid_po == new_pid_po).first()
+    if existing_project:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A project with pid_po '{new_pid_po}' already exists. Cannot proceed with update."
+        )
+
+    try:
+        # Track affected records - count them first before any updates
+        affected_tables = {}
+        lvl3_count = db.query(Lvl3).filter(Lvl3.project_id == old_pid_po).count()
+        lld_count = db.query(LLD).filter(LLD.project_id == old_pid_po).count()
+        boq_reference_count = db.query(BOQReference).filter(BOQReference.pid_po == old_pid_po).count()
+        inventory_count = db.query(Inventory).filter(Inventory.project_id == old_pid_po).count()
+        site_count = db.query(Site).filter(Site.project_id == old_pid_po).count()
+        dismantling_count = db.query(Dismantling).filter(Dismantling.project_id == old_pid_po).count()
+        user_access_count = db.query(UserProjectAccess).filter(UserProjectAccess.project_id == old_pid_po).count()
+
+        # STEP 1: Update the project itself FIRST (create the new primary key)
+        # Add a new project with the new pid_po
+        new_project = Project(
+            pid_po=new_pid_po,
+            pid=project.pid,
+            po=new_po,
+            project_name=project.project_name
+        )
+        db.add(new_project)
+        db.flush()  # Make the new project available for foreign key references
+
+        # STEP 2: Now update all foreign key references to point to the new pid_po
+        # Update Lvl3 records
+        db.query(Lvl3).filter(Lvl3.project_id == old_pid_po).update(
+            {"project_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["lvl3"] = lvl3_count
+
+        # Update LLD records
+        db.query(LLD).filter(LLD.project_id == old_pid_po).update(
+            {"project_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["lld"] = lld_count
+
+        # Update BOQReference records
+        db.query(BOQReference).filter(BOQReference.pid_po == old_pid_po).update(
+            {"pid_po": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["boq_reference"] = boq_reference_count
+
+        # Update Inventory records
+        db.query(Inventory).filter(Inventory.project_id == old_pid_po).update(
+            {"project_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["inventory"] = inventory_count
+
+        # Update Site records
+        db.query(Site).filter(Site.project_id == old_pid_po).update(
+            {"project_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["site"] = site_count
+
+        # Update Dismantling records
+        db.query(Dismantling).filter(Dismantling.project_id == old_pid_po).update(
+            {"project_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["dismantling"] = dismantling_count
+
+        # Update UserProjectAccess records
+        db.query(UserProjectAccess).filter(UserProjectAccess.project_id == old_pid_po).update(
+            {"project_id": new_pid_po}, synchronize_session=False
+        )
+        affected_tables["user_project_access"] = user_access_count
+
+        # STEP 3: Delete the old project record (now that all foreign keys point to new one)
+        db.delete(project)
+
+        # Commit all changes atomically
+        db.commit()
+        db.refresh(new_project)
+
+        # Calculate total records updated
+        total_records_updated = sum(affected_tables.values())
+
+        return UpdatePOResponse(
+            old_pid_po=old_pid_po,
+            new_pid_po=new_pid_po,
+            affected_tables=affected_tables,
+            total_records_updated=total_records_updated,
+            message=f"Successfully updated purchase order from '{old_pid_po}' to '{new_pid_po}'. Total {total_records_updated} related records updated across {len(affected_tables)} tables."
+        )
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating purchase order: {str(e)}"
+        )
