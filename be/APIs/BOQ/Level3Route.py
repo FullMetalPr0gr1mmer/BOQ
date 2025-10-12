@@ -587,11 +587,11 @@ def check_lvl3_permission(
             "role": current_user.role.name
         }
 
-    # Determine capabilities based on permission level and role
-    can_edit = (current_user.role.name == "admin" and
-                access.permission_level in ["edit", "all"])
-    can_delete = (current_user.role.name == "admin" and
-                  access.permission_level == "all")
+    # Determine capabilities based on permission level (not role)
+    # Users with "edit" or "all" permission can edit
+    # Users with "all" permission can delete
+    can_edit = access.permission_level in ["edit", "all"]
+    can_delete = access.permission_level == "all"
 
     return {
         "lvl3_id": lvl3_id,

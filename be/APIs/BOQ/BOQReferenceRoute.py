@@ -383,9 +383,9 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
             pass
         writer.writerow([" ", " ", " ", " ", " "," ", "MW BOQ", " ", " ", " ", " ", " "," "])
         writer.writerow(
-            ["Project Name:", project.project_name, " ", " ", " ", " ", "PO Number:", project.po, " ", " ", " ", ])
-        writer.writerow(["Scope:", lld_row.scope, " ", " ", " ", " ", " ", " ", " ", " ", " ", ])
-        writer.writerow(["MW Code:", code, " ", " ", " ", " ", "Region:", lld_row.region, " ", " ", " ", ])
+            ["Project Name:", project.project_name, " ", " ", " ", " "," ", "PO Number:", project.po, " ", " ", " "," " ])
+        writer.writerow(["Scope:", lld_row.scope, " ", " ", " ", " ", " ", " ", " ", " ", " "," ", " ", ])
+        writer.writerow(["MW Code:", code, " ", " ", " ", " "," ", "Region:", lld_row.region," ", " ", " ", " ", ])
 
         # CSV Headers
         headers = ["Site_IP", "Item Name", "Item Description", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
