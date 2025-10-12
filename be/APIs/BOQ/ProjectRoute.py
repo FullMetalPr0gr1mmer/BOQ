@@ -371,11 +371,11 @@ def update_project_purchase_order(
         # Track affected records - count them first before any updates
         affected_tables = {}
         lvl3_count = db.query(Lvl3).filter(Lvl3.project_id == old_pid_po).count()
-        lld_count = db.query(LLD).filter(LLD.project_id == old_pid_po).count()
+        lld_count = db.query(LLD).filter(LLD.pid_po == old_pid_po).count()
         boq_reference_count = db.query(BOQReference).filter(BOQReference.pid_po == old_pid_po).count()
-        inventory_count = db.query(Inventory).filter(Inventory.project_id == old_pid_po).count()
+        inventory_count = db.query(Inventory).filter(Inventory.pid_po == old_pid_po).count()
         site_count = db.query(Site).filter(Site.project_id == old_pid_po).count()
-        dismantling_count = db.query(Dismantling).filter(Dismantling.project_id == old_pid_po).count()
+        dismantling_count = db.query(Dismantling).filter(Dismantling.pid_po == old_pid_po).count()
         user_access_count = db.query(UserProjectAccess).filter(UserProjectAccess.project_id == old_pid_po).count()
 
         # STEP 1: Update the project itself FIRST (create the new primary key)
@@ -390,43 +390,43 @@ def update_project_purchase_order(
         db.flush()  # Make the new project available for foreign key references
 
         # STEP 2: Now update all foreign key references to point to the new pid_po
-        # Update Lvl3 records
+        # Update Lvl3 records (uses project_id)
         db.query(Lvl3).filter(Lvl3.project_id == old_pid_po).update(
             {"project_id": new_pid_po}, synchronize_session=False
         )
         affected_tables["lvl3"] = lvl3_count
 
-        # Update LLD records
-        db.query(LLD).filter(LLD.project_id == old_pid_po).update(
-            {"project_id": new_pid_po}, synchronize_session=False
+        # Update LLD records (uses pid_po)
+        db.query(LLD).filter(LLD.pid_po == old_pid_po).update(
+            {"pid_po": new_pid_po}, synchronize_session=False
         )
         affected_tables["lld"] = lld_count
 
-        # Update BOQReference records
+        # Update BOQReference records (uses pid_po)
         db.query(BOQReference).filter(BOQReference.pid_po == old_pid_po).update(
             {"pid_po": new_pid_po}, synchronize_session=False
         )
         affected_tables["boq_reference"] = boq_reference_count
 
-        # Update Inventory records
-        db.query(Inventory).filter(Inventory.project_id == old_pid_po).update(
-            {"project_id": new_pid_po}, synchronize_session=False
+        # Update Inventory records (uses pid_po)
+        db.query(Inventory).filter(Inventory.pid_po == old_pid_po).update(
+            {"pid_po": new_pid_po}, synchronize_session=False
         )
         affected_tables["inventory"] = inventory_count
 
-        # Update Site records
+        # Update Site records (uses project_id)
         db.query(Site).filter(Site.project_id == old_pid_po).update(
             {"project_id": new_pid_po}, synchronize_session=False
         )
         affected_tables["site"] = site_count
 
-        # Update Dismantling records
-        db.query(Dismantling).filter(Dismantling.project_id == old_pid_po).update(
-            {"project_id": new_pid_po}, synchronize_session=False
+        # Update Dismantling records (uses pid_po)
+        db.query(Dismantling).filter(Dismantling.pid_po == old_pid_po).update(
+            {"pid_po": new_pid_po}, synchronize_session=False
         )
         affected_tables["dismantling"] = dismantling_count
 
-        # Update UserProjectAccess records
+        # Update UserProjectAccess records (uses project_id)
         db.query(UserProjectAccess).filter(UserProjectAccess.project_id == old_pid_po).update(
             {"project_id": new_pid_po}, synchronize_session=False
         )
