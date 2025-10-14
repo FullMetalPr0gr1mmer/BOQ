@@ -490,7 +490,7 @@ def build_package_response(package_id: int, db: Session) -> RopPackageOut:
         raise HTTPException(status_code=404, detail="Package not found")
 
     # Get lvl1 items
-    lvl1_rows = db.execute(select(ROPLvl1.id, ROPLvl1.item_name, rop_package_lvl1.c.quantity)
+    lvl1_rows = db.execute(select(ROPLvl1.id, ROPLvl1.item_name, ROPLvl1.total_quantity, ROPLvl1.consumption, rop_package_lvl1.c.quantity)
                            .join(rop_package_lvl1, ROPLvl1.id == rop_package_lvl1.c.lvl1_id)
                            .where(rop_package_lvl1.c.package_id == package_id)).all()
 
@@ -501,7 +501,12 @@ def build_package_response(package_id: int, db: Session) -> RopPackageOut:
 
     return RopPackageOut(
         **pkg.__dict__,
-        lvl1_items=[{"id": r.id, "name": r.item_name, "quantity": r.quantity} for r in lvl1_rows],
+        lvl1_items=[{
+            "id": r.id,
+            "name": r.item_name,
+            "quantity": r.quantity,
+            "available": max(0, (r.total_quantity or 0) - (r.consumption or 0))
+        } for r in lvl1_rows],
         monthly_distributions=[
             {
                 "id": d.id,

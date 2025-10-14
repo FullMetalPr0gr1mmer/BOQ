@@ -651,23 +651,68 @@ async def create_inventory(
         )
 
 
+@inventoryRoute.get("/inventory/stats")
+def get_inventory_stats(
+        project_id: Optional[str] = None,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Get inventory statistics (total items, unique sites count).
+    Optionally filter by project_id.
+    """
+    try:
+        from sqlalchemy import func
+
+        query = db.query(Inventory)
+
+        # Filter by user access
+        query = filter_inventory_by_user_access(current_user, query, db)
+
+        # Filter by project if specified
+        if project_id:
+            query = query.filter(Inventory.pid_po == project_id)
+
+        total_items = query.count()
+
+        # Count unique sites more efficiently
+        unique_sites_query = query.with_entities(func.count(func.distinct(Inventory.site_id)))
+        unique_sites = unique_sites_query.scalar()
+
+        return {
+            "total_items": total_items,
+            "unique_sites": unique_sites
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving inventory stats: {str(e)}"
+        )
+
+
 @inventoryRoute.get("/inventory", response_model=InventoryPagination)
 def get_inventory(
         skip: int = 0,
         limit: int = 50,
         search: Optional[str] = None,
+        project_id: Optional[str] = None,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Get inventory with pagination and search.
     Users can only see inventory from sites in projects they have access to.
+    Optionally filter by project_id.
     """
     try:
         query = db.query(Inventory)
 
         # Filter by user access
         query = filter_inventory_by_user_access(current_user, query, db)
+
+        # Filter by project if specified
+        if project_id:
+            query = query.filter(Inventory.pid_po == project_id)
 
         if search:
             search_pattern = f"%{search}%"
