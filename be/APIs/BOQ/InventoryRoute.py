@@ -246,23 +246,63 @@ async def add_site(
         )
 
 
+@inventoryRoute.get("/sites/stats")
+def get_sites_stats(
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Get site statistics (total sites, unique projects count).
+    IMPORTANT: This must be defined BEFORE /sites endpoint to avoid route conflicts.
+    """
+    try:
+        from sqlalchemy import func
+
+        query = db.query(Site)
+
+        # Filter by user access
+        query = filter_sites_by_user_access(current_user, query, db)
+
+        total_sites = query.count()
+
+        # Count unique projects more efficiently
+        unique_projects_query = query.with_entities(func.count(func.distinct(Site.project_id)))
+        total_projects = unique_projects_query.scalar()
+
+        return {
+            "total_sites": total_sites,
+            "total_projects": total_projects
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving site stats: {str(e)}"
+        )
+
+
 @inventoryRoute.get("/sites", response_model=SitesResponse)
 def get_sites_paginated(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user),
         skip: int = Query(0, ge=0),
-        limit: int = Query(50, ge=1, le=100),
-        search: Optional[str] = Query(None)
+        limit: int = Query(50, ge=1, le=500),
+        search: Optional[str] = Query(None),
+        project_id: Optional[str] = Query(None)
 ):
     """
     Retrieves a paginated list of sites with optional search functionality.
     Users can only see sites from projects they have access to.
+    Optionally filter by project_id.
     """
     try:
         query = db.query(Site)
 
         # Filter by user access
         query = filter_sites_by_user_access(current_user, query, db)
+
+        # Filter by project if specified
+        if project_id:
+            query = query.filter(Site.project_id == project_id)
 
         if search:
             search_pattern = f"%{search}%"

@@ -485,7 +485,7 @@ input[type="checkbox"] {
 /* --- Hamburger Menu --- */
 .hamburger {
   position: absolute;
-  top: 1rem;
+  top: 1%;
   left: 1.5rem;
   width: 48px;
   height: 48px;

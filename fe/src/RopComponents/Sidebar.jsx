@@ -1,40 +1,150 @@
-import { FaSignOutAlt, FaTimes, FaClipboardList } from 'react-icons/fa';
-import { FaXTwitter } from 'react-icons/fa6';
+import { useState } from 'react';
+import { FaSignOutAlt, FaTimes, FaClipboardList, FaChevronDown, FaChevronRight, FaUser } from 'react-icons/fa';
+import { FaProjectDiagram, FaMapMarkerAlt, FaBox, FaLayerGroup, FaCubes, FaFile, FaRobot, FaNetworkWired, FaBroadcastTower, FaAnchor, FaMobileAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import '../css/Sidebar.css';
 
 function Sidebar({ isOpen, onClose, onSelect, user }) {
     const navigate = useNavigate();
+    const [expandedSections, setExpandedSections] = useState({});
 
-    const handleClick = (section) => {
-        onSelect(section);
-        if (section === 'boq') {
-            navigate('/project');
-        } else if (section === 'le-automation') {
-            navigate('/rop-project');
-        }
-        else if(section==='ran-boq'){
-            navigate('/ran-projects')
-        }
-        else if(section==='logs'){
-            navigate('/logs')
-        }
+    const toggleSection = (sectionKey) => {
+        setExpandedSections(prev => ({
+            ...prev,
+            [sectionKey]: !prev[sectionKey]
+        }));
     };
 
-    return (
-        <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-            <button style={{
-                width: 'fit-content',
-                padding: '1px',
-            }} onClick={onClose}><FaTimes/></button>
-            <button onClick={() => handleClick('boq')}>MW BOQ</button>
-            <button onClick={() => handleClick('le-automation')}>LE Automation</button>
-            <button onClick={() => handleClick('ran-boq')}>RAN BOQ</button>
-            {user?.role === 'senior_admin' && (
-                <button onClick={() => handleClick('logs')}><FaClipboardList/> System Logs</button>
-            )}
-            <button onClick={() => handleClick('logout')}><FaSignOutAlt/>LogOut</button>
+    const handleNavigation = (path, section) => {
+        navigate(path);
+        if (section) {
+            onSelect(section);
+        }
+        onClose();
+    };
 
-        </div>
+    const sections = [
+        {
+            key: 'boq',
+            title: 'MW BOQ',
+            icon: <FaNetworkWired />,
+            items: [
+                { label: 'Projects', path: '/project', icon: <FaProjectDiagram /> },
+                { label: 'Sites', path: '/site', icon: <FaMapMarkerAlt /> },
+                { label: 'Inventory', path: '/inventory', icon: <FaBox /> },
+                { label: 'Level 3', path: '/level3', icon: <FaCubes /> },
+                { label: 'Level 3 Items', path: '/level3-items', icon: <FaCubes /> },
+                { label: 'BOQ Generation', path: '/boq-generation', icon: <FaFile /> },
+                { label: 'LLD Management', path: '/lld', icon: <FaFile /> },
+                { label: 'Dismantling', path: '/dismantling', icon: <FaBox /> }
+            ]
+        },
+        {
+            key: 'le-automation',
+            title: 'LE Automation',
+            icon: <FaRobot />,
+            items: [
+                { label: 'Projects', path: '/rop-project', icon: <FaProjectDiagram /> },
+                { label: 'Level 1', path: '/rop-lvl1', icon: <FaLayerGroup /> },
+                { label: 'Package', path: '/rop-package', icon: <FaBox /> }
+            ]
+        },
+        {
+            key: 'ran-boq',
+            title: 'RAN BOQ',
+            icon: <FaBroadcastTower />,
+            items: [
+                { label: 'Projects', path: '/ran-projects', icon: <FaProjectDiagram /> },
+                { label: 'Inventory', path: '/ran-inventory', icon: <FaBox /> },
+                { label: 'Level 3', path: '/ran-level3', icon: <FaCubes /> },
+                { label: 'BOQ Generation', path: '/ran-boq-generation', icon: <FaFile /> },
+                { label: 'Antenna Serials', path: '/ran-antenna-serials', icon: <FaAnchor /> }
+            ]
+        }
+    ];
+
+    return (
+        <>
+            {/* Overlay */}
+            {isOpen && <div className="sidebar-overlay" onClick={onClose}></div>}
+
+            {/* Sidebar */}
+            <div className={`modern-sidebar ${isOpen ? 'open' : ''}`}>
+                {/* Header */}
+                <div className="sidebar-header">
+                    <div className="user-info">
+                        <div className="user-avatar">
+                            <FaUser />
+                        </div>
+                        <div className="user-details">
+                            <span className="user-name">{user?.username || 'User'}</span>
+                            <span className="user-role">{user?.role?.replace('_', ' ').toUpperCase() || 'ADMIN'}</span>
+                        </div>
+                    </div>
+                    <button className="sidebar-close-btn" onClick={onClose}>
+                        <FaTimes />
+                    </button>
+                </div>
+
+                {/* Navigation */}
+                <nav className="sidebar-nav">
+                    {sections.map((section) => (
+                        <div key={section.key} className="nav-section">
+                            <button
+                                className={`nav-section-header ${expandedSections[section.key] ? 'expanded' : ''}`}
+                                onClick={() => toggleSection(section.key)}
+                            >
+                                <span className="nav-section-title">
+                                    <span className="nav-icon">{section.icon}</span>
+                                    {section.title}
+                                </span>
+                                <span className="nav-chevron">
+                                    {expandedSections[section.key] ? <FaChevronDown /> : <FaChevronRight />}
+                                </span>
+                            </button>
+
+                            {expandedSections[section.key] && (
+                                <div className="nav-section-items">
+                                    {section.items.map((item) => (
+                                        <button
+                                            key={item.path}
+                                            className="nav-item"
+                                            onClick={() => handleNavigation(item.path, section.key)}
+                                        >
+                                            <span className="nav-icon">{item.icon}</span>
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
+                    {/* System Logs - Only for senior_admin */}
+                    {user?.role === 'senior_admin' && (
+                        <div className="nav-section">
+                            <button
+                                className="nav-section-header single-item"
+                                onClick={() => handleNavigation('/logs', null)}
+                            >
+                                <span className="nav-section-title">
+                                    <span className="nav-icon"><FaClipboardList /></span>
+                                    System Logs
+                                </span>
+                            </button>
+                        </div>
+                    )}
+                </nav>
+
+                {/* Footer / Logout */}
+                <div className="sidebar-footer">
+                    <button className="logout-btn" onClick={() => { onSelect('logout'); onClose(); }}>
+                        <FaSignOutAlt />
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </>
     );
 }
 
