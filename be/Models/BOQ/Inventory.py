@@ -24,5 +24,4 @@ class Inventory(Base):
     license_points_consumed=Column(String(100),index=True)
     alarm_status=Column(String(100),index=True)
     Aggregated_alarm_status=Column(String(100),index=True)
-    upl_line=Column(String(200), nullable=True)
     pid_po=Column(String(200),ForeignKey('projects.pid_po'),index=True)

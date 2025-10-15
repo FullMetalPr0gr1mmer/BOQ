@@ -959,8 +959,7 @@ async def upload_inventory_csv(
         'Customer Field': 'customer_field',
         'License Points Consumed': 'license_points_consumed',
         'Alarm Status': 'alarm_status',
-        'Aggregated Alarm Status': 'Aggregated_alarm_status',
-        'UPL Line': 'upl_line'
+        'Aggregated Alarm Status': 'Aggregated_alarm_status'
                 }
 
     inserted_count = 0
