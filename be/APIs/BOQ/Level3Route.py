@@ -122,7 +122,6 @@ def create_lvl3(
             project_name=payload.project_name,
             item_name=payload.item_name,
             uom=payload.uom,
-            upl_line=payload.upl_line,
             total_quantity=payload.total_quantity,
             total_price=payload.total_price,
         )

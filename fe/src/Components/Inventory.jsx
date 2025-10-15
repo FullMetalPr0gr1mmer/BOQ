@@ -27,7 +27,7 @@ export default function Inventory() {
     company_id: '', mnemonic: '', clei_code: '', part_no: '', software_no: '',
     factory_id: '', serial_no: '', date_id: '', manufactured_date: '',
     customer_field: '', license_points_consumed: '', alarm_status: '',
-    Aggregated_alarm_status: '', pid_po: ''
+    Aggregated_alarm_status: '', upl_line: '', pid_po: ''
   };
   const [formData, setFormData] = useState(initialForm);
 
@@ -401,12 +401,13 @@ export default function Inventory() {
               <th>License Pts</th>
               <th>Alarm</th>
               <th>Agg. Alarm</th>
+              <th>UPL Line</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !loading ? (
-              <tr><td colSpan={19} className="no-data">No inventory items found</td></tr>
+              <tr><td colSpan={20} className="no-data">No inventory items found</td></tr>
             ) : (
               rows.map(item => (
                 <tr key={item.id}>
@@ -428,6 +429,7 @@ export default function Inventory() {
                   <td>{item.license_points_consumed}</td>
                   <td>{item.alarm_status}</td>
                   <td>{item.Aggregated_alarm_status}</td>
+                  <td>{item.upl_line || 'N/A'}</td>
                   <td>
                     <div className="action-buttons">
                       <button className="btn-action btn-edit" onClick={() => openEditForm(item)} title="Edit">
@@ -705,6 +707,15 @@ export default function Inventory() {
                       value={formData.Aggregated_alarm_status}
                       onChange={handleChange}
                       required
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>UPL Line</label>
+                    <input
+                      type="text"
+                      name="upl_line"
+                      value={formData.upl_line}
+                      onChange={handleChange}
                     />
                   </div>
                 </div>

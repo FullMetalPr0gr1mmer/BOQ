@@ -65,7 +65,6 @@ class Lvl3Base(BaseModel):
     item_name: str
     service_type: Optional[List[str]] = None
     uom: Optional[str] = None
-    upl_line: Optional[str] = None
     total_quantity: Optional[int] = None
     total_price: Optional[float] = None
 

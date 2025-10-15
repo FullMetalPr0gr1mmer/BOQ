@@ -55,6 +55,7 @@ class CreateInventory(BaseModel):
     license_points_consumed : Optional[str]
     alarm_status : Optional[str]
     Aggregated_alarm_status : Optional[str]
+    upl_line : Optional[str] = None
     pid_po : Optional[str]=None
 class GetInventory(CreateInventory):
     id:int

@@ -411,7 +411,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         get_service_type_name(parent.service_type),
                         "MW",
                         "Link",
-                        parent.upl_line or "NA",  # UPL Line from parent
+                        "NA",  # UPL Line - not applicable for parent rows
                         "1",
                         parent.total_price or "",
                         "-----------------",  # SN
@@ -432,6 +432,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
 
                     vendor_part = inventory_item.get("part_no", "")
                     serial_no = inventory_item.get("serial_no", "")
+                    upl_line = inventory_item.get("upl_line", "NA")
 
                 # Handle INDOOR items
                 elif "INDOOR" in item_desc_upper:
@@ -443,6 +444,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
 
                     vendor_part = inventory_item.get("part_no", "")
                     serial_no = inventory_item.get("serial_no", "")
+                    upl_line = inventory_item.get("upl_line", "NA")
 
                 # Handle ANTENNA items - ✅ Only process the first one
                 elif "ANTENNA" in item_desc_upper:
@@ -452,11 +454,13 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                     antenna_processed = True  # Mark as processed
                     vendor_part = "XXXXXXXX"
                     serial_no = "XXXXXXXX"
+                    upl_line = "NA"
                     item.quantity = "1"
 
                 else:
                     vendor_part = "----------- "
                     serial_no = "--------------"
+                    upl_line = "NA"
 
                 # Item Name = item_details + service type
                 item_desc = item.item_details or item.item_name
@@ -471,7 +475,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                     get_service_type_name(item.service_type),
                     "MW",
                     item.uom or "1",
-                    item.upl_line or "NA",  # UPL Line from child item
+                    upl_line,  # UPL Line from inventory
                     "1",
                     item.price or "------------",
                     serial_no,
@@ -514,6 +518,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
 
                         vendor_part = inventory_item.get("part_no", "")
                         serial_no = inventory_item.get("serial_no", "")
+                        upl_line = inventory_item.get("upl_line", "NA")
 
                     # Handle INDOOR items
                     elif "INDOOR" in item_desc_upper:
@@ -525,6 +530,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
 
                         vendor_part = inventory_item.get("part_no", "")
                         serial_no = inventory_item.get("serial_no", "")
+                        upl_line = inventory_item.get("upl_line", "NA")
 
                     # Handle ANTENNA items - ✅ Only process the first one
                     elif "ANTENNA" in item_desc_upper:
@@ -534,11 +540,13 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         antenna_processed = True  # Mark as processed
                         vendor_part = "XXXXXXXX"
                         serial_no = "XXXXXXXX"
+                        upl_line = "NA"
                         item.quantity = "1"
 
                     else:
                         vendor_part = "----------- "
                         serial_no = "--------------"
+                        upl_line = "NA"
 
                     # Item Name = item_details + service type
                     item_desc = item.item_details or item.item_name
@@ -553,7 +561,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         get_service_type_name(item.service_type),
                         "MW",
                         item.uom or "1",
-                        item.upl_line or "NA",  # UPL Line from child item
+                        upl_line,  # UPL Line from inventory
                         "1",
                         item.price or "------------",
                         serial_no,

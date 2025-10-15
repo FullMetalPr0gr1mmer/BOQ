@@ -22,7 +22,6 @@ const initialLvl3State = {
     project_name: '',
     item_name: '',
     uom: '',
-    upl_line: '',
     total_quantity: '',
     total_price: '',
     service_type: '',
@@ -353,7 +352,6 @@ export default function Lvl3() {
             project_name: entry.project_name,
             item_name: entry.item_name,
             uom: entry.uom,
-            upl_line: entry.upl_line || '',
             total_quantity: entry.total_quantity,
             total_price: entry.total_price,
             service_type: (entry.service_type && entry.service_type.length > 0)
@@ -407,7 +405,6 @@ export default function Lvl3() {
                             <input type="text" name="project_name" placeholder="Project Name" value={formData.project_name} onChange={handleChange} required />
                             <input type="text" name="item_name" placeholder="Item Name" value={formData.item_name} onChange={handleChange} required />
                             <input type="text" name="uom" placeholder="UOM" value={formData.uom} onChange={handleChange} required />
-                            <input type="text" name="upl_line" placeholder="UPL Line" value={formData.upl_line} onChange={handleChange} />
                             <input type="number" name="total_quantity" placeholder="Total Quantity" value={formData.total_quantity} onChange={handleChange}  />
                             <input type="number" name="total_price" placeholder="Total Price" value={formData.total_price} onChange={handleChange} required />
                             <select name="service_type" value={formData.service_type || ''} onChange={handleChange} required>
@@ -508,7 +505,6 @@ export default function Lvl3() {
                             <th>Project Name</th>
                             <th>Item Name</th>
                             <th>UOM</th>
-                            <th>UPL Line</th>
                             <th>Total Quantity</th>
                             <th>Total Price</th>
                             <th>Service Type</th>
@@ -518,7 +514,7 @@ export default function Lvl3() {
                     <tbody>
                         {paginatedEntries.length === 0 && !loading ? (
                             <tr>
-                                <td colSpan={10} className="no-results">No results</td>
+                                <td colSpan={9} className="no-results">No results</td>
                             </tr>
                         ) : (
                             paginatedEntries.map((entry) => (
@@ -537,7 +533,6 @@ export default function Lvl3() {
                                         <td>{entry.project_name}</td>
                                         <td>{entry.item_name}</td>
                                         <td>{entry.uom}</td>
-                                        <td>{entry.upl_line || 'N/A'}</td>
                                         <td>{entry.total_quantity?.toLocaleString()}</td>
                                         <td>{entry.total_price?.toLocaleString()}</td>
                                         <td>{(entry.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
@@ -548,7 +543,7 @@ export default function Lvl3() {
                                     </tr>
                                     {showItemsForId === entry.id && (
                                         <tr>
-                                            <td colSpan={10} style={{ padding: 0, background: '#f8fafb' }}>
+                                            <td colSpan={9} style={{ padding: 0, background: '#f8fafb' }}>
                                                 <div style={{ padding: '1rem', borderLeft: '4px solid var(--primary-color)' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                                         <h4 style={{ margin: 0, color: 'var(--primary-color)' }}>Items for {entry.item_name}</h4>
