@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import '../css/Dismantling.css';
-import { apiCall, getAuthHeaders } from '../api';
+import '../css/Inventory.css';
+import { apiCall } from '../api';
+import StatsCarousel from './shared/StatsCarousel';
+import FilterBar from './shared/FilterBar';
+import DataTable from './shared/DataTable';
+import HelpModal, { HelpList, HelpText } from './shared/HelpModal';
+import TitleWithInfo from './shared/InfoButton';
+import Pagination from './shared/Pagination';
 
 // API service with real endpoints
 const apiService = {
-  // Roles endpoints
   getAllRoles: async function() {
     return apiCall('/audit-logs/roles');
   },
@@ -20,7 +25,6 @@ const apiService = {
     return apiCall(endpoint, options);
   },
 
-  // Users endpoints
   getAllUsers: async function() {
     return this.apiCall('/audit-logs/users');
   },
@@ -29,14 +33,10 @@ const apiService = {
     return this.apiCall(`/audit-logs/user/${userId}/projects`);
   },
 
-  // Projects endpoints
   getAllProjects: async function() {
-
     return this.apiCall('/get_project');
-  
   },
 
-  // Access management endpoints
   grantAccess: async function(accessData) {
     return this.apiCall(`/audit-logs/grant_project_access`, {
       method: 'POST',
@@ -57,7 +57,6 @@ const apiService = {
     });
   },
 
-  // Audit logs endpoints
   getAuditLogs: async function(filters = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -86,7 +85,8 @@ const SeniorAdminDashboard = () => {
   const [availableResourceTypes, setAvailableResourceTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
-  const [authError, setAuthError] = useState(''); // State to handle authentication errors
+  const [authError, setAuthError] = useState('');
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // Search and filter states
   const [userSearch, setUserSearch] = useState('');
@@ -101,19 +101,18 @@ const SeniorAdminDashboard = () => {
   const [selectedAccess, setSelectedAccess] = useState(null);
   const [grantForm, setGrantForm] = useState({
     user_id: '',
-    section: '', // 1 = MW BOQ, 2 = RAN BOQ
+    section: '',
     project_id: '',
     permission_level: 'view'
   });
   const [sectionProjects, setSectionProjects] = useState([]);
-  // Control Administration modal states
   const [controlAdminUserId, setControlAdminUserId] = useState('');
   const [controlAdminRole, setControlAdminRole] = useState('');
   const [allRoles, setAllRoles] = useState([]);
 
   // Pagination state
-  const [currentPage, setCurrentPage] = useState(0);
-  const [logsPerPage] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [logsPerPage, setLogsPerPage] = useState(20);
 
   // Load data on component mount
   useEffect(() => {
@@ -130,7 +129,6 @@ const SeniorAdminDashboard = () => {
         loadAvailableFilters()
       ]);
     } catch (error) {
-      // Check if the error is due to authentication
       if (error.message.includes('Unauthorized')) {
         setAuthError(error.message);
       } else {
@@ -159,7 +157,7 @@ const SeniorAdminDashboard = () => {
       setLoading(true);
       const data = await apiService.getAuditLogs({
         ...filters,
-        skip: currentPage * logsPerPage,
+        skip: (currentPage - 1) * logsPerPage,
         limit: logsPerPage,
       });
       setAuditLogs(Array.isArray(data) ? data : []);
@@ -200,7 +198,6 @@ const SeniorAdminDashboard = () => {
     }
   };
 
-  // Load audit logs when switching to logs tab or filters change
   useEffect(() => {
     if (activeTab === 'logs') {
       loadAuditLogs({
@@ -223,7 +220,7 @@ const SeniorAdminDashboard = () => {
       await apiService.apiCall(`/audit-logs/grant_project_access`, {
         method: 'POST',
         body: JSON.stringify({
-          section:parseInt(grantForm.section),
+          section: parseInt(grantForm.section),
           user_id: parseInt(grantForm.user_id),
           project_id: grantForm.project_id,
           permission_level: grantForm.permission_level
@@ -231,7 +228,8 @@ const SeniorAdminDashboard = () => {
       });
       showMessage('Access granted successfully', 'success');
       setShowGrantModal(false);
-      setGrantForm({ user_id: '', project_id: '', permission_level: 'view' });
+      setGrantForm({ user_id: '', section: '', project_id: '', permission_level: 'view' });
+      setSectionProjects([]);
       await loadUsers();
     } catch (error) {
       if (error.message.includes('Unauthorized')) {
@@ -287,7 +285,6 @@ const SeniorAdminDashboard = () => {
     }
   };
 
-  // Filter functions
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(userSearch.toLowerCase()) ||
     user.email.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -312,7 +309,7 @@ const SeniorAdminDashboard = () => {
     if (!details) return 'N/A';
     try {
       const parsed = JSON.parse(details);
-      return Object.entries(parsed).map(([key, value]) => 
+      return Object.entries(parsed).map(([key, value]) =>
         `${key}: ${value}`
       ).join(', ');
     } catch {
@@ -320,21 +317,272 @@ const SeniorAdminDashboard = () => {
     }
   };
 
+  // Handler for logs per page change
+  const handleLogsPerPageChange = (e) => {
+    const newLimit = parseInt(e.target.value);
+    setLogsPerPage(newLimit);
+    setCurrentPage(1); // Reset to first page
+  };
+
+  // Stats for carousel
+  const statCards = activeTab === 'users'
+    ? [
+        { label: 'Total Users', value: users.length },
+        { label: 'Filtered Users', value: filteredUsers.length },
+        { label: 'Total Projects', value: projects.length },
+      ]
+    : [
+        { label: 'Total Logs', value: filteredLogs.length },
+        { label: 'Current Page', value: currentPage },
+        {
+          label: 'Logs Per Page',
+          isEditable: true,
+          component: (
+            <select
+              className="stat-select"
+              value={logsPerPage}
+              onChange={handleLogsPerPageChange}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+            </select>
+          )
+        }
+      ];
+
+  // Users table columns
+  const userColumns = [
+    {
+      key: 'username',
+      label: 'User',
+      render: (user) => <strong>{user.username}</strong>
+    },
+    { key: 'email', label: 'Email' },
+    {
+      key: 'role_name',
+      label: 'Role',
+      render: (user) => (
+        <span className={`role-badge role-${user.role_name}`}>
+          {user.role_name}
+        </span>
+      )
+    },
+    {
+      key: 'projects',
+      label: 'Projects',
+      render: (user) => (
+        user.projects && user.projects.length > 0 ? (
+          <div className="projects-list">
+            {user.projects.map(project => (
+              <div key={project.access_id} className="project-item">
+                <span className="project-name">{project.project_name}</span>
+                <span className={`permission-badge permission-${project.permission_level}`}>
+                  {project.permission_level}
+                </span>
+                <div className="project-actions">
+                  <button
+                    className="btn-action btn-edit"
+                    onClick={() => {
+                      setSelectedAccess(project);
+                      setShowUpdateModal(true);
+                    }}
+                    disabled={loading}
+                    title="Edit"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    className="btn-action btn-delete"
+                    onClick={() => handleRevokeAccess(project.access_id)}
+                    disabled={loading}
+                    title="Revoke"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <em style={{ color: '#888' }}>No project access</em>
+        )
+      )
+    }
+  ];
+
+  // Audit logs table columns
+  const logColumns = [
+    {
+      key: 'timestamp',
+      label: 'Timestamp',
+      render: (log) => formatTimestamp(log.timestamp)
+    },
+    {
+      key: 'user',
+      label: 'User',
+      render: (log) => (
+        <div>
+          {log.user && <strong>{log.user.username}</strong>}
+          <br />
+          {log.user && <small style={{ color: '#666' }}>({log.user.role})</small>}
+        </div>
+      )
+    },
+    {
+      key: 'action',
+      label: 'Action',
+      render: (log) => (
+        <span className={`action-badge action-${log.action}`}>
+          {log.action}
+        </span>
+      )
+    },
+    {
+      key: 'resource',
+      label: 'Resource',
+      render: (log) => (
+        <div>
+          <strong>{log.resource_type}</strong>
+          {log.resource_name && (
+            <>
+              <br />
+              <small style={{ color: '#666' }}>{log.resource_name}</small>
+            </>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'details',
+      label: 'Details',
+      render: (log) => <small>{formatDetails(log.details)}</small>
+    },
+    { key: 'ip_address', label: 'IP Address' },
+  ];
+
+  // Help modal sections
+  const helpSections = [
+    {
+      icon: '📋',
+      title: 'Overview',
+      content: (
+        <HelpText>
+          The Senior Admin Dashboard provides comprehensive user and project access management, along with
+          detailed audit logging capabilities. You can grant, update, and revoke user access to projects,
+          control user roles, and monitor all system activities through audit logs.
+        </HelpText>
+      )
+    },
+    {
+      icon: '👥',
+      title: 'Users & Projects Tab',
+      content: (
+        <HelpList
+          items={[
+            { label: 'Grant Project Access', text: 'Opens a form to grant a user access to a specific project with defined permission levels.' },
+            { label: 'Control Administration', text: 'Allows you to change user roles (e.g., user, admin, senior_admin).' },
+            { label: 'Search Users', text: 'Filter users by username, email, or role in real-time.' },
+            { label: 'Edit Access', text: 'Modify permission levels for existing project access (view, edit, all).' },
+            { label: 'Revoke Access', text: 'Remove a user\'s access to a specific project.' },
+          ]}
+        />
+      )
+    },
+    {
+      icon: '📊',
+      title: 'Audit Logs Tab',
+      content: (
+        <HelpList
+          items={[
+            { label: 'Search Logs', text: 'Filter logs by user, action, or resource name in real-time.' },
+            { label: 'Action Filter', text: 'Filter logs by specific actions (e.g., login, create, edit, delete).' },
+            { label: 'Resource Type Filter', text: 'Filter logs by resource types (e.g., project, user, inventory).' },
+            { label: 'Clear All', text: 'Resets all search and filter criteria.' },
+            { label: 'Pagination', text: 'Navigate through audit logs with previous/next buttons.' },
+          ]}
+        />
+      )
+    },
+    {
+      icon: '🔐',
+      title: 'Permission Levels',
+      content: (
+        <HelpList
+          items={[
+            { label: 'View Only', text: 'User can only view data in the project.' },
+            { label: 'Edit Access', text: 'User can view and edit data in the project.' },
+            { label: 'Full Access', text: 'User has complete access including create, edit, and delete operations.' },
+          ]}
+        />
+      )
+    },
+    {
+      icon: '🎭',
+      title: 'User Roles',
+      content: (
+        <HelpList
+          items={[
+            { label: 'User', text: 'Basic user with limited access to assigned projects.' },
+            { label: 'Admin', text: 'Administrator with elevated privileges for project management.' },
+            { label: 'Senior Admin', text: 'Highest level with full system access, user management, and audit capabilities.' },
+          ]}
+        />
+      )
+    },
+    {
+      icon: '📁',
+      title: 'Granting Project Access',
+      content: (
+        <HelpText>
+          To grant project access: Select the user, choose the section (MW BOQ, RAN BOQ, or LE-Automation),
+          select the project from the filtered list, set the permission level, and submit. The user will
+          immediately gain access according to the specified permission level.
+        </HelpText>
+      )
+    },
+    {
+      icon: '💡',
+      title: 'Tips',
+      content: (
+        <HelpList
+          items={[
+            'Use the search feature to quickly find specific users or logs.',
+            'Monitor audit logs regularly to track system usage and detect anomalies.',
+            'Always verify permission levels before granting access to sensitive projects.',
+            'The action and resource type filters help narrow down audit log searches.',
+            'Use "Control Administration" carefully - role changes affect user permissions globally.',
+          ]}
+        />
+      )
+    }
+  ];
+
+  const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
+
   return (
-    <div className="dismantling-container">
-      {/* Header */}
-      <div className="dismantling-header-row">
-        <h2>Senior Admin Dashboard</h2>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button 
-            className="upload-btn"
+    <div className="inventory-container">
+      {/* Header Section */}
+      <div className="inventory-header">
+        <TitleWithInfo
+          title="Senior Admin Dashboard"
+          subtitle="Manage users, projects, and monitor system activities"
+          onInfoClick={() => setShowHelpModal(true)}
+          infoTooltip="How to use this dashboard"
+        />
+        <div className="header-actions">
+          <button
+            className="btn-primary"
             onClick={() => setShowGrantModal(true)}
             disabled={loading}
           >
+            <span className="btn-icon">🔑</span>
             Grant Project Access
           </button>
           <button
-            className="upload-btn"
+            className="btn-secondary"
             onClick={async () => {
               setShowControlAdminModal(true);
               try {
@@ -346,423 +594,237 @@ const SeniorAdminDashboard = () => {
             }}
             disabled={loading}
           >
+            <span className="btn-icon">⚙️</span>
             Control Administration
           </button>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem' }}>
-        <button 
-          className={`upload-btn ${activeTab === 'users' ? '' : 'clear-btn'}`}
+      <div className="tab-navigation">
+        <button
+          className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
           onClick={() => setActiveTab('users')}
-          style={{ background: activeTab === 'users' ? undefined : 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)', color: activeTab === 'users' ? undefined : 'var(--primary-color)' }}
         >
+          <span className="tab-icon">👥</span>
           Users & Projects
         </button>
-        <button 
-          className={`upload-btn ${activeTab === 'logs' ? '' : 'clear-btn'}`}
+        <button
+          className={`tab-button ${activeTab === 'logs' ? 'active' : ''}`}
           onClick={() => setActiveTab('logs')}
-          style={{ background: activeTab === 'logs' ? undefined : 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)', color: activeTab === 'logs' ? undefined : 'var(--primary-color)' }}
         >
+          <span className="tab-icon">📊</span>
           Audit Logs
         </button>
       </div>
 
-      {/* Message Display */}
+      {/* Messages */}
       {message.text && (
-        <div className={`dismantling-message ${message.type}`}>
+        <div className={`message ${message.type === 'error' ? 'error-message' : 'success-message'}`}>
           {message.text}
         </div>
       )}
 
       {/* Authentication Error Modal */}
       {authError && (
-          <div className="modal-overlay">
-              <div className="modal-content">
-                  <span className="modal-close-btn" onClick={() => setAuthError('')}>&times;</span>
-                  <div className="modal-body">
-                      <p>{authError}</p>
-                  </div>
-              </div>
+        <div className="modal-overlay" onClick={() => setAuthError('')}>
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2 className="modal-title">Authentication Error</h2>
+              <button className="modal-close" onClick={() => setAuthError('')}>✕</button>
+            </div>
+            <div className="modal-form">
+              <p>{authError}</p>
+            </div>
           </div>
+        </div>
       )}
+
+      {/* Stats Bar - Carousel Style */}
+      <StatsCarousel cards={statCards} visibleCount={activeTab === 'users' ? 3 : 3} />
 
       {/* Users Tab */}
       {activeTab === 'users' && (
         <div>
-          <div className="dismantling-search-container">
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search users by username, email, or role..."
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-            />
-            <button 
-              className="clear-btn"
-              onClick={() => setUserSearch('')}
-            >
-              Clear
-            </button>
-          </div>
+          <FilterBar
+            searchTerm={userSearch}
+            onSearchChange={(e) => setUserSearch(e.target.value)}
+            searchPlaceholder="Search users by username, email, or role..."
+            showClearButton={!!userSearch}
+            onClearSearch={() => setUserSearch('')}
+            clearButtonText="Clear"
+          />
 
-          <div className="dismantling-table-container">
-            <table className="dismantling-table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Projects</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map(user => (
-                  <tr key={user.id}>
-                    <td><strong>{user.username}</strong></td>
-                    <td>{user.email}</td>
-                    <td>
-                      <span style={{
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '12px',
-                        fontSize: '0.8rem',
-                        fontWeight: '500',
-                        textTransform: 'uppercase',
-                        background: user.role_name === 'senior_admin' ? 'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)' :
-                                        user.role_name === 'admin' ? 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)' :
-                                        'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-                        color: user.role_name === 'senior_admin' ? '#2e7d32' :
-                               user.role_name === 'admin' ? '#7b1fa2' : '#1976d2'
-                      }}>
-                        {user.role_name}
-                      </span>
-                    </td>
-                    <td>
-                      {user.projects && user.projects.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          {user.projects.map(project => (
-                            <div key={project.access_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                              <span style={{ minWidth: '150px' }}>{project.project_name}</span>
-                              <span style={{
-                                padding: '0.25rem 0.75rem',
-                                borderRadius: '12px',
-                                fontSize: '0.8rem',
-                                fontWeight: '500',
-                                textTransform: 'uppercase',
-                                background: project.permission_level === 'all' ? 'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)' :
-                                                project.permission_level === 'edit' ? 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)' :
-                                                'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-                                color: project.permission_level === 'all' ? '#2e7d32' :
-                                       project.permission_level === 'edit' ? '#7b1fa2' : '#1976d2'
-                              }}>
-                                {project.permission_level}
-                              </span>
-                              <div className="actions-cell">
-                                <button 
-                                  className="upload-btn"
-                                  style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                                  onClick={() => {
-                                    setSelectedAccess(project);
-                                    setShowUpdateModal(true);
-                                  }}
-                                  disabled={loading}
-                                >
-                                  Edit
-                                </button>
-                                <button 
-                                  className="clear-btn"
-                                  style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', background: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)', color: '#d32f2f' }}
-                                  onClick={() => handleRevokeAccess(project.access_id)}
-                                  disabled={loading}
-                                >
-                                  Revoke
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <em style={{ color: '#888' }}>No project access</em>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <tr>
-                    <td colSpan="4" className="no-results">
-                      No users found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={userColumns}
+            data={filteredUsers}
+            loading={loading}
+            noDataMessage="No users found"
+            className="inventory-table-wrapper"
+          />
         </div>
       )}
 
       {/* Audit Logs Tab */}
       {activeTab === 'logs' && (
         <div>
-          <div className="dismantling-search-container">
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search logs by user, action, or resource..."
-              value={logSearch}
-              onChange={(e) => setLogSearch(e.target.value)}
-            />
-            <button 
-              className="clear-btn"
-              onClick={() => {
-                setLogSearch('');
-                setActionFilter('');
-                setResourceTypeFilter('');
-              }}
-            >
-              Clear All
-            </button>
-          </div>
+          <FilterBar
+            searchTerm={logSearch}
+            onSearchChange={(e) => setLogSearch(e.target.value)}
+            searchPlaceholder="Search logs by user, action, or resource..."
+            dropdowns={[
+              {
+                label: 'Action',
+                value: actionFilter,
+                onChange: (e) => setActionFilter(e.target.value),
+                placeholder: 'All Actions',
+                options: availableActions.map(action => ({
+                  value: action,
+                  label: action
+                }))
+              },
+              {
+                label: 'Resource Type',
+                value: resourceTypeFilter,
+                onChange: (e) => setResourceTypeFilter(e.target.value),
+                placeholder: 'All Resource Types',
+                options: availableResourceTypes.map(type => ({
+                  value: type,
+                  label: type
+                }))
+              }
+            ]}
+            showClearButton={!!(logSearch || actionFilter || resourceTypeFilter)}
+            onClearSearch={() => {
+              setLogSearch('');
+              setActionFilter('');
+              setResourceTypeFilter('');
+            }}
+            clearButtonText="Clear All"
+          />
 
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <select 
-              className="search-input"
-              value={actionFilter}
-              onChange={(e) => setActionFilter(e.target.value)}
-              style={{ width: 'auto', minWidth: '200px' }}
-            >
-              <option value="">All Actions</option>
-              {availableActions.map(action => (
-                <option key={action} value={action}>{action}</option>
-              ))}
-            </select>
+          <DataTable
+            columns={logColumns}
+            data={filteredLogs}
+            loading={loading}
+            noDataMessage="No audit logs found"
+            className="inventory-table-wrapper"
+          />
 
-            <select 
-              className="search-input"
-              value={resourceTypeFilter}
-              onChange={(e) => setResourceTypeFilter(e.target.value)}
-              style={{ width: 'auto', minWidth: '200px' }}
-            >
-              <option value="">All Resource Types</option>
-              {availableResourceTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="dismantling-table-container">
-            <table className="dismantling-table">
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>User</th>
-                  <th>Action</th>
-                  <th>Resource</th>
-                  <th>Details</th>
-                  <th>IP Address</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLogs.map(log => (
-                  <tr key={log.id}>
-                    <td>{formatTimestamp(log.timestamp)}</td>
-                    <td>
-                      <div>
-                        {log.user && <strong>{log.user.username}</strong>}
-                        <br />
-                        {log.user && <small style={{ color: '#666' }}>({log.user.role})</small>}
-                      </div>
-                    </td>
-                    <td>
-                      <span style={{
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '12px',
-                        fontSize: '0.8rem',
-                        fontWeight: '500',
-                        textTransform: 'uppercase',
-                        background: log.action === 'login' ? 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)' :
-                                        (log.action && log.action.includes('edit')) ? 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)' :
-                                        'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)',
-                        color: log.action === 'login' ? '#1976d2' :
-                               (log.action && log.action.includes('edit')) ? '#7b1fa2' : '#2e7d32'
-                      }}>
-                        {log.action}
-                      </span>
-                    </td>
-                    <td>
-                      <div>
-                        <strong>{log.resource_type}</strong>
-                        {log.resource_name && (
-                          <>
-                            <br />
-                            <small style={{ color: '#666' }}>{log.resource_name}</small>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <small>{formatDetails(log.details)}</small>
-                    </td>
-                    <td>{log.ip_address}</td>
-                  </tr>
-                ))}
-                {filteredLogs.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="no-results">
-                      No audit logs found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination for logs */}
-          <div className="dismantling-pagination">
-            <button 
-              className="pagination-btn"
-              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-              disabled={currentPage === 0 || loading}
-            >
-              Previous
-            </button>
-            <span className="pagination-info">
-              Page {currentPage + 1}
-            </span>
-            <button 
-              className="pagination-btn"
-              onClick={() => setCurrentPage(prev => prev + 1)}
-              disabled={loading || filteredLogs.length < logsPerPage}
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages || 1}
+            onPageChange={(page) => setCurrentPage(page)}
+            previousText="← Previous"
+            nextText="Next →"
+          />
         </div>
       )}
 
       {/* Grant Access Modal */}
       {showGrantModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '2rem',
-            maxWidth: '500px',
-            width: '90%',
-            boxShadow: 'var(--shadow-main)',
-            maxHeight: '80vh',
-            overflowY: 'auto'
-          }}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--primary-color)', margin: 0, fontSize: '1.5rem' }}>
-                Grant Project Access
-              </h3>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowGrantModal(false)}>
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2 className="modal-title">Grant Project Access</h2>
+              <button className="modal-close" onClick={() => {
+                setShowGrantModal(false);
+                setGrantForm({ user_id: '', section: '', project_id: '', permission_level: 'view' });
+                setSectionProjects([]);
+              }}>✕</button>
             </div>
-            <form onSubmit={handleGrantAccess}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
-                  Select User:
-                </label>
-                <select
-                  className="search-input"
-                  value={grantForm.user_id}
-                  onChange={async (e) => {
-                    const user_id = e.target.value;
-                    setGrantForm({ ...grantForm, user_id });
-                  }}
-                  required
-                >
-                  <option value="">Choose a user...</option>
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.username} ({user.email})
-                    </option>
-                  ))}
-                </select>
+
+            <form className="modal-form" onSubmit={handleGrantAccess}>
+              <div className="form-section">
+                <h3 className="section-title">Access Details</h3>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>Select User *</label>
+                    <select
+                      className="filter-input"
+                      value={grantForm.user_id}
+                      onChange={(e) => setGrantForm({ ...grantForm, user_id: e.target.value })}
+                      required
+                    >
+                      <option value="">Choose a user...</option>
+                      {users.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.username} ({user.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Section *</label>
+                    <select
+                      className="filter-input"
+                      value={grantForm.section}
+                      onChange={async (e) => {
+                        const section = e.target.value;
+                        setGrantForm({ ...grantForm, section, project_id: '' });
+                        if (section === '1') {
+                          const mwProjects = await apiService.apiCall('/get_project');
+                          setSectionProjects(Array.isArray(mwProjects) ? mwProjects : []);
+                        } else if (section === '2') {
+                          const ranProjects = await apiService.apiCall('/ran-projects');
+                          setSectionProjects(Array.isArray(ranProjects) ? ranProjects : []);
+                        } else if (section === '3') {
+                          const leProjects = await apiService.apiCall('/rop-projects/');
+                          setSectionProjects(Array.isArray(leProjects) ? leProjects : []);
+                        } else {
+                          setSectionProjects([]);
+                        }
+                      }}
+                      required
+                      disabled={!grantForm.user_id}
+                    >
+                      <option value="">Choose a section...</option>
+                      <option value="1">MW BOQ</option>
+                      <option value="2">RAN BOQ</option>
+                      <option value="3">LE-Automation</option>
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Select Project *</label>
+                    <select
+                      className="filter-input"
+                      value={grantForm.project_id}
+                      onChange={(e) => setGrantForm({ ...grantForm, project_id: e.target.value })}
+                      required
+                      disabled={!grantForm.user_id || !grantForm.section}
+                    >
+                      <option value="">Choose a project...</option>
+                      {sectionProjects.map(project => (
+                        <option key={project.pid_po} value={project.pid_po}>
+                          {project.project_name} ({project.pid_po})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Permission Level *</label>
+                    <select
+                      className="filter-input"
+                      value={grantForm.permission_level}
+                      onChange={(e) => setGrantForm({ ...grantForm, permission_level: e.target.value })}
+                      required
+                      disabled={!grantForm.user_id || !grantForm.section}
+                    >
+                      <option value="view">View Only</option>
+                      <option value="edit">Edit Access</option>
+                      <option value="all">Full Access</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
-                  Section:
-                </label>
-                <select
-                  className="search-input"
-                  value={grantForm.section}
-                  onChange={async (e) => {
-                    const section = e.target.value;
-                    setGrantForm({ ...grantForm, section, project_id: '' });
-                    // Fetch projects for selected section
-                    if (section === '1') {
-                      const mwProjects = await apiService.apiCall('/get_project');
-                      setSectionProjects(Array.isArray(mwProjects) ? mwProjects : []);
-                    } else if (section === '2') {
-                      const ranProjects = await apiService.apiCall('/ran-projects');
-                      setSectionProjects(Array.isArray(ranProjects) ? ranProjects : []);
-                    } else if (section === '3') {
-                      const leProjects = await apiService.apiCall('/rop-projects/');
-                      setSectionProjects(Array.isArray(leProjects) ? leProjects : []);
-                    } else {
-                      setSectionProjects([]);
-                    }
-                  }}
-                  required
-                  disabled={!grantForm.user_id}
-                >
-                  <option value="">Choose a section...</option>
-                  <option value="1">MW BOQ</option>
-                  <option value="2">RAN BOQ</option>
-                  <option value="3">LE-Automation</option>
-                </select>
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
-                  Select Project:
-                </label>
-                <select
-                  className="search-input"
-                  value={grantForm.project_id}
-                  onChange={(e) => setGrantForm({ ...grantForm, project_id: e.target.value })}
-                  required
-                  disabled={!grantForm.user_id || !grantForm.section}
-                >
-                  <option value="">Choose a project...</option>
-                  {sectionProjects.map(project => (
-                    <option key={project.pid_po} value={project.pid_po}>
-                      {project.project_name} ({project.pid_po})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
-                  Permission Level:
-                </label>
-                <select
-                  className="search-input"
-                  value={grantForm.permission_level}
-                  onChange={(e) => setGrantForm({ ...grantForm, permission_level: e.target.value })}
-                  required
-                  disabled={!grantForm.user_id || !grantForm.section}
-                >
-                  <option value="view">View Only</option>
-                  <option value="edit">Edit Access</option>
-                  <option value="all">Full Access</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
-                <button 
+
+              <div className="form-actions">
+                <button
                   type="button"
-                  className="clear-btn"
+                  className="btn-cancel"
                   onClick={() => {
                     setShowGrantModal(false);
                     setGrantForm({ user_id: '', section: '', project_id: '', permission_level: 'view' });
@@ -772,7 +834,7 @@ const SeniorAdminDashboard = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="upload-btn" disabled={loading}>
+                <button type="submit" className="btn-submit" disabled={loading}>
                   {loading ? 'Granting...' : 'Grant Access'}
                 </button>
               </div>
@@ -783,34 +845,18 @@ const SeniorAdminDashboard = () => {
 
       {/* Control Administration Modal */}
       {showControlAdminModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '2rem',
-            maxWidth: '500px',
-            width: '90%',
-            boxShadow: 'var(--shadow-main)',
-            maxHeight: '80vh',
-            overflowY: 'auto'
-          }}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--primary-color)', margin: 0, fontSize: '1.5rem' }}>
-                Control Administration
-              </h3>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowControlAdminModal(false)}>
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2 className="modal-title">Control Administration</h2>
+              <button className="modal-close" onClick={() => {
+                setShowControlAdminModal(false);
+                setControlAdminUserId('');
+                setControlAdminRole('');
+              }}>✕</button>
             </div>
-            <form onSubmit={async (e) => {
+
+            <form className="modal-form" onSubmit={async (e) => {
               e.preventDefault();
               setAuthError('');
               try {
@@ -831,48 +877,51 @@ const SeniorAdminDashboard = () => {
                 setLoading(false);
               }
             }}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
-                  Select User:
-                </label>
-                <select
-                  className="search-input"
-                  value={controlAdminUserId}
-                  onChange={(e) => {
-                    setControlAdminUserId(e.target.value);
-                    setControlAdminRole('');
-                  }}
-                  required
-                >
-                  <option value="">Choose a user...</option>
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.username} ({user.role_name})
-                    </option>
-                  ))}
-                </select>
+              <div className="form-section">
+                <h3 className="section-title">Role Management</h3>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>Select User *</label>
+                    <select
+                      className="filter-input"
+                      value={controlAdminUserId}
+                      onChange={(e) => {
+                        setControlAdminUserId(e.target.value);
+                        setControlAdminRole('');
+                      }}
+                      required
+                    >
+                      <option value="">Choose a user...</option>
+                      {users.map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.username} ({user.role_name})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Select Role *</label>
+                    <select
+                      className="filter-input"
+                      value={controlAdminRole}
+                      onChange={(e) => setControlAdminRole(e.target.value)}
+                      required
+                      disabled={!controlAdminUserId}
+                    >
+                      <option value="">Choose a role...</option>
+                      {allRoles.map(role => (
+                        <option key={role.id} value={role.name}>{role.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
-                  Select Role:
-                </label>
-                <select
-                  className="search-input"
-                  value={controlAdminRole}
-                  onChange={(e) => setControlAdminRole(e.target.value)}
-                  required
-                  disabled={!controlAdminUserId}
-                >
-                  <option value="">Choose a role...</option>
-                  {allRoles.map(role => (
-                    <option key={role.id} value={role.name}>{role.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
-                <button 
+
+              <div className="form-actions">
+                <button
                   type="button"
-                  className="clear-btn"
+                  className="btn-cancel"
                   onClick={() => {
                     setShowControlAdminModal(false);
                     setControlAdminUserId('');
@@ -882,7 +931,7 @@ const SeniorAdminDashboard = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="upload-btn" disabled={loading || !controlAdminUserId || !controlAdminRole}>
+                <button type="submit" className="btn-submit" disabled={loading || !controlAdminUserId || !controlAdminRole}>
                   {loading ? 'Updating...' : 'Update Role'}
                 </button>
               </div>
@@ -893,66 +942,54 @@ const SeniorAdminDashboard = () => {
 
       {/* Update Access Modal */}
       {showUpdateModal && selectedAccess && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '2rem',
-            maxWidth: '500px',
-            width: '90%',
-            boxShadow: 'var(--shadow-main)'
-          }}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ color: 'var(--primary-color)', margin: 0, fontSize: '1.5rem' }}>
-                Update Project Access
-              </h3>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowUpdateModal(false)}>
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2 className="modal-title">Update Project Access</h2>
+              <button className="modal-close" onClick={() => {
+                setShowUpdateModal(false);
+                setSelectedAccess(null);
+              }}>✕</button>
             </div>
-            <form onSubmit={handleUpdateAccess}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
-                  Project:
-                </label>
-                <input
-                  type="text"
-                  className="search-input"
-                  value={selectedAccess.project_name}
-                  readOnly
-                  style={{ backgroundColor: '#f5f5f5' }}
-                />
+
+            <form className="modal-form" onSubmit={handleUpdateAccess}>
+              <div className="form-section">
+                <h3 className="section-title">Access Details</h3>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>Project</label>
+                    <input
+                      type="text"
+                      className="filter-input disabled-input"
+                      value={selectedAccess.project_name}
+                      readOnly
+                      disabled
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Permission Level *</label>
+                    <select
+                      className="filter-input"
+                      value={selectedAccess.permission_level}
+                      onChange={(e) => setSelectedAccess({
+                        ...selectedAccess,
+                        permission_level: e.target.value
+                      })}
+                      required
+                    >
+                      <option value="view">View Only</option>
+                      <option value="edit">Edit Access</option>
+                      <option value="all">Full Access</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary-color)', fontWeight: '500' }}>
-                  Permission Level:
-                </label>
-                <select
-                  className="search-input"
-                  value={selectedAccess.permission_level}
-                  onChange={(e) => setSelectedAccess({
-                    ...selectedAccess,
-                    permission_level: e.target.value
-                  })}
-                  required
-                >
-                  <option value="view">View Only</option>
-                  <option value="edit">Edit Access</option>
-                  <option value="all">Full Access</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2rem' }}>
-                <button 
+
+              <div className="form-actions">
+                <button
                   type="button"
-                  className="clear-btn"
+                  className="btn-cancel"
                   onClick={() => {
                     setShowUpdateModal(false);
                     setSelectedAccess(null);
@@ -961,7 +998,7 @@ const SeniorAdminDashboard = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="upload-btn" disabled={loading}>
+                <button type="submit" className="btn-submit" disabled={loading}>
                   {loading ? 'Updating...' : 'Update Access'}
                 </button>
               </div>
@@ -970,11 +1007,16 @@ const SeniorAdminDashboard = () => {
         </div>
       )}
 
-      {loading && (
-        <div className="loading-message">
-          Loading...
-        </div>
-      )}
+      {/* Help/Info Modal */}
+      <HelpModal
+        show={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="Senior Admin Dashboard - User Guide"
+        sections={helpSections}
+        closeButtonText="Got it!"
+      />
+
+      {loading && <div className="loading-indicator">Loading...</div>}
     </div>
   );
 };

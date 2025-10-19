@@ -1,0 +1,141 @@
+/* ==========================================
+   Data Table Component Styles
+   Nokia-Themed Table Display
+   ========================================== */
+
+/* Table Wrapper */
+.data-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow-x: auto;
+  overflow-y: visible;
+  margin-bottom: 1.5rem;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+/* Custom Scrollbar for better visibility */
+.data-table-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+.data-table-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 0 0 12px 12px;
+}
+
+.data-table-wrapper::-webkit-scrollbar-thumb {
+  background: #124191;
+  border-radius: 10px;
+  border: 2px solid #f1f5f9;
+}
+
+.data-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #0d3270;
+}
+
+/* Table Styles */
+.data-table {
+  width: 100%;
+  min-width: 1400px; /* Ensure table is wide enough to require scroll */
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.data-table thead {
+  background: linear-gradient(135deg, #124191 0%, #1a5fc4 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.data-table th {
+  padding: 1rem 0.75rem;
+  text-align: center;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.15s ease;
+}
+
+.data-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.data-table td {
+  padding: 0.9rem 0.75rem;
+  text-align: center;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.no-data {
+  text-align: center !important;
+  padding: 3rem !important;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.btn-action {
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.btn-action.btn-edit:hover {
+  background: #dbeafe;
+  transform: scale(1.1);
+}
+
+.btn-action.btn-delete:hover {
+  background: #fee2e2;
+  transform: scale(1.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .data-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table {
+    min-width: 1200px;
+  }
+}

@@ -1,0 +1,194 @@
+/* ==========================================
+   Nokia-Themed RAN Projects Styles
+   Modern, Clean, and Fully Responsive
+   ========================================== */
+
+/* Container */
+.ran-projects-container {
+  width: 100%;
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Header Section */
+.ran-projects-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  background: #124191;
+  color: white;
+}
+
+.btn-primary:hover:not(.disabled) {
+  background: #0d3270;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(18, 65, 145, 0.3);
+}
+
+.btn-primary.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  font-size: 1.1rem;
+}
+
+/* Messages */
+.message {
+  padding: 0.9rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #991b1b;
+  border-left: 4px solid #ef4444;
+}
+
+.success-message {
+  background: #d1fae5;
+  color: #065f46;
+  border-left: 4px solid #10b981;
+}
+
+.loading-indicator {
+  padding: 1rem;
+  text-align: center;
+  color: #124191;
+  font-weight: 500;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+/* Table Wrapper */
+.ran-projects-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow-x: auto;
+  overflow-y: visible;
+  margin-bottom: 1.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Table Styles */
+.ran-projects-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.ran-projects-table thead {
+  background: linear-gradient(135deg, #124191 0%, #1a5fc4 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.ran-projects-table th {
+  padding: 1rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.ran-projects-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.15s ease;
+}
+
+.ran-projects-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.ran-projects-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.ran-projects-table td {
+  padding: 0.9rem 0.75rem;
+  text-align: left;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .ran-projects-container {
+    padding: 1rem;
+  }
+  .ran-projects-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .header-actions {
+    justify-content: stretch;
+  }
+  .btn-primary {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 1.4rem;
+  }
+}
+
+/* All other styles for FilterBar, StatsCarousel, Pagination, ModalForm, etc., */
+/* are assumed to be handled by the imported components' CSS or a global stylesheet. */

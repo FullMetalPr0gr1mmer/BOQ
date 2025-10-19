@@ -1,6 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/Site.css';
+import StatsCarousel from './shared/StatsCarousel';
+import FilterBar from './shared/FilterBar';
+import DataTable from './shared/DataTable';
+import HelpModal, { HelpList, HelpText, CodeBlock } from './shared/HelpModal';
+import TitleWithInfo from './shared/InfoButton';
+import Pagination from './shared/Pagination';
 
 export default function Site() {
   const [rows, setRows] = useState([]);
@@ -18,7 +24,6 @@ export default function Site() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
   const [stats, setStats] = useState({ total_sites: 0, total_projects: 0 });
-  const [visibleCardStart, setVisibleCardStart] = useState(0);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const fetchAbort = useRef(null);
 
@@ -217,8 +222,8 @@ export default function Site() {
     fetchSites(1, searchTerm, newLimit);
   };
 
-  // Define all stat cards
-  const allCards = [
+  // Define stat cards for the carousel
+  const statCards = [
     { label: 'Total Sites', value: stats.total_sites },
     { label: 'Total Projects', value: stats.total_projects },
     { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
@@ -232,6 +237,7 @@ export default function Site() {
           value={rowsPerPage}
           onChange={handleRowsPerPageChange}
         >
+          <option value={25}>25</option>
           <option value={50}>50</option>
           <option value={100}>100</option>
           <option value={150}>150</option>
@@ -243,40 +249,121 @@ export default function Site() {
     }
   ];
 
-  const handlePrevCard = () => {
-    setVisibleCardStart((prev) => (prev > 0 ? prev - 1 : allCards.length - 1));
-  };
+  // Define table columns
+  const tableColumns = [
+    { key: 'site_id', label: 'Site ID' },
+    { key: 'site_name', label: 'Site Name' },
+    { key: 'pid_po', label: 'Project ID' }
+  ];
 
-  const handleNextCard = () => {
-    setVisibleCardStart((prev) => (prev < allCards.length - 1 ? prev + 1 : 0));
-  };
-
-  const getVisibleCards = () => {
-    const visible = [];
-    for (let i = 0; i < 3; i++) {
-      const index = (visibleCardStart + i) % allCards.length;
-      visible.push(allCards[index]);
+  // Define table actions
+  const tableActions = [
+    {
+      icon: '✏️',
+      onClick: (row) => openEditForm(row),
+      title: 'Edit',
+      className: 'btn-edit'
+    },
+    {
+      icon: '🗑️',
+      onClick: (row) => handleDelete(row.site_id),
+      title: 'Delete',
+      className: 'btn-delete'
     }
-    return visible;
-  };
+  ];
+
+  // Define help modal sections
+  const helpSections = [
+    {
+      icon: '📋',
+      title: 'Overview',
+      content: (
+        <HelpText>
+          The Site Management component allows you to create, view, edit, and delete sites
+          for your projects. You can also bulk upload site data using CSV files.
+        </HelpText>
+      )
+    },
+    {
+      icon: '✨',
+      title: 'Features & Buttons',
+      content: (
+        <HelpList
+          items={[
+            { label: '+ New Site', text: 'Opens a form to create a new site. You must select a project first.' },
+            { label: '📤 Upload CSV', text: 'Allows you to bulk upload sites from a CSV file. Select a project before uploading.' },
+            { label: 'Search', text: 'Filter sites by Site ID or Site Name in real-time.' },
+            { label: 'Project Dropdown', text: 'Filter all sites by the selected project.' },
+            { label: 'Clear Search', text: 'Resets the search filter and shows all sites.' },
+            { label: '✏️ Edit', text: 'Click on any row\'s edit button to modify that site.' },
+            { label: '🗑️ Delete', text: 'Click on any row\'s delete button to remove that site (requires confirmation).' },
+            { label: '‹ › Navigation Arrows', text: 'Cycle through statistics cards to view different metrics.' },
+            { label: 'Rows Per Page Dropdown', text: 'Change how many sites are displayed per page (50-500).' }
+          ]}
+        />
+      )
+    },
+    {
+      icon: '📊',
+      title: 'Statistics Cards',
+      content: (
+        <HelpList
+          items={[
+            { label: 'Total Sites', text: 'Total count of sites in the system.' },
+            { label: 'Total Projects', text: 'Number of projects that have sites.' },
+            { label: 'Current Page', text: 'Shows which page you\'re viewing out of total pages.' },
+            { label: 'Showing', text: 'Number of sites currently displayed on this page.' },
+            { label: 'Rows Per Page', text: 'Adjustable dropdown to control pagination size.' }
+          ]}
+        />
+      )
+    },
+    {
+      icon: '📁',
+      title: 'CSV Upload Guidelines',
+      content: (
+        <>
+          <HelpText>
+            To upload sites via CSV, your file must contain link data with the following format:
+          </HelpText>
+          <CodeBlock items={['LinkID', 'InterfaceName', 'SiteIPA', 'SiteIPB']} />
+          <HelpText>
+            Example: <code>JIZ0243-JIZ0169, eth0, 10.0.0.1, 10.0.0.2</code>
+          </HelpText>
+          <HelpText isNote>
+            <strong>Note:</strong> Make sure to select a project before uploading. The system will automatically
+            parse the LinkID to extract site names and create sites accordingly.
+          </HelpText>
+        </>
+      )
+    },
+    {
+      icon: '💡',
+      title: 'Tips',
+      content: (
+        <HelpList
+          items={[
+            'Always select a project before creating sites or uploading CSV files.',
+            'Use the search feature to quickly find sites by ID or name.',
+            'Statistics update automatically when you add, edit, or delete sites.',
+            'Site IDs cannot be changed after creation for data integrity.',
+            'All required fields are marked with an asterisk (*) in the form.'
+          ]}
+        />
+      )
+    }
+  ];
 
   return (
     <div className="site-container">
       {/* Header Section */}
       <div className="site-header">
-        <div className="header-left">
-          <div className="title-row">
-            <button
-              className="info-btn"
-              onClick={() => setShowHelpModal(true)}
-              title="How to use this component"
-            >
-              <span className="info-icon">i</span>
-            </button>
-            <h1 className="page-title">Site Management</h1>
-          </div>
-          <p className="page-subtitle">Manage and track your sites</p>
-        </div>
+        <TitleWithInfo
+          title="Site Management"
+          subtitle="Manage and track your sites"
+          onInfoClick={() => setShowHelpModal(true)}
+          infoTooltip="How to use this component"
+        />
         <div className="header-actions">
           <button
             className={`btn-primary ${!selectedProject ? 'disabled' : ''}`}
@@ -302,38 +389,26 @@ export default function Site() {
       </div>
 
       {/* Filters Section */}
-      <div className="site-filters">
-        <div className="filter-group">
-          <label className="filter-label">Search</label>
-          <input
-            type="text"
-            placeholder="Search by Site ID or Name..."
-            value={searchTerm}
-            onChange={onSearchChange}
-            className="filter-input"
-          />
-        </div>
-        <div className="filter-group">
-          <label className="filter-label">Project</label>
-          <select
-            className="filter-select"
-            value={selectedProject}
-            onChange={handleProjectChange}
-          >
-            <option value="">-- Select a Project --</option>
-            {projects.map((p) => (
-              <option key={p.pid_po} value={p.pid_po}>
-                {p.project_name} ({p.pid_po})
-              </option>
-            ))}
-          </select>
-        </div>
-        {searchTerm && (
-          <button onClick={() => { setSearchTerm(''); fetchSites(1, ''); }} className="btn-clear">
-            Clear Search
-          </button>
-        )}
-      </div>
+      <FilterBar
+        searchTerm={searchTerm}
+        onSearchChange={onSearchChange}
+        searchPlaceholder="Search by Site ID or Name..."
+        dropdowns={[
+          {
+            label: 'Project',
+            value: selectedProject,
+            onChange: handleProjectChange,
+            placeholder: '-- Select a Project --',
+            options: projects.map(p => ({
+              value: p.pid_po,
+              label: `${p.project_name} (${p.pid_po})`
+            }))
+          }
+        ]}
+        showClearButton={!!searchTerm}
+        onClearSearch={() => { setSearchTerm(''); fetchSites(1, ''); }}
+        clearButtonText="Clear Search"
+      />
 
       {/* Messages */}
       {error && <div className="message error-message">{error}</div>}
@@ -341,97 +416,26 @@ export default function Site() {
       {loading && <div className="loading-indicator">Loading sites...</div>}
 
       {/* Stats Bar - Carousel Style (3 cards visible) */}
-      <div className="stats-bar-container">
-        <button
-          className="stats-nav-btn stats-nav-left"
-          onClick={handlePrevCard}
-          title="Previous card"
-        >
-          ‹
-        </button>
-        <div className="stats-bar">
-          {getVisibleCards().map((card, idx) => (
-            <div
-              key={`${card.label}-${idx}`}
-              className={`stat-item ${card.isEditable ? 'stat-item-editable' : ''}`}
-            >
-              <span className="stat-label">{card.label}</span>
-              {card.isEditable ? (
-                card.component
-              ) : (
-                <span className="stat-value">{card.value}</span>
-              )}
-            </div>
-          ))}
-        </div>
-        <button
-          className="stats-nav-btn stats-nav-right"
-          onClick={handleNextCard}
-          title="Next card"
-        >
-          ›
-        </button>
-      </div>
+      <StatsCarousel cards={statCards} visibleCount={4} />
 
       {/* Table Section */}
-      <div className="site-table-wrapper">
-        <table className="site-table">
-          <thead>
-            <tr>
-              <th>Site ID</th>
-              <th>Site Name</th>
-              <th>Project ID</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !loading ? (
-              <tr><td colSpan={4} className="no-data">No sites found</td></tr>
-            ) : (
-              rows.map(item => (
-                <tr key={item.id}>
-                  <td>{item.site_id}</td>
-                  <td>{item.site_name}</td>
-                  <td>{item.pid_po}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-action btn-edit" onClick={() => openEditForm(item)} title="Edit">
-                        ✏️
-                      </button>
-                      <button className="btn-action btn-delete" onClick={() => handleDelete(item.site_id)} title="Delete">
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={tableColumns}
+        data={rows}
+        actions={tableActions}
+        loading={loading}
+        noDataMessage="No sites found"
+        className="site-table-wrapper"
+      />
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button
-            className="pagination-btn"
-            disabled={currentPage === 1}
-            onClick={() => fetchSites(currentPage - 1, searchTerm, rowsPerPage)}
-          >
-            ← Previous
-          </button>
-          <span className="pagination-info">
-            Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
-          </span>
-          <button
-            className="pagination-btn"
-            disabled={currentPage === totalPages}
-            onClick={() => fetchSites(currentPage + 1, searchTerm, rowsPerPage)}
-          >
-            Next →
-          </button>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={(page) => fetchSites(page, searchTerm, rowsPerPage)}
+        previousText="← Previous"
+        nextText="Next →"
+      />
 
       {/* Modal Form */}
       {showForm && (
@@ -509,111 +513,13 @@ export default function Site() {
       )}
 
       {/* Help/Info Modal */}
-      {showHelpModal && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowHelpModal(false)}>
-          <div className="modal-container help-modal">
-            <div className="modal-header">
-              <h2 className="modal-title">Site Management - User Guide</h2>
-              <button className="modal-close" onClick={() => setShowHelpModal(false)} type="button">
-                ✕
-              </button>
-            </div>
-
-            <div className="help-content">
-              {/* Overview Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">📋 Overview</h3>
-                <p className="help-text">
-                  The Site Management component allows you to create, view, edit, and delete sites
-                  for your projects. You can also bulk upload site data using CSV files.
-                </p>
-              </div>
-
-              {/* Features Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">✨ Features & Buttons</h3>
-                <ul className="help-list">
-                  <li>
-                    <strong>+ New Site:</strong> Opens a form to create a new site. You must select a project first.
-                  </li>
-                  <li>
-                    <strong>📤 Upload CSV:</strong> Allows you to bulk upload sites from a CSV file. Select a project before uploading.
-                  </li>
-                  <li>
-                    <strong>Search:</strong> Filter sites by Site ID or Site Name in real-time.
-                  </li>
-                  <li>
-                    <strong>Project Dropdown:</strong> Filter all sites by the selected project.
-                  </li>
-                  <li>
-                    <strong>Clear Search:</strong> Resets the search filter and shows all sites.
-                  </li>
-                  <li>
-                    <strong>✏️ Edit:</strong> Click on any row's edit button to modify that site.
-                  </li>
-                  <li>
-                    <strong>🗑️ Delete:</strong> Click on any row's delete button to remove that site (requires confirmation).
-                  </li>
-                  <li>
-                    <strong>‹ › Navigation Arrows:</strong> Cycle through statistics cards to view different metrics.
-                  </li>
-                  <li>
-                    <strong>Rows Per Page Dropdown:</strong> Change how many sites are displayed per page (50-500).
-                  </li>
-                </ul>
-              </div>
-
-              {/* Statistics Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">📊 Statistics Cards</h3>
-                <ul className="help-list">
-                  <li><strong>Total Sites:</strong> Total count of sites in the system.</li>
-                  <li><strong>Total Projects:</strong> Number of projects that have sites.</li>
-                  <li><strong>Current Page:</strong> Shows which page you're viewing out of total pages.</li>
-                  <li><strong>Showing:</strong> Number of sites currently displayed on this page.</li>
-                  <li><strong>Rows Per Page:</strong> Adjustable dropdown to control pagination size.</li>
-                </ul>
-              </div>
-
-              {/* CSV Upload Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">📁 CSV Upload Guidelines</h3>
-                <p className="help-text">
-                  To upload sites via CSV, your file must contain link data with the following format:
-                </p>
-                <div className="csv-headers">
-                  <code>LinkID</code>, <code>InterfaceName</code>, <code>SiteIPA</code>, <code>SiteIPB</code>
-                </div>
-                <p className="help-text">
-                  Example: <code>JIZ0243-JIZ0169, eth0, 10.0.0.1, 10.0.0.2</code>
-                </p>
-                <p className="help-text help-note">
-                  <strong>Note:</strong> Make sure to select a project before uploading. The system will automatically
-                  parse the LinkID to extract site names and create sites accordingly.
-                </p>
-              </div>
-
-              {/* Tips Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">💡 Tips</h3>
-                <ul className="help-list">
-                  <li>Always select a project before creating sites or uploading CSV files.</li>
-                  <li>Use the search feature to quickly find sites by ID or name.</li>
-                  <li>Statistics update automatically when you add, edit, or delete sites.</li>
-                  <li>Site IDs cannot be changed after creation for data integrity.</li>
-                  <li>All required fields are marked with an asterisk (*) in the form.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="help-footer">
-              <button className="btn-submit" onClick={() => setShowHelpModal(false)}>
-                Got it!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <HelpModal
+        show={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="Site Management - User Guide"
+        sections={helpSections}
+        closeButtonText="Got it!"
+      />
     </div>
   );
 }

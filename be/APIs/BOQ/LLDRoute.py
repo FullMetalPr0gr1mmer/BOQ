@@ -65,6 +65,7 @@ def get_lld(
     skip: int = 0,
     limit: int = 100,
     link_id: str = "",
+    project_id: str = "",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -76,7 +77,14 @@ def get_lld(
     # 2. Base query filtered by accessible projects
     query = db.query(LLD).filter(LLD.pid_po.in_(accessible_project_ids))
 
-    # 3. Apply optional search filter
+    # 3. Apply optional project filter
+    if project_id:
+        # Ensure the requested project is in the user's accessible projects
+        if project_id not in accessible_project_ids:
+            raise HTTPException(status_code=403, detail="You don't have access to this project.")
+        query = query.filter(LLD.pid_po == project_id)
+
+    # 4. Apply optional search filter
     if link_id:
         query = query.filter(LLD.link_id.contains(link_id))
 

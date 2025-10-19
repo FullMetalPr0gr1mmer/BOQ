@@ -1,0 +1,94 @@
+/* ==========================================
+   Info Button Component Styles
+   Nokia-Themed Info/Help Button
+   ========================================== */
+
+/* Header Left Section */
+.header-left {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Title Row with Info Button */
+.title-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title-row .page-title {
+  margin: 0;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #124191;
+  letter-spacing: -0.5px;
+}
+
+.page-subtitle {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+/* Info Button */
+.info-btn {
+  position: absolute;
+  left: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #124191;
+  background: white;
+  color: #124191;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.info-btn:hover {
+  background: #124191;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(18, 65, 145, 0.3);
+}
+
+.info-icon {
+  font-style: italic;
+  font-weight: bold;
+  font-size: 1.1rem;
+  font-family: Georgia, serif;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 1.2rem;
+  }
+
+  .page-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .info-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .info-icon {
+    font-size: 1rem;
+  }
+}

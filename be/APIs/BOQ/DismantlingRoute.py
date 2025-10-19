@@ -19,6 +19,39 @@ from Schemas.BOQ.DismantlingSchema import DismantlingCreate, DismantlingUpdate, 
 DismantlingRouter = APIRouter(prefix="/dismantling", tags=["Dismantling"])
 
 
+# ---------- Stats Endpoint ----------
+@DismantlingRouter.get("/stats")
+def get_stats(
+        project_id: Optional[str] = None,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Returns statistics for dismantling records.
+    Optionally filter by a specific project_id.
+    """
+    # Get all projects the user has access to
+    accessible_projects = get_user_accessible_projects(current_user, db)
+    if not accessible_projects:
+        return {"total_records": 0}
+
+    # Filter dismantling records by the user's accessible projects
+    accessible_pids_po = [p.pid_po for p in accessible_projects]
+    query = db.query(Dismantling).filter(Dismantling.pid_po.in_(accessible_pids_po))
+
+    # Apply optional project filter
+    if project_id:
+        if project_id not in accessible_pids_po:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have access to this project."
+            )
+        query = query.filter(Dismantling.pid_po == project_id)
+
+    total_records = query.count()
+    return {"total_records": total_records}
+
+
 # ---------- CRUD with Routers and Access Control ----------
 
 @DismantlingRouter.get("", response_model=DismantlingPagination)
@@ -26,11 +59,13 @@ def get_all(
         skip: int = 0,
         limit: int = 100,
         search: Optional[str] = None,
+        project_id: Optional[str] = None,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Retrieves a paginated and searchable list of dismantling records accessible to the current user.
+    Optionally filter by a specific project_id.
     """
     # Get all projects the user has access to
     accessible_projects = get_user_accessible_projects(current_user, db)
@@ -40,6 +75,16 @@ def get_all(
     # Filter dismantling records by the user's accessible projects (using pid_po)
     accessible_pids_po = [p.pid_po for p in accessible_projects]
     query = db.query(Dismantling).filter(Dismantling.pid_po.in_(accessible_pids_po))
+
+    # Apply optional project filter
+    if project_id:
+        # Ensure the requested project is in the user's accessible projects
+        if project_id not in accessible_pids_po:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have access to this project."
+            )
+        query = query.filter(Dismantling.pid_po == project_id)
 
     if search:
         search_pattern = f"%{search}%"

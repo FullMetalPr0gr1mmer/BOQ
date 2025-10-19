@@ -1,130 +1,7 @@
 /* ==========================================
-   Nokia-Themed Project Management Styles
-   Modern, Clean, and Fully Responsive
-   Matches Inventory.css Structure
+   Modal Form Component Styles
+   Nokia-Themed Modal Dialog with Forms
    ========================================== */
-
-/* Container */
-.project-container {
-  width: 100%;
-  min-height: 100vh;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  box-sizing: border-box;
-  margin: 0;
-  border: none;
-  box-shadow: none;
-}
-
-/* Header Section */
-.project-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-/* Buttons */
-.btn-primary, .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.25rem;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.btn-primary {
-  background: #124191;
-  color: white;
-}
-
-.btn-primary:hover:not(.disabled) {
-  background: #0d3270;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(18, 65, 145, 0.3);
-}
-
-.btn-secondary {
-  background: #5bcefa;
-  color: #124191;
-}
-
-.btn-secondary:hover:not(.disabled) {
-  background: #3ab5e8;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(91, 206, 250, 0.3);
-}
-
-.btn-primary.disabled, .btn-secondary.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-icon {
-  font-size: 1.1rem;
-}
-
-/* Messages */
-.message {
-  padding: 0.9rem 1.25rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.error-message {
-  background: #fee2e2;
-  color: #991b1b;
-  border-left: 4px solid #ef4444;
-}
-
-.success-message {
-  background: #d1fae5;
-  color: #065f46;
-  border-left: 4px solid #10b981;
-}
-
-.loading-indicator {
-  padding: 1rem;
-  text-align: center;
-  color: #124191;
-  font-weight: 500;
-  background: white;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-}
 
 /* Modal Overlay */
 .modal-overlay {
@@ -155,7 +32,7 @@
 .modal-container {
   background: white;
   border-radius: 16px;
-  max-width: 600px;
+  max-width: 900px;
   width: 100%;
   max-height: 90vh;
   display: flex;
@@ -329,58 +206,7 @@
   box-shadow: 0 4px 12px rgba(18, 65, 145, 0.3);
 }
 
-/* Table Wrapper - for DataTable component */
-.project-table-wrapper {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  overflow-x: auto;
-  overflow-y: visible;
-  margin-bottom: 1.5rem;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Custom Scrollbar for better visibility */
-.project-table-wrapper::-webkit-scrollbar {
-  height: 12px;
-}
-
-.project-table-wrapper::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 0 0 12px 12px;
-}
-
-.project-table-wrapper::-webkit-scrollbar-thumb {
-  background: #124191;
-  border-radius: 10px;
-  border: 2px solid #f1f5f9;
-}
-
-.project-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #0d3270;
-}
-
 /* Responsive Design */
-@media (max-width: 1024px) {
-  .project-container {
-    padding: 1rem;
-  }
-
-  .project-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .header-actions {
-    justify-content: stretch;
-  }
-
-  .btn-primary, .btn-secondary {
-    flex: 1;
-    justify-content: center;
-  }
-}
-
 @media (max-width: 768px) {
   .modal-container {
     max-width: 100%;
@@ -407,20 +233,11 @@
 }
 
 @media (max-width: 480px) {
-  .project-container {
-    padding: 0.75rem;
-  }
-
   .modal-header {
     padding: 1rem;
   }
 
   .modal-title {
     font-size: 1.1rem;
-  }
-
-  .btn-primary, .btn-secondary {
-    padding: 0.55rem 1rem;
-    font-size: 0.85rem;
   }
 }

@@ -136,7 +136,7 @@ input[type="checkbox"] {
 
 
 /* --- Container --- */
-.project-container {
+.old_project-container {
   max-width: 1000px;
   margin: 3rem auto;
   padding: 2.5rem 2rem;
@@ -152,7 +152,7 @@ input[type="checkbox"] {
   overflow: hidden;
 }
 
-.project-container::before {
+.old_project-container::before {
   content: '';
   position: absolute;
   top: 0;
@@ -182,8 +182,8 @@ input[type="checkbox"] {
 }
 
 /* --- Buttons --- */
-.new-project-btn,
-.project-form button,
+.new-old_project-btn,
+.old_project-form button,
 .pagination button {
   background: linear-gradient(135deg, #124191 0%, #0066cc 100%);
   color: #ffffff;
@@ -201,8 +201,8 @@ input[type="checkbox"] {
   overflow: hidden;
 }
 
-.new-project-btn::before,
-.project-form button::before,
+.new-old_project-btn::before,
+.old_project-form button::before,
 .pagination button::before {
   content: '';
   position: absolute;
@@ -214,8 +214,8 @@ input[type="checkbox"] {
   transition: left 0.5s;
 }
 
-.new-project-btn:hover,
-.project-form button:hover,
+.new-old_project-btn:hover,
+.old_project-form button:hover,
 .pagination button:hover {
   background: linear-gradient(135deg, #0f3875 0%, #0052a3 100%);
   box-shadow: 
@@ -224,14 +224,14 @@ input[type="checkbox"] {
   transform: translateY(-2px);
 }
 
-.new-project-btn:hover::before,
-.project-form button:hover::before,
+.new-old_project-btn:hover::before,
+.old_project-form button:hover::before,
 .pagination button:hover::before {
   left: 100%;
 }
 
 /* --- Form --- */
-.project-form {
+.old_project-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -243,7 +243,7 @@ input[type="checkbox"] {
   border: 1px solid rgba(18, 65, 145, 0.15);
 }
 
-.project-form input {
+.old_project-form input {
   padding: 0.875rem 1rem;
   border-radius: 10px;
   border: 2px solid rgba(18, 65, 145, 0.2);
@@ -254,24 +254,24 @@ input[type="checkbox"] {
   position: relative;
 }
 
-.project-form input:focus {
+.old_project-form input:focus {
   border-color: #124191;
   outline: none;
   box-shadow: 0 0 0 3px rgba(18, 65, 145, 0.1);
   transform: translateY(-1px);
 }
 
-.project-form input::placeholder {
+.old_project-form input::placeholder {
   color: #8a94a6;
   font-weight: 300;
 }
 
 /* --- List --- */
-.project-list {
+.old_project-list {
   margin-top: 1.5rem;
 }
 
-.project-item {
+.old_project-item {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafb 100%);
   padding: 1.2rem 1.5rem;
   margin-bottom: 1rem;
@@ -285,7 +285,7 @@ input[type="checkbox"] {
   overflow: hidden;
 }
 
-.project-item::after {
+.old_project-item::after {
   content: '';
   position: absolute;
   top: 0;
@@ -297,14 +297,14 @@ input[type="checkbox"] {
   transition: opacity 0.3s ease;
 }
 
-.project-item:hover {
+.old_project-item:hover {
   transform: translateX(4px);
   box-shadow: 
     0 8px 20px rgba(18, 65, 145, 0.15),
     0 4px 8px rgba(18, 65, 145, 0.1);
 }
 
-.project-item:hover::after {
+.old_project-item:hover::after {
   opacity: 1;
 }
 
@@ -353,14 +353,14 @@ input[type="checkbox"] {
 }
 
 /* --- Table --- */
-.project-table-container {
+.old_project-table-container {
   margin-top: 1.5rem;
   overflow-x: auto;
   border-radius: 16px;
   box-shadow: 0 8px 24px rgba(18, 65, 145, 0.1);
 }
 
-.project-table {
+.old_project-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -371,14 +371,14 @@ input[type="checkbox"] {
   overflow: hidden;
 }
 
-.project-table th,
-.project-table td {
+.old_project-table th,
+.old_project-table td {
   border-bottom: 1px solid rgba(18, 65, 145, 0.1);
   padding: 1rem 1.25rem;
   text-align: left;
 }
 
-.project-table th {
+.old_project-table th {
   background: linear-gradient(135deg, #124191 0%, #0f3875 100%);
   color: #ffffff;
   font-weight: 600;
@@ -388,7 +388,7 @@ input[type="checkbox"] {
   position: relative;
 }
 
-.project-table th::after {
+.old_project-table th::after {
   content: '';
   position: absolute;
   bottom: 0;
@@ -398,11 +398,11 @@ input[type="checkbox"] {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
 }
 
-.project-table tr:nth-child(even) {
+.old_project-table tr:nth-child(even) {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafb 100%);
 }
 
-.project-table tr:hover {
+.old_project-table tr:hover {
   background: linear-gradient(135deg, #f8fafb 0%, rgba(18, 65, 145, 0.05) 100%);
   transition: background 0.3s ease;
 }
@@ -616,7 +616,7 @@ input[type="checkbox"] {
 
 /* Responsive Design --- */
 @media (max-width: 768px) {
-  .project-container {
+  .old_project-container {
     margin: 1rem;
     padding: 1.5rem 1rem;
   }

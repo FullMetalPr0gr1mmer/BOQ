@@ -1,6 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/Inventory.css';
+import StatsCarousel from './shared/StatsCarousel';
+import FilterBar from './shared/FilterBar';
+import DataTable from './shared/DataTable';
+import ModalForm, { FormSection, FormField } from './shared/ModalForm';
+import HelpModal, { HelpList, HelpText, CodeBlock } from './shared/HelpModal';
+import TitleWithInfo from './shared/InfoButton';
+import Pagination from './shared/Pagination';
 
 export default function Inventory() {
   const [rows, setRows] = useState([]);
@@ -18,7 +25,6 @@ export default function Inventory() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
   const [stats, setStats] = useState({ total_items: 0, unique_sites: 0 });
-  const [visibleCardStart, setVisibleCardStart] = useState(0);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const fetchAbort = useRef(null);
 
@@ -222,8 +228,8 @@ export default function Inventory() {
     fetchInventory(1, searchTerm, newLimit);
   };
 
-  // Define all stat cards
-  const allCards = [
+  // Define all stat cards for the carousel
+  const statCards = [
     { label: 'Total Items', value: stats.total_items },
     { label: 'Unique Sites', value: stats.unique_sites },
     { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
@@ -237,6 +243,7 @@ export default function Inventory() {
           value={rowsPerPage}
           onChange={handleRowsPerPageChange}
         >
+          <option value={25}>25</option>
           <option value={50}>50</option>
           <option value={100}>100</option>
           <option value={150}>150</option>
@@ -248,40 +255,139 @@ export default function Inventory() {
     }
   ];
 
-  const handlePrevCard = () => {
-    setVisibleCardStart((prev) => (prev > 0 ? prev - 1 : allCards.length - 1));
-  };
+  // Define table columns
+  const tableColumns = [
+    { key: 'site_id', label: 'Site ID' },
+    { key: 'site_name', label: 'Site Name' },
+    { key: 'slot_id', label: 'Slot ID' },
+    { key: 'port_id', label: 'Port ID' },
+    { key: 'status', label: 'Status', render: (row) => <span className="status-badge">{row.status}</span> },
+    { key: 'company_id', label: 'Company ID' },
+    { key: 'mnemonic', label: 'Mnemonic' },
+    { key: 'clei_code', label: 'CLEI Code' },
+    { key: 'part_no', label: 'Part No' },
+    { key: 'software_no', label: 'Software No' },
+    { key: 'factory_id', label: 'Factory ID' },
+    { key: 'serial_no', label: 'Serial No' },
+    { key: 'date_id', label: 'Date ID' },
+    { key: 'manufactured_date', label: 'Mfg. Date' },
+    { key: 'customer_field', label: 'Customer' },
+    { key: 'license_points_consumed', label: 'License Pts' },
+    { key: 'alarm_status', label: 'Alarm' },
+    { key: 'Aggregated_alarm_status', label: 'Agg. Alarm' }
+  ];
 
-  const handleNextCard = () => {
-    setVisibleCardStart((prev) => (prev < allCards.length - 1 ? prev + 1 : 0));
-  };
-
-  const getVisibleCards = () => {
-    const visible = [];
-    for (let i = 0; i < 3; i++) {
-      const index = (visibleCardStart + i) % allCards.length;
-      visible.push(allCards[index]);
+  // Define table actions
+  const tableActions = [
+    {
+      icon: '✏️',
+      onClick: (row) => openEditForm(row),
+      title: 'Edit',
+      className: 'btn-edit'
+    },
+    {
+      icon: '🗑️',
+      onClick: (row) => handleDelete(row.id),
+      title: 'Delete',
+      className: 'btn-delete'
     }
-    return visible;
-  };
+  ];
+
+  // Define help modal sections
+  const helpSections = [
+    {
+      icon: '📋',
+      title: 'Overview',
+      content: (
+        <HelpText>
+          The Inventory Management component allows you to create, view, edit, and delete inventory items
+          for your projects. You can also bulk upload inventory data using CSV files and filter items by project.
+        </HelpText>
+      )
+    },
+    {
+      icon: '✨',
+      title: 'Features & Buttons',
+      content: (
+        <HelpList
+          items={[
+            { label: '+ New Item', text: 'Opens a form to create a new inventory item. You must select a project first.' },
+            { label: '📤 Upload CSV', text: 'Allows you to bulk upload inventory items from a CSV file. Select a project before uploading.' },
+            { label: 'Search', text: 'Filter inventory items by Site ID in real-time.' },
+            { label: 'Project Dropdown', text: 'Filter all inventory items and statistics by the selected project.' },
+            { label: 'Clear Search', text: 'Resets the search filter and shows all items for the selected project.' },
+            { label: '✏️ Edit', text: 'Click on any row\'s edit button to modify that inventory item.' },
+            { label: '🗑️ Delete', text: 'Click on any row\'s delete button to remove that inventory item (requires confirmation).' },
+            { label: '‹ › Navigation Arrows', text: 'Cycle through statistics cards to view different metrics.' },
+            { label: 'Rows Per Page Dropdown', text: 'Change how many items are displayed per page (50-500).' }
+          ]}
+        />
+      )
+    },
+    {
+      icon: '📊',
+      title: 'Statistics Cards',
+      content: (
+        <HelpList
+          items={[
+            { label: 'Total Items', text: 'Total count of inventory items for the selected project (or all projects if none selected).' },
+            { label: 'Unique Sites', text: 'Number of distinct site IDs in the inventory.' },
+            { label: 'Current Page', text: 'Shows which page you\'re viewing out of total pages.' },
+            { label: 'Showing', text: 'Number of items currently displayed on this page.' },
+            { label: 'Rows Per Page', text: 'Adjustable dropdown to control pagination size.' }
+          ]}
+        />
+      )
+    },
+    {
+      icon: '📁',
+      title: 'CSV Upload Guidelines',
+      content: (
+        <>
+          <HelpText>
+            To upload inventory items via CSV, your file must contain the following headers (in any order):
+          </HelpText>
+          <CodeBlock
+            items={[
+              'site_id', 'site_name', 'slot_id', 'port_id', 'status', 'company_id', 'mnemonic', 'clei_code',
+              'part_no', 'software_no', 'factory_id', 'serial_no', 'date_id', 'manufactured_date', 'customer_field',
+              'license_points_consumed', 'alarm_status', 'Aggregated_alarm_status'
+            ]}
+          />
+          <HelpText isNote>
+            <strong>Note:</strong> Make sure to select a project before uploading. The CSV data will be associated
+            with the selected project automatically.
+          </HelpText>
+        </>
+      )
+    },
+    {
+      icon: '💡',
+      title: 'Tips',
+      content: (
+        <HelpList
+          items={[
+            'Always select a project before creating items or uploading CSV files.',
+            'Use the search feature to quickly find items by Site ID.',
+            'The table scrolls horizontally - use the scrollbar at the bottom to see all columns.',
+            'Statistics update automatically when you filter by project or search.',
+            'All required fields are marked with an asterisk (*) in the form.'
+          ]}
+        />
+      )
+    }
+  ];
 
   return (
     <div className="inventory-container">
       {/* Header Section */}
       <div className="inventory-header">
-        <div className="header-left">
-          <div className="title-row">
-            <button
-              className="info-btn"
-              onClick={() => setShowHelpModal(true)}
-              title="How to use this component"
-            >
-              <span className="info-icon">i</span>
-            </button>
-            <h1 className="page-title">Inventory Management</h1>
-          </div>
-          <p className="page-subtitle">Manage and track your inventory items</p>
-        </div>
+        <TitleWithInfo
+          title="Inventory Management"
+          subtitle="Manage and track your inventory items"
+          onInfoClick={() => setShowHelpModal(true)}
+          infoTooltip="How to use this component"
+        />
         <div className="header-actions">
           <button
             className={`btn-primary ${!selectedProject ? 'disabled' : ''}`}
@@ -307,38 +413,26 @@ export default function Inventory() {
       </div>
 
       {/* Filters Section */}
-      <div className="inventory-filters">
-        <div className="filter-group">
-          <label className="filter-label">Search</label>
-          <input
-            type="text"
-            placeholder="Search by Site ID..."
-            value={searchTerm}
-            onChange={onSearchChange}
-            className="filter-input"
-          />
-        </div>
-        <div className="filter-group">
-          <label className="filter-label">Project</label>
-          <select
-            className="filter-select"
-            value={selectedProject}
-            onChange={handleProjectChange}
-          >
-            <option value="">-- Select a Project --</option>
-            {projects.map((p) => (
-              <option key={p.pid_po} value={p.pid_po}>
-                {p.project_name} ({p.pid_po})
-              </option>
-            ))}
-          </select>
-        </div>
-        {searchTerm && (
-          <button onClick={() => { setSearchTerm(''); fetchInventory(1, ''); }} className="btn-clear">
-            Clear Search
-          </button>
-        )}
-      </div>
+      <FilterBar
+        searchTerm={searchTerm}
+        onSearchChange={onSearchChange}
+        searchPlaceholder="Search by Site ID..."
+        dropdowns={[
+          {
+            label: 'Project',
+            value: selectedProject,
+            onChange: handleProjectChange,
+            placeholder: '-- Select a Project --',
+            options: projects.map(p => ({
+              value: p.pid_po,
+              label: `${p.project_name} (${p.pid_po})`
+            }))
+          }
+        ]}
+        showClearButton={!!searchTerm}
+        onClearSearch={() => { setSearchTerm(''); fetchInventory(1, ''); }}
+        clearButtonText="Clear Search"
+      />
 
       {/* Messages */}
       {error && <div className="message error-message">{error}</div>}
@@ -346,127 +440,26 @@ export default function Inventory() {
       {loading && <div className="loading-indicator">Loading inventory...</div>}
 
       {/* Stats Bar - Carousel Style (3 cards visible) */}
-      <div className="stats-bar-container">
-        <button
-          className="stats-nav-btn stats-nav-left"
-          onClick={handlePrevCard}
-          title="Previous card"
-        >
-          ‹
-        </button>
-        <div className="stats-bar">
-          {getVisibleCards().map((card, idx) => (
-            <div
-              key={`${card.label}-${idx}`}
-              className={`stat-item ${card.isEditable ? 'stat-item-editable' : ''}`}
-            >
-              <span className="stat-label">{card.label}</span>
-              {card.isEditable ? (
-                card.component
-              ) : (
-                <span className="stat-value">{card.value}</span>
-              )}
-            </div>
-          ))}
-        </div>
-        <button
-          className="stats-nav-btn stats-nav-right"
-          onClick={handleNextCard}
-          title="Next card"
-        >
-          ›
-        </button>
-      </div>
+      <StatsCarousel cards={statCards} visibleCount={4} />
 
       {/* Table Section */}
-      <div className="inventory-table-wrapper">
-        <table className="inventory-table">
-          <thead>
-            <tr>
-              <th>Site ID</th>
-              <th>Site Name</th>
-              <th>Slot ID</th>
-              <th>Port ID</th>
-              <th>Status</th>
-              <th>Company ID</th>
-              <th>Mnemonic</th>
-              <th>CLEI Code</th>
-              <th>Part No</th>
-              <th>Software No</th>
-              <th>Factory ID</th>
-              <th>Serial No</th>
-              <th>Date ID</th>
-              <th>Mfg. Date</th>
-              <th>Customer</th>
-              <th>License Pts</th>
-              <th>Alarm</th>
-              <th>Agg. Alarm</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !loading ? (
-              <tr><td colSpan={19} className="no-data">No inventory items found</td></tr>
-            ) : (
-              rows.map(item => (
-                <tr key={item.id}>
-                  <td>{item.site_id}</td>
-                  <td>{item.site_name}</td>
-                  <td>{item.slot_id}</td>
-                  <td>{item.port_id}</td>
-                  <td><span className="status-badge">{item.status}</span></td>
-                  <td>{item.company_id}</td>
-                  <td>{item.mnemonic}</td>
-                  <td>{item.clei_code}</td>
-                  <td>{item.part_no}</td>
-                  <td>{item.software_no}</td>
-                  <td>{item.factory_id}</td>
-                  <td>{item.serial_no}</td>
-                  <td>{item.date_id}</td>
-                  <td>{item.manufactured_date}</td>
-                  <td>{item.customer_field}</td>
-                  <td>{item.license_points_consumed}</td>
-                  <td>{item.alarm_status}</td>
-                  <td>{item.Aggregated_alarm_status}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-action btn-edit" onClick={() => openEditForm(item)} title="Edit">
-                        ✏️
-                      </button>
-                      <button className="btn-action btn-delete" onClick={() => handleDelete(item.id)} title="Delete">
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={tableColumns}
+        data={rows}
+        actions={tableActions}
+        loading={loading}
+        noDataMessage="No inventory items found"
+        className="inventory-table-wrapper"
+      />
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button
-            className="pagination-btn"
-            disabled={currentPage === 1}
-            onClick={() => fetchInventory(currentPage - 1, searchTerm, rowsPerPage)}
-          >
-            ← Previous
-          </button>
-          <span className="pagination-info">
-            Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
-          </span>
-          <button
-            className="pagination-btn"
-            disabled={currentPage === totalPages}
-            onClick={() => fetchInventory(currentPage + 1, searchTerm, rowsPerPage)}
-          >
-            Next →
-          </button>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={(page) => fetchInventory(page, searchTerm, rowsPerPage)}
+        previousText="← Previous"
+        nextText="Next →"
+      />
 
       {/* Modal Form */}
       {showForm && (
@@ -725,112 +718,13 @@ export default function Inventory() {
       )}
 
       {/* Help/Info Modal */}
-      {showHelpModal && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowHelpModal(false)}>
-          <div className="modal-container help-modal">
-            <div className="modal-header">
-              <h2 className="modal-title">Inventory Management - User Guide</h2>
-              <button className="modal-close" onClick={() => setShowHelpModal(false)} type="button">
-                ✕
-              </button>
-            </div>
-
-            <div className="help-content">
-              {/* Overview Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">📋 Overview</h3>
-                <p className="help-text">
-                  The Inventory Management component allows you to create, view, edit, and delete inventory items
-                  for your projects. You can also bulk upload inventory data using CSV files and filter items by project.
-                </p>
-              </div>
-
-              {/* Features Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">✨ Features & Buttons</h3>
-                <ul className="help-list">
-                  <li>
-                    <strong>+ New Item:</strong> Opens a form to create a new inventory item. You must select a project first.
-                  </li>
-                  <li>
-                    <strong>📤 Upload CSV:</strong> Allows you to bulk upload inventory items from a CSV file. Select a project before uploading.
-                  </li>
-                  <li>
-                    <strong>Search:</strong> Filter inventory items by Site ID in real-time.
-                  </li>
-                  <li>
-                    <strong>Project Dropdown:</strong> Filter all inventory items and statistics by the selected project.
-                  </li>
-                  <li>
-                    <strong>Clear Search:</strong> Resets the search filter and shows all items for the selected project.
-                  </li>
-                  <li>
-                    <strong>✏️ Edit:</strong> Click on any row's edit button to modify that inventory item.
-                  </li>
-                  <li>
-                    <strong>🗑️ Delete:</strong> Click on any row's delete button to remove that inventory item (requires confirmation).
-                  </li>
-                  <li>
-                    <strong>‹ › Navigation Arrows:</strong> Cycle through statistics cards to view different metrics.
-                  </li>
-                  <li>
-                    <strong>Rows Per Page Dropdown:</strong> Change how many items are displayed per page (50-500).
-                  </li>
-                </ul>
-              </div>
-
-              {/* Statistics Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">📊 Statistics Cards</h3>
-                <ul className="help-list">
-                  <li><strong>Total Items:</strong> Total count of inventory items for the selected project (or all projects if none selected).</li>
-                  <li><strong>Unique Sites:</strong> Number of distinct site IDs in the inventory.</li>
-                  <li><strong>Current Page:</strong> Shows which page you're viewing out of total pages.</li>
-                  <li><strong>Showing:</strong> Number of items currently displayed on this page.</li>
-                  <li><strong>Rows Per Page:</strong> Adjustable dropdown to control pagination size.</li>
-                </ul>
-              </div>
-
-              {/* CSV Upload Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">📁 CSV Upload Guidelines</h3>
-                <p className="help-text">
-                  To upload inventory items via CSV, your file must contain the following headers (in any order):
-                </p>
-                <div className="csv-headers">
-                  <code>site_id</code>, <code>site_name</code>, <code>slot_id</code>, <code>port_id</code>,
-                  <code>status</code>, <code>company_id</code>, <code>mnemonic</code>, <code>clei_code</code>,
-                  <code>part_no</code>, <code>software_no</code>, <code>factory_id</code>, <code>serial_no</code>,
-                  <code>date_id</code>, <code>manufactured_date</code>, <code>customer_field</code>,
-                  <code>license_points_consumed</code>, <code>alarm_status</code>, <code>Aggregated_alarm_status</code>
-                </div>
-                <p className="help-text help-note">
-                  <strong>Note:</strong> Make sure to select a project before uploading. The CSV data will be associated
-                  with the selected project automatically.
-                </p>
-              </div>
-
-              {/* Tips Section */}
-              <div className="help-section">
-                <h3 className="help-section-title">💡 Tips</h3>
-                <ul className="help-list">
-                  <li>Always select a project before creating items or uploading CSV files.</li>
-                  <li>Use the search feature to quickly find items by Site ID.</li>
-                  <li>The table scrolls horizontally - use the scrollbar at the bottom to see all columns.</li>
-                  <li>Statistics update automatically when you filter by project or search.</li>
-                  <li>All required fields are marked with an asterisk (*) in the form.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="help-footer">
-              <button className="btn-submit" onClick={() => setShowHelpModal(false)}>
-                Got it!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <HelpModal
+        show={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="Inventory Management - User Guide"
+        sections={helpSections}
+        closeButtonText="Got it!"
+      />
     </div>
   );
 }

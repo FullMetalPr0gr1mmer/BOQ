@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
-import '../css/Dismantling.css';
+import '../css/Inventory.css';
+import StatsCarousel from './shared/StatsCarousel';
+import FilterBar from './shared/FilterBar';
+import DataTable from './shared/DataTable';
+import HelpModal, { HelpList, HelpText, CodeBlock } from './shared/HelpModal';
+import TitleWithInfo from './shared/InfoButton';
+import Pagination from './shared/Pagination';
 
 const ROWS_PER_PAGE = 100;
 
-// --- Helper Functions (No changes here) ---
+// --- Helper Functions ---
 const parseCSV = (csvString) => {
   if (!csvString) return [];
   const lines = csvString.split('\n');
@@ -44,8 +50,9 @@ export default function BOQGeneration() {
   const [editingRow, setEditingRow] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [editableCsvData, setEditableCsvData] = useState([]);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
-  // --- NEW: State for project selection ---
+  // --- Project state ---
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
 
@@ -54,17 +61,16 @@ export default function BOQGeneration() {
     InterfaceName: '',
     SiteIPA: '',
     SiteIPB: '',
-    pid_po: '', // NEW: To hold the project ID
+    pid_po: '',
   });
 
   const fetchAbort = useRef(null);
 
-  // --- NEW: Function to fetch user's projects ---
+  // --- Fetch user's projects ---
   const fetchProjects = async () => {
     try {
       const data = await apiCall('/get_project');
       setProjects(data || []);
-      // Optionally, auto-select the first project
       if (data && data.length > 0) {
         setSelectedProject(data[0].pid_po);
       }
@@ -75,7 +81,7 @@ export default function BOQGeneration() {
   };
 
   // --- Data Fetching ---
-  const fetchReferences = async (page = 1, search = '') => {
+  const fetchReferences = async (page = 1, search = '', projectId = selectedProject) => {
     try {
       if (fetchAbort.current) fetchAbort.current.abort();
       const controller = new AbortController();
@@ -86,6 +92,7 @@ export default function BOQGeneration() {
       const skip = (page - 1) * ROWS_PER_PAGE;
       const params = new URLSearchParams({ skip: skip.toString(), limit: ROWS_PER_PAGE.toString() });
       if (search.trim()) params.set('search', search.trim());
+      if (projectId) params.set('project_id', projectId);
 
       const data = await apiCall(`/boq/references?${params.toString()}`, {
         signal: controller.signal,
@@ -98,7 +105,7 @@ export default function BOQGeneration() {
         interfaceName: r.InterfaceName,
         siteA: r.SiteIPA,
         siteB: r.SiteIPB,
-        pid_po: r.pid_po, // Store project ID for context
+        pid_po: r.pid_po,
       })));
       setTotal(data.total || 0);
       setCurrentPage(page);
@@ -112,10 +119,18 @@ export default function BOQGeneration() {
   };
 
   useEffect(() => {
-    fetchProjects(); // Fetch projects on component mount
+    fetchProjects();
     fetchReferences(1, '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleProjectChange = (e) => {
+    const projectId = e.target.value;
+    setSelectedProject(projectId);
+    setSearchTerm('');
+    setCurrentPage(1);
+    fetchReferences(1, '', projectId);
+  };
 
   const onSearchChange = (e) => {
     const v = e.target.value;
@@ -123,15 +138,14 @@ export default function BOQGeneration() {
     fetchReferences(1, v);
   };
 
-  // --- MODIFIED: Handle Upload to include project_id ---
+  // --- Handle Upload ---
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check if a project is selected
     if (!selectedProject) {
       setTransient(setError, "Please select a project before uploading.");
-      e.target.value = ''; // Clear file input
+      e.target.value = '';
       return;
     }
 
@@ -143,7 +157,6 @@ export default function BOQGeneration() {
     formDataLocal.append('file', file);
 
     try {
-      // Append project_id as a query parameter
       const result = await apiCall(`/boq/upload-reference?project_id=${selectedProject}`, {
         method: 'POST',
         body: formDataLocal,
@@ -159,9 +172,9 @@ export default function BOQGeneration() {
     }
   };
 
-  // --- Unchanged Functions ---
-  const handleGenerateRow = async (row) => { /* ... no changes needed ... */
-        if (!row || !row.linkedIp) {
+  // --- Generate BOQ ---
+  const handleGenerateRow = async (row) => {
+    if (!row || !row.linkedIp) {
       setTransient(setError, 'Selected row is invalid');
       return;
     }
@@ -188,24 +201,28 @@ export default function BOQGeneration() {
       setGenerating(false);
     }
   };
-  const handleCellChange = (rowIndex, cellIndex, value) => { /* ... no changes needed ... */
-      const updatedData = editableCsvData.map((row, rIdx) =>
+
+  const handleCellChange = (rowIndex, cellIndex, value) => {
+    const updatedData = editableCsvData.map((row, rIdx) =>
       rIdx === rowIndex ? row.map((cell, cIdx) => (cIdx === cellIndex ? value : cell)) : row
     );
     setEditableCsvData(updatedData);
   };
-  const handleAddRow = () => { /* ... no changes needed ... */
-      const numColumns = editableCsvData[0]?.length || 1;
+
+  const handleAddRow = () => {
+    const numColumns = editableCsvData[0]?.length || 1;
     const newRow = Array(numColumns).fill('----------------');
     const updatedData = [editableCsvData[0], ...editableCsvData.slice(1), newRow];
     setEditableCsvData(updatedData);
   };
-  const handleDeleteRow = (rowIndexToDelete) => { /* ... no changes needed ... */
-      if (rowIndexToDelete === 0) return;
+
+  const handleDeleteRow = (rowIndexToDelete) => {
+    if (rowIndexToDelete === 0) return;
     setEditableCsvData(editableCsvData.filter((_, index) => index !== rowIndexToDelete));
   };
-  const downloadCSV = () => { /* ... no changes needed ... */
-      if (!editableCsvData.length) return;
+
+  const downloadCSV = () => {
+    if (!editableCsvData.length) return;
     const csvContent = stringifyCSV(editableCsvData);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -217,7 +234,7 @@ export default function BOQGeneration() {
     document.body.removeChild(link);
   };
 
-  // --- MODIFIED: Create / Edit / Delete to handle project_id ---
+  // --- Create / Edit / Delete ---
   const openCreateModal = () => {
     if (!selectedProject) {
       setTransient(setError, 'Please select a project to create a new reference.');
@@ -228,7 +245,7 @@ export default function BOQGeneration() {
       InterfaceName: '',
       SiteIPA: '',
       SiteIPB: '',
-      pid_po: selectedProject, // Set the project ID for the new record
+      pid_po: selectedProject,
     });
     setEditingRow(null);
     setShowForm(true);
@@ -252,7 +269,7 @@ export default function BOQGeneration() {
         InterfaceName: data.InterfaceName || '',
         SiteIPA: data.SiteIPA || '',
         SiteIPB: data.SiteIPB || '',
-        pid_po: data.pid_po || '', // Make sure to get the project_id
+        pid_po: data.pid_po || '',
       });
       setShowForm(true);
       setError('');
@@ -264,8 +281,8 @@ export default function BOQGeneration() {
     }
   };
 
-  const closeFormModal = () => { /* ... no changes needed ... */
-      setShowForm(false);
+  const closeFormModal = () => {
+    setShowForm(false);
     setEditingRow(null);
     setFormData({
       linkid: '',
@@ -278,19 +295,17 @@ export default function BOQGeneration() {
     setSuccess('');
   };
 
-  const handleFormInputChange = (e) => { /* ... no changes needed ... */
-      const { name, value } = e.target;
+  const handleFormInputChange = (e) => {
+    const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // No changes needed here, as formData now includes pid_po
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
     setSuccess('');
     try {
-      // Ensure pid_po is set before submitting
       const submitData = {
         ...formData,
         pid_po: formData.pid_po || selectedProject
@@ -317,9 +332,9 @@ export default function BOQGeneration() {
     }
   };
 
-  const handleDelete = async (row) => { /* ... no changes needed ... */
-        if (!row || !row.id) return;
-    if (!confirm(`Are you sure you want to delete reference "${row.linkedIp}"?`)) return;
+  const handleDelete = async (row) => {
+    if (!row || !row.id) return;
+    if (!window.confirm(`Are you sure you want to delete reference "${row.linkedIp}"?`)) return;
     try {
       await apiCall(`/boq/reference/${row.id}`, {
         method: 'DELETE',
@@ -335,121 +350,232 @@ export default function BOQGeneration() {
   const csvHeaders = editableCsvData[0] || [];
   const csvBody = editableCsvData.slice(1);
 
-  // --- JSX Rendering with new Project Selector ---
-  return (
-    <div className="dismantling-container">
-      <div className="dismantling-header-row">
-        <h2>BOQ Generation</h2>
-        {/* NEW: Project Selector */}
-        <div className="project-selector-container">
+  // Define all stat cards for the carousel
+  const statCards = [
+    { label: 'Total References', value: total },
+    { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
+    { label: 'Showing', value: `${rows.length} items` },
+  ];
 
-        </div>
-        <div style={{ display: 'flex', gap: 16 }}>
+  // Define table columns
+  const tableColumns = [
+    {
+      key: 'generate',
+      label: 'Generate',
+      render: (row) => (
+        <button
+          title={`Generate BOQ for ${row.linkedIp}`}
+          onClick={() => handleGenerateRow(row)}
+          disabled={generating}
+          className="btn-generate"
+        >
+          ▼
+        </button>
+      )
+    },
+    { key: 'linkedIp', label: 'Linked-IP' },
+    { key: 'interfaceName', label: 'Interface Name' },
+    { key: 'siteA', label: 'Site-A IP' },
+    { key: 'siteB', label: 'Site-B IP' },
+  ];
+
+  // Define table actions
+  const tableActions = [
+    {
+      icon: '✏️',
+      onClick: (row) => openEditModal(row),
+      title: 'Edit',
+      className: 'btn-edit'
+    },
+    {
+      icon: '🗑️',
+      onClick: (row) => handleDelete(row),
+      title: 'Delete',
+      className: 'btn-delete'
+    }
+  ];
+
+  // Define help modal sections
+  const helpSections = [
+    {
+      icon: '📋',
+      title: 'Overview',
+      content: (
+        <HelpText>
+          The BOQ Generation component allows you to manage BOQ references and generate Bill of Quantities (BOQ)
+          documents for your network links. You can create, edit, and delete references, and bulk upload reference
+          data using CSV files.
+        </HelpText>
+      )
+    },
+    {
+      icon: '✨',
+      title: 'Features & Buttons',
+      content: (
+        <HelpList
+          items={[
+            { label: '+ New Reference', text: 'Opens a form to create a new BOQ reference. You must select a project first.' },
+            { label: '📤 Upload Reference', text: 'Allows you to bulk upload BOQ references from a CSV file. Select a project before uploading.' },
+            { label: 'Search', text: 'Filter references by linkid, interface name, or site IP in real-time.' },
+            { label: 'Project Dropdown', text: 'Filter all BOQ references by the selected project.' },
+            { label: 'Clear Search', text: 'Resets the search filter and shows all references for the selected project.' },
+            { label: '▼ Generate', text: 'Click to generate a BOQ document for that specific link reference. The generated BOQ will open in an editable modal.' },
+            { label: '✏️ Edit', text: 'Click on any row\'s edit button to modify that reference.' },
+            { label: '🗑️ Delete', text: 'Click on any row\'s delete button to remove that reference (requires confirmation).' },
+          ]}
+        />
+      )
+    },
+    {
+      icon: '📊',
+      title: 'Statistics Cards',
+      content: (
+        <HelpList
+          items={[
+            { label: 'Total References', text: 'Total count of BOQ references for the selected project (or all projects if none selected).' },
+            { label: 'Current Page', text: 'Shows which page you\'re viewing out of total pages.' },
+            { label: 'Showing', text: 'Number of references currently displayed on this page.' },
+          ]}
+        />
+      )
+    },
+    {
+      icon: '📁',
+      title: 'CSV Upload Guidelines',
+      content: (
+        <>
+          <HelpText>
+            To upload BOQ references via CSV, your file must contain the following headers (in any order):
+          </HelpText>
+          <CodeBlock
+            items={[
+              'linkid', 'InterfaceName', 'SiteIPA', 'SiteIPB'
+            ]}
+          />
+          <HelpText isNote>
+            <strong>Note:</strong> Make sure to select a project before uploading. The CSV data will be associated
+            with the selected project automatically.
+          </HelpText>
+        </>
+      )
+    },
+    {
+      icon: '🔧',
+      title: 'BOQ Generation Modal',
+      content: (
+        <HelpList
+          items={[
+            'After clicking the ▼ Generate button, a modal will open with the generated BOQ data in an editable table.',
+            'You can edit any cell directly by clicking and typing.',
+            'Use the ➕ Add Row button to add new rows to the BOQ.',
+            'Use the 🗑 button on each row to delete that row.',
+            'Click ⬇ Download CSV to export the BOQ as a CSV file.',
+            'The modal displays the total number of data rows (excluding the header).',
+          ]}
+        />
+      )
+    },
+    {
+      icon: '💡',
+      title: 'Tips',
+      content: (
+        <HelpList
+          items={[
+            'Always select a project before creating references or uploading CSV files.',
+            'Use the search feature to quickly find references by link ID, interface name, or site IPs.',
+            'The table scrolls horizontally - use the scrollbar at the bottom to see all columns.',
+            'All required fields are marked with an asterisk (*) in the form.',
+            'Generated BOQs can be edited and downloaded as CSV files for further processing.',
+          ]}
+        />
+      )
+    }
+  ];
+
+  return (
+    <div className="inventory-container">
+      {/* Header Section */}
+      <div className="inventory-header">
+        <TitleWithInfo
+          title="BOQ Generation"
+          subtitle="Manage BOQ references and generate Bill of Quantities"
+          onInfoClick={() => setShowHelpModal(true)}
+          infoTooltip="How to use this component"
+        />
+        <div className="header-actions">
           <button
-            className="upload-btn"
+            className={`btn-primary ${!selectedProject ? 'disabled' : ''}`}
             onClick={openCreateModal}
-            disabled={!selectedProject} // Disable if no project is selected
+            disabled={!selectedProject}
             title={!selectedProject ? "Select a project first" : "Create a new reference"}
           >
-            + New Reference
+            <span className="btn-icon">+</span>
+            New Reference
           </button>
-          <label className={`upload-btn ${uploading || !selectedProject ? 'disabled' : ''}`}
-            title={!selectedProject ? "Select a project first" : "Upload a reference CSV"}
-          >
-            📤 Upload Reference
-            <input type="file" accept=".csv" style={{ display: 'none' }} disabled={uploading || !selectedProject} onChange={handleUpload} />
+          <label className={`btn-secondary ${uploading || !selectedProject ? 'disabled' : ''}`}>
+            <span className="btn-icon">📤</span>
+            Upload Reference
+            <input
+              type="file"
+              accept=".csv"
+              style={{ display: "none" }}
+              disabled={uploading || !selectedProject}
+              onChange={handleUpload}
+            />
           </label>
         </div>
       </div>
 
-      <div className="dismantling-search-container">
-        <input
-          type="text"
-          placeholder="Type to filter (linkid / interface / site IP)..."
-          value={searchTerm}
-          onChange={onSearchChange}
-          className="search-input"
-        />
-        {searchTerm && (
-          <button onClick={() => { setSearchTerm(''); fetchReferences(1, ''); }} className="clear-btn">Clear</button>
-        )}
+      {/* Filters Section */}
+      <FilterBar
+        searchTerm={searchTerm}
+        onSearchChange={onSearchChange}
+        searchPlaceholder="Search by linkid, interface, or site IP..."
+        dropdowns={[
+          {
+            label: 'Project',
+            value: selectedProject,
+            onChange: handleProjectChange,
+            placeholder: '-- Select a Project --',
+            options: projects.map(p => ({
+              value: p.pid_po,
+              label: `${p.project_name} (${p.pid_po})`
+            }))
+          }
+        ]}
+        showClearButton={!!searchTerm}
+        onClearSearch={() => { setSearchTerm(''); fetchReferences(1, ''); }}
+        clearButtonText="Clear Search"
+      />
 
-          <select
-            id="project-select"
-            className="search-input"
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
+      {/* Messages */}
+      {error && <div className="message error-message">{error}</div>}
+      {success && <div className="message success-message">{success}</div>}
+      {loading && <div className="loading-indicator">Loading references...</div>}
 
-          >
-            <option value="">-- Select a Project --</option>
-            {projects.map((p) => (
-              <option key={p.pid_po} value={p.pid_po}>
-                {p.project_name} ({p.pid_po})
-              </option>
-            ))}
-          </select>
-      </div>
+      {/* Stats Bar - Carousel Style */}
+      <StatsCarousel cards={statCards} visibleCount={4} />
 
-      {error && <div className="dismantling-message error">{error}</div>}
-      {success && <div className="dismantling-message success">{success}</div>}
-      {loading && <div className="loading-message">Loading references...</div>}
+      {/* Table Section */}
+      <DataTable
+        columns={tableColumns}
+        data={rows}
+        actions={tableActions}
+        loading={loading}
+        noDataMessage="No BOQ references found"
+        className="inventory-table-wrapper"
+      />
 
-      {/* --- Table and Modals (No structural changes, only logic behind them is updated) --- */}
-      <div className="dismantling-table-container">
-        {/* ... table jsx ... */}
-         <table className="dismantling-table">
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'center' }}></th>
-              <th style={{ textAlign: 'center' }}>Linked-IP</th>
-              <th style={{ textAlign: 'center' }}>Interface Name</th>
-              <th style={{ textAlign: 'center' }}>Site-A IP</th>
-              <th style={{ textAlign: 'center' }}>Site-B IP</th>
-              <th style={{ textAlign: 'center', width: '110px' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !loading ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 16 }}>No results</td></tr>
-            ) : (
-              rows.map((row, idx) => (
-                <tr key={idx}>
-                  <td style={{ textAlign: 'center' }}>
-                    <button
-                      title={`Generate BOQ for ${row.linkedIp}`}
-                      onClick={() => handleGenerateRow(row)}
-                      disabled={generating}
-                      style={{ padding: '4px 8px', borderRadius: 6, cursor: generating ? 'not-allowed' : 'pointer', border: '1px solid #ccc' }}
-                    >
-                      ▼
-                    </button>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{row.linkedIp}</td>
-                  <td style={{ textAlign: 'center' }}>{row.interfaceName}</td>
-                  <td style={{ textAlign: 'center' }}>{row.siteA}</td>
-                  <td style={{ textAlign: 'center' }}>{row.siteB}</td>
-                  <td style={{ textAlign: 'center', width: '110px' }}>
-                    <div className="actions-cell">
-                      <button className="pagination-btn" onClick={() => openEditModal(row)}>Details</button>
-                      <button className="clear-btn" onClick={() => handleDelete(row)}>Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={(page) => fetchReferences(page, searchTerm)}
+        previousText="← Previous"
+        nextText="Next →"
+      />
 
-      {totalPages > 1 && (
-        <div className="dismantling-pagination">
-        {/* ... pagination jsx ... */}
-         <button className="pagination-btn" disabled={currentPage === 1} onClick={() => fetchReferences(currentPage - 1, searchTerm)}>Prev</button>
-          <span className="pagination-info">Page {currentPage} of {totalPages}</span>
-          <button className="pagination-btn" disabled={currentPage === totalPages} onClick={() => fetchReferences(currentPage + 1, searchTerm)}>Next</button>
-        </div>
-      )}
-
+      {/* BOQ Generation Modal (kept as-is) */}
       {showModal && (
         <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', padding: 24, borderRadius: 8, width: '95%', height: '90%', display: 'flex', flexDirection: 'column' }}>
@@ -493,7 +619,6 @@ export default function BOQGeneration() {
                     <tr><td colSpan={csvHeaders.length + 1} style={{ textAlign: 'center', padding: 20 }}>No data rows.</td></tr>
                   ) : (
                     csvBody.map((row, rowIndex) => (
-                      // Filter out empty rows that might come from the BE
                       row.join("").trim() && <tr key={rowIndex}>
                         <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
                            <button onClick={() => handleDeleteRow(rowIndex + 1)} style={{ background: '#f44336', color: 'white', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: '12px'}} title="Remove row">
@@ -521,62 +646,115 @@ export default function BOQGeneration() {
         </div>
       )}
 
+      {/* Form Modal */}
       {showForm && (
-        <div className="modal-overlay">
-        {/* ... create/edit modal jsx ... */}
-                 <div className="modal-content">
-           <form className="project-form" onSubmit={handleFormSubmit}>
-             <div className="modal-header-row" style={{ justifyContent: 'space-between' }}>
-               <h3 className="modal-title">
-                 {editingRow ? `Editing Reference: '${editingRow.linkedIp}'` : 'New Reference'}
-               </h3>
-               <button className="modal-close-btn" onClick={closeFormModal} type="button">&times;</button>
-             </div>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2 className="modal-title">
+                {editingRow ? `Edit Reference: '${editingRow.linkedIp}'` : 'Create New Reference'}
+              </h2>
+              <button className="modal-close" onClick={closeFormModal} type="button">
+                ✕
+              </button>
+            </div>
 
-             {error && <div className="dismantling-message error">{error}</div>}
-             {success && <div className="dismantling-message success">{success}</div>}
+            <form className="modal-form" onSubmit={handleFormSubmit}>
+              {/* Messages */}
+              {error && <div className="message error-message">{error}</div>}
+              {success && <div className="message success-message">{success}</div>}
 
-             {/* The project context is now handled by the global selector */}
-             <input
-              className="search-input"
-              type="text"
-              name="linkid"
-              placeholder="Linked ID (linkid)"
-              value={formData.linkid}
-              onChange={handleFormInputChange}
-              required
-            />
-             <input
-              className="search-input"
-              type="text"
-              name="InterfaceName"
-              placeholder="Interface Name"
-              value={formData.InterfaceName}
-              onChange={handleFormInputChange}
-            />
-             <input
-              className="search-input"
-              type="text"
-              name="SiteIPA"
-              placeholder="Site A IP (SiteIPA)"
-              value={formData.SiteIPA}
-              onChange={handleFormInputChange}
-            />
-             <input
-              className="search-input"
-              type="text"
-              name="SiteIPB"
-              placeholder="Site B IP (SiteIPB)"
-              value={formData.SiteIPB}
-              onChange={handleFormInputChange}
-            />
-             <button className="upload-btn" type="submit" disabled={submitting}>
-              {submitting ? 'Saving...' : (editingRow ? 'Update' : 'Save')}
-             </button>
-           </form>
-         </div>
+              {/* Project Information Section */}
+              <div className="form-section">
+                <h3 className="section-title">Project Information</h3>
+                <div className="form-grid">
+                  <div className="form-field full-width">
+                    <label>Project ID</label>
+                    <input
+                      type="text"
+                      name="pid_po"
+                      value={formData.pid_po}
+                      onChange={handleFormInputChange}
+                      required
+                      disabled
+                      className="disabled-input"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Reference Information Section */}
+              <div className="form-section">
+                <h3 className="section-title">Reference Information</h3>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>Linked ID *</label>
+                    <input
+                      type="text"
+                      name="linkid"
+                      placeholder="Linked ID (linkid)"
+                      value={formData.linkid}
+                      onChange={handleFormInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Interface Name</label>
+                    <input
+                      type="text"
+                      name="InterfaceName"
+                      placeholder="Interface Name"
+                      value={formData.InterfaceName}
+                      onChange={handleFormInputChange}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Site A IP *</label>
+                    <input
+                      type="text"
+                      name="SiteIPA"
+                      placeholder="Site A IP (SiteIPA)"
+                      value={formData.SiteIPA}
+                      onChange={handleFormInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Site B IP *</label>
+                    <input
+                      type="text"
+                      name="SiteIPB"
+                      placeholder="Site B IP (SiteIPB)"
+                      value={formData.SiteIPB}
+                      onChange={handleFormInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={closeFormModal}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit" disabled={submitting}>
+                  {submitting ? 'Saving...' : (editingRow ? 'Update Reference' : 'Create Reference')}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
+
+      {/* Help/Info Modal */}
+      <HelpModal
+        show={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="BOQ Generation - User Guide"
+        sections={helpSections}
+        closeButtonText="Got it!"
+      />
     </div>
   );
 }

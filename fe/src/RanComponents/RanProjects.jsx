@@ -1,197 +1,269 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
-import '../css/RAN.css';
+import '../css/RanProject.css'; // Using the new unified CSS
+import StatsCarousel from '../Components/shared/StatsCarousel';
+import FilterBar from '../Components/shared/FilterBar';
+import DataTable from '../Components/shared/DataTable';
+import ModalForm from '../Components/shared/ModalForm';
+import HelpModal, { HelpList, HelpText } from '../Components/shared/HelpModal';
+import TitleWithInfo from '../Components/shared/InfoButton';
+import Pagination from '../Components/shared/Pagination';
 
-const PROJECTS_PER_PAGE = 5;
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 
 export default function RanProjects() {
-    const [projects, setProjects] = useState([]);
-    const [showForm, setShowForm] = useState(false);
-    const [editingProject, setEditingProject] = useState(null);
-    const [po, setPo] = useState('');
-    const [projectName, setProjectName] = useState('');
-    const [pid, setPid] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
+  // --- State Management ---
+  const [rows, setRows] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [showForm, setShowForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState({ total_projects: 0 });
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const fetchAbort = useRef(null);
 
-    useEffect(() => {
-        fetchProjects();
-    }, []);
+  const initialForm = {
+    pid: '',
+    project_name: '',
+    po: ''
+  };
+  const [formData, setFormData] = useState(initialForm);
 
-    const fetchProjects = async () => {
-        try {
-            const data = await apiCall('/ran-projects');
-            setProjects(data);
-        } catch (err) {
-            setTransient(setError, 'Failed to fetch projects');
-        }
-    };
+  // --- API Functions ---
+  const fetchProjects = async (page = 1, search = '', limit = rowsPerPage) => {
+    try {
+      if (fetchAbort.current) fetchAbort.current.abort();
+      const controller = new AbortController();
+      fetchAbort.current = controller;
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-        const projectData = { po, project_name: projectName, pid };
-        try {
-            if (editingProject) {
-                await apiCall(`/ran-projects/${editingProject.pid_po}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ project_name: projectName }),
-                });
-            } else {
-                await apiCall('/ran-projects', {
-                    method: 'POST',
-                    body: JSON.stringify(projectData),
-                });
-            }
-            setTransient(setSuccess, editingProject ? 'Project updated successfully!' : 'Project created successfully!');
-            setShowForm(false);
-            setEditingProject(null);
-            setPo('');
-            setProjectName('');
-            setPid('');
-            fetchProjects();
-        } catch (err) {
-            setTransient(setError, err.message || 'Failed to save project');
-        }
-    };
+      setLoading(true);
+      setError('');
+      const skip = (page - 1) * limit;
+      const params = new URLSearchParams({
+        skip: String(skip),
+        limit: String(limit),
+        search: search.trim(),
+      });
 
-    const handleEdit = (project) => {
-        setEditingProject(project);
-        setPo(project.po || '');
-        setProjectName(project.project_name || '');
-        setPid(project.pid || '');
-        setShowForm(true);
-    };
+      const data = await apiCall(`/ran-projects?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      setRows(data.records || []);
+      setTotal(data.total || 0);
+      setCurrentPage(page);
+    } catch (err) {
+      if (err.name !== 'AbortError') setTransient(setError, 'Failed to fetch projects');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleDelete = async (project) => {
-        if (!window.confirm(`Delete project ${project.project_name}?`)) return;
-        try {
-            await apiCall(`/ran-projects/${project.pid_po}`, {
-                method: 'DELETE'
-            });
-            setTransient(setSuccess, 'Project deleted successfully!');
-            fetchProjects();
-        } catch (err) {
-            setTransient(setError, err.message || 'Failed to delete project');
-        }
-    };
+  // Calculate stats from current data
+  const calculateStats = () => {
+    setStats({ total_projects: total });
+  };
+  
+  // --- Initial Data Load ---
+  useEffect(() => {
+    fetchProjects(1, '', rowsPerPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const paginatedProjects = projects.slice((currentPage - 1) * PROJECTS_PER_PAGE, currentPage * PROJECTS_PER_PAGE);
-    const totalPages = Math.ceil(projects.length / PROJECTS_PER_PAGE);
+  // Calculate stats when data changes
+  useEffect(() => {
+    calculateStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, total]);
 
-    return (
-        <div className="dismantling-container">
-            <div className="dismantling-header-row">
-                <h2>RAN Projects</h2>
-                <button 
-                    className="upload-btn" 
-                    onClick={() => { setShowForm(!showForm); setEditingProject(null); setPo(''); setProjectName(''); setPid(''); }}>
-                    {showForm ? 'Cancel' : '+ New Project'}
-                </button>
-            </div>
-            {error && <div className="dismantling-message error">{error}</div>}
-            {success && <div className="dismantling-message success">{success}</div>}
-            {showForm && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <form className="project-form" onSubmit={handleSubmit}>
-                            <div className="modal-header-row" style={{ justifyContent: 'space-between' }}>
-                                <h3 className="modal-title">
-                                    {editingProject ? `Editing Project: '${editingProject.project_name}'` : 'New Project'}
-                                </h3>
-                                <button className="modal-close-btn" onClick={() => setShowForm(false)} type="button">
-                                    &times;
-                                </button>
-                            </div>
-                            <input
-                                className="search-input"
-                                type="text"
-                                placeholder="Purchase Order"
-                                value={po}
-                                onChange={e => setPo(e.target.value)}
-                                required
-                                disabled={!!editingProject}
-                            />
-                            <input
-                                className="search-input"
-                                type="text"
-                                placeholder="Project Name"
-                                value={projectName}
-                                onChange={e => setProjectName(e.target.value)}
-                                required
-                            />
-                            <input
-                                className="search-input"
-                                type="text"
-                                placeholder="Project ID"
-                                value={pid}
-                                onChange={e => setPid(e.target.value)}
-                                required
-                                disabled={!!editingProject}
-                            />
-                            <button className="upload-btn" type="submit">
-                                {editingProject ? 'Update' : 'Save'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
-            <div className="dismantling-table-container">
-                <table className="dismantling-table">
-                    <thead>
-                        <tr>
-                            <th style={{ textAlign: 'center' }}>Project ID</th>
-                            <th style={{ textAlign: 'center' }}>Project Name</th>
-                            <th style={{ textAlign: 'center' }}>Purchase Order</th>
-                            <th style={{ textAlign: 'center' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedProjects.length === 0 ? (
-                            <tr><td colSpan={4} style={{ textAlign: 'center', padding: 16 }}>No projects found</td></tr>
-                        ) : (
-                            paginatedProjects.map((project, idx) => (
-                                <tr key={project.pid_po || idx}>
-                                    <td style={{ textAlign: 'center' }}>{project.pid}</td>
-                                    <td style={{ textAlign: 'center' }}>{project.project_name}</td>
-                                    <td style={{ textAlign: 'center' }}>{project.po}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        <div className="actions-cell">
-                                            <button
-                                                className="pagination-btn"
-                                                onClick={() => handleEdit(project)}
-                                            >
-                                                Details
-                                            </button>
-                                            <button
-                                                className="clear-btn"
-                                                onClick={() => handleDelete(project)}
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-            {totalPages > 1 && (
-                <div className="dismantling-pagination">
-                    {Array.from({ length: totalPages }, (_, i) => (
-                        <button
-                            key={i}
-                            className={`pagination-btn ${i + 1 === currentPage ? 'active-page' : ''}`}
-                            onClick={() => setCurrentPage(i + 1)}
-                        >
-                            {i + 1}
-                        </button>
-                    ))}
-                </div>
-            )}
+  // --- Event Handlers ---
+  const onSearchChange = (e) => {
+    const v = e.target.value;
+    setSearchTerm(v);
+    fetchProjects(1, v, rowsPerPage);
+  };
+
+  const openCreateForm = () => {
+    setFormData(initialForm);
+    setIsEditing(false);
+    setEditingId(null);
+    setShowForm(true);
+  };
+
+  const openEditForm = (item) => {
+    setFormData({ 
+        pid: item.pid,
+        project_name: item.project_name,
+        po: item.po
+    });
+    setIsEditing(true);
+    setEditingId(item.pid_po);
+    setShowForm(true);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (isEditing && editingId) {
+        // Only project_name is editable for an existing project
+        await apiCall(`/ran-projects/${editingId}`, { method: 'PUT', body: JSON.stringify({ project_name: formData.project_name }) });
+      } else {
+        await apiCall('/ran-projects', { method: 'POST', body: JSON.stringify(formData) });
+      }
+
+      setTransient(setSuccess, isEditing ? 'Project updated successfully!' : 'Project created successfully!');
+      setShowForm(false);
+      fetchProjects(currentPage, searchTerm, rowsPerPage);
+    } catch (err) {
+      setTransient(setError, err.message || 'Operation failed');
+    }
+  };
+
+  const handleDelete = async (pid_po) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) return;
+    try {
+      await apiCall(`/ran-projects/${pid_po}`, { method: 'DELETE' });
+      setTransient(setSuccess, 'Project deleted successfully!');
+      // Go back to page 1 if the last item on a page is deleted
+      const newPage = rows.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
+      fetchProjects(newPage, searchTerm, rowsPerPage);
+    } catch (err) {
+      setTransient(setError, err.message || 'Delete failed');
+    }
+  };
+  
+  const handleRowsPerPageChange = (e) => {
+    const newLimit = parseInt(e.target.value);
+    setRowsPerPage(newLimit);
+    setCurrentPage(1);
+    fetchProjects(1, searchTerm, newLimit);
+  };
+
+  const totalPages = Math.ceil(total / rowsPerPage);
+
+  // --- UI Component Definitions ---
+  const statCards = [
+    { label: 'Total Projects', value: stats.total_projects },
+    { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
+    { label: 'Showing', value: `${rows.length} projects` },
+    {
+      label: 'Rows Per Page', isEditable: true,
+      component: (
+        <select className="stat-select" value={rowsPerPage} onChange={handleRowsPerPageChange}>
+          {ROWS_PER_PAGE_OPTIONS.map(val => <option key={val} value={val}>{val}</option>)}
+        </select>
+      )
+    }
+  ];
+
+  const tableColumns = [
+    { key: 'pid', label: 'Project ID' },
+    { key: 'project_name', label: 'Project Name' },
+    { key: 'po', label: 'Purchase Order (PO)' },
+  ];
+
+  const tableActions = [
+    { icon: '✏️', onClick: (row) => openEditForm(row), title: 'Edit', className: 'btn-edit' },
+    { icon: '🗑️', onClick: (row) => handleDelete(row.pid_po), title: 'Delete', className: 'btn-delete' }
+  ];
+
+  const helpSections = [
+    { icon: '📋', title: 'Overview', content: <HelpText>This page allows you to manage RAN (Radio Access Network) projects. You can create, view, edit, and delete projects.</HelpText> },
+    { icon: '✨', title: 'Features', content: (
+        <HelpList items={[
+            { label: '+ New Project', text: 'Opens a form to create a new project.' },
+            { label: 'Search', text: 'Filter projects in real-time by their name, ID, or PO number.' },
+            { label: 'Edit (✏️)', text: 'Allows you to update the name of an existing project.' },
+            { label: 'Delete (🗑️)', text: 'Permanently removes a project.' },
+        ]} />
+    )},
+    { icon: '💡', title: 'Important Notes', content: (
+        <HelpText isNote>When editing a project, the Project ID and Purchase Order cannot be changed. Only the Project Name can be updated.</HelpText>
+    )}
+  ];
+  
+  // --- Render ---
+  return (
+    <div className="ran-projects-container">
+      <div className="ran-projects-header">
+        <TitleWithInfo
+          title="RAN Projects"
+          subtitle="Manage all Radio Access Network projects"
+          onInfoClick={() => setShowHelpModal(true)}
+        />
+        <div className="header-actions">
+          <button className="btn-primary" onClick={openCreateForm}>
+            <span className="btn-icon">+</span> New Project
+          </button>
         </div>
-    );
+      </div>
+
+      <FilterBar
+        searchTerm={searchTerm}
+        onSearchChange={onSearchChange}
+        searchPlaceholder="Search by Project Name, ID, or PO..."
+        showClearButton={!!searchTerm}
+        onClearSearch={() => { setSearchTerm(''); fetchProjects(1, '', rowsPerPage); }}
+      />
+
+      {error && <div className="message error-message">{error}</div>}
+      {success && <div className="message success-message">{success}</div>}
+      {loading && <div className="loading-indicator">Loading projects...</div>}
+
+      <StatsCarousel cards={statCards} visibleCount={4} />
+
+      <DataTable
+        columns={tableColumns}
+        data={rows}
+        actions={tableActions}
+        loading={loading}
+        noDataMessage="No projects found"
+        className="ran-projects-table-wrapper"
+      />
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={(page) => fetchProjects(page, searchTerm, rowsPerPage)}
+      />
+
+      <ModalForm
+        show={showForm}
+        onClose={() => setShowForm(false)}
+        onSubmit={handleSubmit}
+        title={isEditing ? `Edit Project: ${formData.project_name}` : 'Create New Project'}
+        submitText={isEditing ? 'Update Project' : 'Create Project'}
+      >
+        <div className="form-field">
+          <label>Project Name *</label>
+          <input type="text" name="project_name" value={formData.project_name} onChange={handleChange} required />
+        </div>
+        <div className="form-field">
+          <label>Project ID (PID) *</label>
+          <input type="text" name="pid" value={formData.pid} onChange={handleChange} required disabled={isEditing} />
+        </div>
+        <div className="form-field">
+          <label>Purchase Order (PO) *</label>
+          <input type="text" name="po" value={formData.po} onChange={handleChange} required disabled={isEditing} />
+        </div>
+      </ModalForm>
+
+      <HelpModal
+        show={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="RAN Projects - User Guide"
+        sections={helpSections}
+      />
+    </div>
+  );
 }

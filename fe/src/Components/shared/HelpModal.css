@@ -1,0 +1,123 @@
+/* ==========================================
+   Help Modal Component Styles
+   Nokia-Themed Documentation Modal
+   ========================================== */
+
+/* Help Modal Specific Styles */
+.help-modal {
+  max-width: 800px;
+}
+
+.help-content {
+  padding: 2rem;
+  overflow-y: auto;
+  max-height: calc(90vh - 200px);
+}
+
+.help-section {
+  margin-bottom: 2rem;
+}
+
+.help-section:last-child {
+  margin-bottom: 0;
+}
+
+.help-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #124191;
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.help-section-content {
+  color: #4b5563;
+}
+
+.help-text {
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin: 0 0 0.75rem 0;
+}
+
+.help-note {
+  background: #fef3c7;
+  border-left: 4px solid #f59e0b;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-top: 0.75rem;
+}
+
+.help-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.help-list li {
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.help-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0.5rem;
+  color: #124191;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.help-list li strong {
+  color: #124191;
+  font-weight: 600;
+}
+
+.csv-headers {
+  background: #f3f4f6;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 0.75rem 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  overflow-x: auto;
+}
+
+.csv-headers code {
+  background: white;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  color: #124191;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.help-footer {
+  padding: 1.5rem 2rem;
+  border-top: 2px solid #e5e7eb;
+  display: flex;
+  justify-content: center;
+}
+
+.help-footer .btn-submit {
+  min-width: 150px;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .help-content {
+    padding: 1.25rem;
+  }
+
+  .help-footer {
+    padding: 1rem;
+  }
+}
