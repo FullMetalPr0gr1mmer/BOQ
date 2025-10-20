@@ -5,6 +5,10 @@ import { useLocation } from "react-router-dom";
 import "../css/RopPackage.css";
 import moment from "moment";
 import { apiCall, setTransient } from '../api';
+import StatsCarousel from '../Components/shared/StatsCarousel';
+import FilterBar from '../Components/shared/FilterBar';
+import HelpModal, { HelpList, HelpText } from '../Components/shared/HelpModal';
+import TitleWithInfo from '../Components/shared/InfoButton';
 
 const MONTH_WIDTH = 60; // width of 1 month column in px
 
@@ -44,6 +48,16 @@ export default function RopPackage() {
   const [savingQuantityColPkgId, setSavingQuantityColPkgId] = useState(null);
   const [editingMonthly, setEditingMonthly] = useState({});
   const [savingMonthlyPkgId, setSavingMonthlyPkgId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [stats, setStats] = useState({
+    total_packages: 0,
+    total_quantity: 0,
+    total_revenue: 0,
+    unique_projects: 0
+  });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [packageToDelete, setPackageToDelete] = useState(null);
 
   // Utility function to check if a date/month is in the past
   const isDateInPast = (date) => {
@@ -106,8 +120,23 @@ export default function RopPackage() {
   useEffect(() => {
     if (packages.length > 0) {
       calculateTimeline();
+      calculateStats();
     }
   }, [packages]);
+
+  const calculateStats = () => {
+    const total_packages = packages.length;
+    const total_quantity = packages.reduce((sum, pkg) => sum + (pkg.quantity || 0), 0);
+    const total_revenue = packages.reduce((sum, pkg) => sum + ((pkg.quantity || 0) * (pkg.price || 0)), 0);
+    const unique_projects = new Set(packages.map(pkg => pkg.project_id)).size;
+
+    setStats({
+      total_packages,
+      total_quantity,
+      total_revenue,
+      unique_projects
+    });
+  };
 
   const fetchProjects = async () => {
     try {
@@ -262,19 +291,31 @@ export default function RopPackage() {
     }
   };
 
-  const handleDeletePackage = async (packageId) => {
-    if (!window.confirm("Are you sure you want to delete this package?")) {
-      return;
-    }
+  const handleDeletePackage = (pkg) => {
+    setPackageToDelete(pkg);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!packageToDelete) return;
     try {
-      await apiCall(`/rop-package/${packageId}`, {
+      await apiCall(`/rop-package/${packageToDelete.id}`, {
         method: "DELETE",
       });
       setTransient(setSuccess, "Package deleted successfully!");
+      setShowDeleteModal(false);
+      setPackageToDelete(null);
       fetchPackages();
     } catch (err) {
       setTransient(setError, err.message || "Failed to delete package");
+      setShowDeleteModal(false);
+      setPackageToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setPackageToDelete(null);
   };
 
   const getBarProperties = (pkg) => {
@@ -649,50 +690,143 @@ export default function RopPackage() {
     return total;
   };
 
+  // Filter packages by search term
+  const filteredPackages = packages.filter(pkg => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      pkg.package_name?.toLowerCase().includes(search) ||
+      pkg.project_id?.toLowerCase().includes(search)
+    );
+  });
+
+  // Define stat cards
+  const statCards = [
+    { label: 'Total Packages', value: stats.total_packages },
+    { label: 'Total Package Qty', value: stats.total_quantity.toLocaleString() },
+    { label: 'Total Revenue', value: formatCurrency(stats.total_revenue) },
+    { label: 'Projects', value: stats.unique_projects }
+  ];
+
+  // Help modal sections
+  const helpSections = [
+    {
+      icon: '📋',
+      title: 'Overview',
+      content: <HelpText>The ROP Packages page provides a Gantt chart view for managing package timelines, quantities, and monthly distributions. You can drag and drop package bars to adjust dates, edit monthly distributions, and track revenue with lead time calculations.</HelpText>
+    },
+    {
+      icon: '✨',
+      title: 'Features',
+      content: (
+        <HelpList items={[
+          { label: 'Gantt Chart', text: 'Visual timeline showing package duration with draggable start/end dates.' },
+          { label: 'Monthly Distribution', text: 'Edit quantity distribution across months within the package date range.' },
+          { label: 'Auto Distribute', text: 'Automatically distribute remaining quantities evenly across future months.' },
+          { label: 'Drag & Drop', text: 'Click and drag the package bar to move dates, or drag the circular handles to resize.' },
+          { label: 'Expand Details', text: 'Click the arrow button to expand and view PCI items, monthly distribution summary, and revenue details.' },
+          { label: 'Search', text: 'Filter packages by package name or project ID.' },
+          { label: 'Project Filter', text: 'View packages for a specific project or all projects.' },
+        ]} />
+      )
+    },
+    {
+      icon: '📊',
+      title: 'Gantt Chart Controls',
+      content: (
+        <>
+          <HelpText>The Gantt chart provides intuitive drag-and-drop functionality:</HelpText>
+          <HelpList items={[
+            'Green circle on the left: Drag to change start date',
+            'Blue circle on the right: Drag to change end date',
+            'Blue bar in the middle: Drag to move the entire package (preserves duration)',
+            'Date pickers: Click the calendar icon to select precise dates',
+            'Past months are grayed out and cannot be edited'
+          ]} />
+        </>
+      )
+    },
+    {
+      icon: '📅',
+      title: 'Monthly Distributions',
+      content: (
+        <>
+          <HelpText>Manage how quantities are distributed across months:</HelpText>
+          <HelpList items={[
+            'Edit quantity inputs directly for each month',
+            'Monthly costs are automatically calculated and shown below each quantity',
+            'Use "Auto Distribute" to evenly spread remaining quantities across future months',
+            'Click "Save Monthly" to persist your changes',
+            'The system warns you if total monthly quantities don\'t match the package quantity'
+          ]} />
+          <HelpText isNote>Past months cannot be modified. Auto-distribute only affects future months and preserves past allocations.</HelpText>
+        </>
+      )
+    },
+    {
+      icon: '💰',
+      title: 'Revenue Calculations',
+      content: (
+        <HelpText>Revenue is calculated using the package price and lead time. Lead time shifts when revenue is recognized. Expand a package row to see detailed revenue information including payment month, payment date, and total revenue amount in the specified currency.</HelpText>
+      )
+    },
+    {
+      icon: '💡',
+      title: 'Tips',
+      content: (
+        <HelpList items={[
+          'Always ensure monthly distributions equal the total package quantity',
+          'Use Auto Distribute to quickly allocate future quantities',
+          'Past months are protected from edits to preserve historical data',
+          'Changing package dates may remove distributions outside the new range',
+          'Expand package rows to view detailed PCI items and revenue breakdown',
+          'The timeline automatically adjusts to show all package date ranges'
+        ]} />
+      )
+    }
+  ];
+
   return (
     <div className="dashboard-container">
+      {/* Header Section */}
       <div className="dashboard-header">
-        <div>
-          <h1 className="dashboard-title">ROP Packages</h1>
-          <p className="dashboard-subtitle">Gantt Chart and Package Management</p>
-        </div>
+        <TitleWithInfo
+          title="ROP Packages"
+          subtitle="Gantt Chart and Package Management"
+          onInfoClick={() => setShowHelpModal(true)}
+        />
       </div>
 
+      {/* Filter Bar */}
+      <FilterBar
+        searchTerm={searchTerm}
+        onSearchChange={(e) => setSearchTerm(e.target.value)}
+        searchPlaceholder="Search by Package Name or Project ID..."
+        dropdowns={[
+          {
+            label: 'Project',
+            value: selectedProject,
+            onChange: (e) => setSelectedProject(e.target.value),
+            placeholder: 'All Projects',
+            options: projects.map(proj => ({
+              value: proj.pid_po,
+              label: `${proj.project_name} (${proj.pid_po})`
+            }))
+          }
+        ]}
+        showClearButton={!!searchTerm}
+        onClearSearch={() => setSearchTerm('')}
+      />
+
+      {/* Messages */}
       {error && <div className="dashboard-alert dashboard-alert-error">⚠️ {error}</div>}
       {success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>}
 
-      <div className="dashboard-content-section" >
-        <div className="dashboard-section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-          <span>📋 Package Timeline</span>
-          <select
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '2px solid #00bcd4',
-              backgroundColor: '#fff',
-              color: '#333',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              outline: 'none',
-              boxShadow: '0 2px 4px rgba(0,188,212,0.1)',
-              transition: 'all 0.2s ease',
-              minWidth: '200px'
-            }}
-            onMouseOver={(e) => e.target.style.borderColor = '#0097a7'}
-            onMouseOut={(e) => e.target.style.borderColor = '#00bcd4'}
-          >
-            <option value="all">All Projects</option>
-            {projects.map((proj) => (
-              <option key={proj.pid_po} value={proj.pid_po}>
-                {proj.project_name} ({proj.pid_po})
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Stats Carousel */}
+      <StatsCarousel cards={statCards} visibleCount={4} />
 
+      {/* Gantt Chart Section */}
+      <div className="dashboard-content-section">
         <div className="gantt-table-container">
           <table className="gantt-table">
             <thead>
@@ -746,7 +880,7 @@ export default function RopPackage() {
               </tr>
             </thead>
             <tbody>
-              {packages.map((pkg) => {
+              {filteredPackages.map((pkg) => {
                 const barProps = getBarProperties(pkg);
                 const monthlyQuantities = getMonthlyQuantities(pkg);
                 const paymentShiftedQuantities = getPaymentShiftedQuantities(pkg);
@@ -759,7 +893,7 @@ export default function RopPackage() {
                     <tr key={pkg.id}>
                       <td style={{ cursor: 'pointer', color: '#d32f2f', margin: '0' }}>
                         <span
-                          onClick={() => handleDeletePackage(pkg.id)}
+                          onClick={() => handleDeletePackage(pkg)}
                           style={{ cursor: 'pointer', color: '#d32f2f', margin: '0' }}
                         >
                           🗑️
@@ -1140,7 +1274,7 @@ export default function RopPackage() {
                   </>
                 );
               })}
-              {packages.length === 0 && (
+              {filteredPackages.length === 0 && (
                 <tr>
                   <td colSpan="6" className="empty-state">
                     No ROP Packages found.
@@ -1151,6 +1285,49 @@ export default function RopPackage() {
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && cancelDelete()}>
+          <div className="modal-container delete-modal">
+            <div className="modal-header-delete">
+              <div className="warning-icon">⚠️</div>
+              <h2 className="modal-title">Confirm Package Deletion</h2>
+            </div>
+            <div className="modal-body-delete">
+              <p className="delete-warning-text">
+                Are you sure you want to delete package <strong>"{packageToDelete?.package_name}"</strong>?
+              </p>
+              <p className="delete-info-text">
+                This will also permanently delete:
+              </p>
+              <ul className="delete-items-list">
+                <li>Monthly distributions</li>
+                <li>PCI item associations</li>
+              </ul>
+              <p className="delete-warning-note">
+                ⚠️ This action cannot be undone.
+              </p>
+            </div>
+            <div className="modal-footer-delete">
+              <button type="button" className="btn-cancel" onClick={cancelDelete}>
+                Cancel
+              </button>
+              <button type="button" className="btn-delete-confirm" onClick={confirmDelete}>
+                Delete Package
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Help Modal */}
+      <HelpModal
+        show={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="ROP Packages - User Guide"
+        sections={helpSections}
+      />
     </div>
   );
 }

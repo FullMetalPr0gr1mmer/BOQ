@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../css/RopLvl1.css';
 import { apiCall, setTransient } from '../api';
+import StatsCarousel from '../Components/shared/StatsCarousel';
+import FilterBar from '../Components/shared/FilterBar';
+import HelpModal, { HelpList, HelpText } from '../Components/shared/HelpModal';
+import TitleWithInfo from '../Components/shared/InfoButton';
+import DataTable from '../Components/shared/DataTable';
+import Pagination from '../Components/shared/Pagination';
 
 const ENTRIES_PER_PAGE = 15;
 const VITE_API_URL = import.meta.env.VITE_API_URL;
@@ -61,7 +67,7 @@ export default function RopLvl1() {
 		end_date: '',
 		quantity: '',
 		lead_time: '',
-		currency:projectState?.currency ||'',
+		currency: projectState?.currency || '',
 	});
 
 	// Monthly distributions state
@@ -109,10 +115,14 @@ export default function RopLvl1() {
 	const [expandedRows, setExpandedRows] = useState({});
 	const [lvl2Items, setLvl2Items] = useState({});
 	const [showLvl1Dropdown, setShowLvl1Dropdown] = useState(false);
+	const [pciSearchQuery, setPciSearchQuery] = useState('');
 
 	// New state for calculated prices
 	const [calculatedPackagePrice, setCalculatedPackagePrice] = useState(0);
 	const [calculatedTotalPrice, setCalculatedTotalPrice] = useState(0);
+
+	// Modern UI state
+	const [showHelpModal, setShowHelpModal] = useState(false);
 
 	useEffect(() => {
 		fetchEntries();
@@ -168,7 +178,7 @@ export default function RopLvl1() {
 
 					if (selectedQty > availableQty || totalNeeded > availableQty) {
 						hasError = true;
-						break; 
+						break;
 					}
 				}
 			}
@@ -358,7 +368,7 @@ export default function RopLvl1() {
 			end_date: '',
 			quantity: '',
 			lead_time: '',
-						currency: projectState?.currency || '',
+			currency: projectState?.currency || '',
 
 		});
 		setSelectedLvl1Items([]);
@@ -430,13 +440,13 @@ export default function RopLvl1() {
 				const availableQty = parseInt(entry.total_quantity) || 0;
 				const packageQty = parseInt(formData.quantity) || 1;
 				const totalNeeded = selectedQty * packageQty;
-				
+
 				if (selectedQty > availableQty || totalNeeded > availableQty) {
 					quantityErrors.push(`PCI "${entry.item_name}" has insufficient quantity`);
 				}
 			}
 		});
-		
+
 		if (quantityErrors.length > 0) {
 			setError('Cannot create package: ' + quantityErrors.join(', '));
 			return;
@@ -459,7 +469,7 @@ export default function RopLvl1() {
 			lead_time: formData.lead_time ? parseInt(formData.lead_time) : null,
 			// Include monthly distributions if they exist and are valid
 			monthly_distributions: monthlyDistributions.length > 0 && !distributionError ? monthlyDistributions : [],
-			currency:formData.currency
+			currency: formData.currency
 		};
 
 		try {
@@ -705,16 +715,118 @@ export default function RopLvl1() {
 	const topRegion = Object.entries(regionCounts).reduce((max, [region, count]) =>
 		count > max.count ? { region, count } : max, { region: 'None', count: 0 });
 
+	// Format currency
+	const formatCurrency = (num) => {
+		if (num === null || num === undefined) return '';
+		if (Math.abs(num) >= 1_000_000) {
+			return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+		}
+		if (Math.abs(num) >= 1_000) {
+			return (num / 1_000).toFixed(0).replace(/\.0$/, '') + 'K';
+		}
+		return num.toString();
+	};
+
+	// Define stat cards for carousel
+	const statCards = [
+		{ label: 'Total PCIs', value: totalItems },
+		{ label: 'Total Quantity', value: totalQuantity.toLocaleString() },
+		{ label: 'Total Price', value: formatCurrency(totalLE) },
+		{ label: 'Avg Price/Item', value: formatCurrency(avgLEPerItem) },
+		{ label: 'Avg Qty/Item', value: avgQuantityPerItem.toLocaleString() },
+		{ label: 'Avg Price', value: avgPrice },
+		{ label: 'Top Item', value: highestLEItem.item_name?.substring(0, 15) || '-' },
+		{ label: 'Top Region', value: `${topRegion.region} (${topRegion.count})` }
+	];
+
+	// Help modal sections
+	const helpSections = [
+		{
+			icon: '📋',
+			title: 'Overview',
+			content: <HelpText>ROP Level 1 Analytics allows you to manage Product Component Items (PCIs) and Sub Items (SIs) for your project. You can create packages, manage items hierarchically, and track monthly distributions.</HelpText>
+		},
+		{
+			icon: '✨',
+			title: 'Features',
+			content: (
+				<HelpList items={[
+					{ label: '+ New Package', text: 'Create a package by selecting PCIs, setting dates, quantities, and monthly distributions.' },
+					{ label: 'Search', text: 'Filter PCIs by item name, region, or product number.' },
+					{ label: 'Expand (▶)', text: 'Click to view Sub Items (SIs) within each PCI.' },
+					{ label: 'Edit (✏️)', text: 'Modify PCI details including quantity, price, and dates.' },
+					{ label: 'Delete (🗑️)', text: 'Remove a PCI and its associated sub items.' },
+					{ label: 'Monthly Distributions', text: 'Distribute package quantities across months within the date range.' },
+					{ label: 'Auto Distribute', text: 'Automatically spread quantities evenly across all months.' },
+				]} />
+			)
+		},
+		{
+			icon: '📦',
+			title: 'Creating Packages',
+			content: (
+				<>
+					<HelpText>To create a package:</HelpText>
+					<HelpList items={[
+						'1. Click "+ New Package" button',
+						'2. Enter package details (name, dates, quantity, lead time)',
+						'3. Select PCIs from the dropdown and assign quantities',
+						'4. Set monthly distributions (or use Auto Distribute)',
+						'5. Ensure total monthly quantities equal package quantity',
+						'6. Click "Create Package" to save'
+					]} />
+					<HelpText isNote>Package quantities are validated against available PCI quantities to prevent over-allocation.</HelpText>
+				</>
+			)
+		},
+		{
+			icon: '🔢',
+			title: 'Monthly Distributions',
+			content: (
+				<HelpText>Monthly distributions allow you to spread package quantities across specific months. The system validates that the sum of monthly quantities matches the total package quantity. Use the "Auto Distribute" button to evenly allocate quantities across all months between start and end dates.</HelpText>
+			)
+		},
+		{
+			icon: '📊',
+			title: 'Statistics Explained',
+			content: (
+				<HelpList items={[
+					{ label: 'Total PCIs', text: 'Total number of Product Component Items' },
+					{ label: 'Total Quantity', text: 'Sum of all PCI quantities' },
+					{ label: 'Total Price', text: 'Total value (quantity × price for all PCIs)' },
+					{ label: 'Avg Price/Item', text: 'Average value per PCI' },
+					{ label: 'Avg Qty/Item', text: 'Average quantity per PCI' },
+					{ label: 'Avg Price', text: 'Average unit price across all PCIs' },
+					{ label: 'Top Item', text: 'PCI with highest total value' },
+					{ label: 'Top Region', text: 'Region with most PCIs' }
+				]} />
+			)
+		},
+		{
+			icon: '💡',
+			title: 'Tips',
+			content: (
+				<HelpList items={[
+					'Use the search bar to quickly find specific PCIs',
+					'Expand rows to view and manage Sub Items (SIs)',
+					'Monthly distributions must sum to the package quantity',
+					'Package creation validates PCI availability',
+					'Edit PCIs to update quantities, prices, or dates',
+					'Top statistics help identify key items and regions'
+				]} />
+			)
+		}
+	];
+
 	return (
 		<div className="dashboard-container">
 			{/* Header Section */}
 			<div className="dashboard-header">
-				<div>
-					<h1 className="dashboard-title">ROP Level 1 Analytics</h1>
-					<p className="dashboard-subtitle">
-						{formData.project_name ? `${formData.project_name} • Project ID: ${formData.project_id}` : 'Project Management Dashboard'}
-					</p>
-				</div>
+				<TitleWithInfo
+					title="ROP Level 1 Analytics"
+					subtitle={formData.project_name ? `${formData.project_name} • Project ID: ${formData.project_id}` : 'Project Management Dashboard'}
+					onInfoClick={() => setShowHelpModal(true)}
+				/>
 				<div style={{ display: 'flex', gap: '10px' }}>
 					<button className="new-entry-btn" style={{ visibility: 'hidden' }} onClick={() => { resetLvl1Form(); setShowLvl1Form(!showLvl1Form); }}>
 						{showLvl1Form ? '✕ Cancel' : '+ New PCI'}
@@ -725,65 +837,9 @@ export default function RopLvl1() {
 				</div>
 			</div>
 
-			{/* Alerts */}
-			{error && <div className="dashboard-alert dashboard-alert-error">⚠️ {error}</div>}
-			{success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>}
 
-			{/* Artistic Stats Grid */}
-			<div className="dashboard-stats-container">
-				<div className="stats-row">
-					<div className="mini-stat-card card-blue">
-						<div className="stat-icon">📊</div>
-						<div className="mini-stat-value">{totalItems}</div>
-						<div className="mini-stat-label">Total Items</div>
-					</div>
 
-					<div className="mini-stat-card card-cyan">
-						<div className="stat-icon">📦</div>
-						<div className="mini-stat-value">{totalQuantity.toLocaleString()}</div>
-						<div className="mini-stat-label">Total Quantity</div>
-					</div>
-
-					<div className="mini-stat-card card-success">
-						<div className="stat-icon">💰</div>
-						<div className="mini-stat-value">{totalLE.toLocaleString()}</div>
-						<div className="mini-stat-label">Total Price</div>
-					</div>
-
-					<div className="mini-stat-card card-warning">
-						<div className="stat-icon">📈</div>
-						<div className="mini-stat-value">{avgLEPerItem.toLocaleString()}</div>
-						<div className="mini-stat-label">Avg LE/Item</div>
-					</div>
-				</div>
-				<div className="stats-row">
-					<div className="mini-stat-card card-purple">
-						<div className="stat-icon">🎯</div>
-						<div className="mini-stat-value">{avgQuantityPerItem.toLocaleString()}</div>
-						<div className="mini-stat-label">Avg Qty/Item</div>
-					</div>
-					<div className="mini-stat-card card-teal">
-						<div className="stat-icon">💲</div>
-						<div className="mini-stat-value">{avgPrice}</div>
-						<div className="mini-stat-label">Avg Price</div>
-					</div>
-					<div className="mini-stat-card card-blue">
-						<div className="stat-icon">🏆</div>
-						<div className="mini-stat-value">{highestLEItem.item_name?.substring(0, 12) || '-'}</div>
-						<div className="mini-stat-extra">
-							{highestLEItem.le ? `${highestLEItem.le.toLocaleString()} LE` : ''}
-						</div>
-						<div className="mini-stat-label">Top Item</div>
-					</div>
-					<div className="mini-stat-card card-warning">
-						<div className="stat-icon">🌍</div>
-						<div className="mini-stat-value">{topRegion.region}</div>
-						<div className="mini-stat-extra">{topRegion.count} items</div>
-						<div className="mini-stat-label">Top Region</div>
-					</div>
-				</div>
-			</div>
-
+			{/* Chart Cards Section */}
 			<div className="dashboard-chart-section">
 				<div className="chart-card">
 					<h3 className="chart-title">📊 Project Overview</h3>
@@ -849,78 +905,102 @@ export default function RopLvl1() {
 				</div>
 			</div>
 
+			{/* Alerts */}
+			{error && <div className="dashboard-alert dashboard-alert-error">⚠️ {error}</div>}
+			{success && <div className="dashboard-alert dashboard-alert-success">✅ {success}</div>}
+
+			{/* Stats Carousel */}
+			<StatsCarousel cards={statCards} visibleCount={4} />
+			{/* Filter Bar */}
+			<FilterBar
+				searchTerm={searchQuery}
+				onSearchChange={(e) => setSearchQuery(e.target.value)}
+				searchPlaceholder="Search by Item Name, Region, or Product Number..."
+				showClearButton={!!searchQuery}
+				onClearSearch={() => setSearchQuery('')}
+			/>
 			{/* Package Creation Form Modal */}
 			{showForm && (
-				<div className="dashboard-modal">
-					<div className="dashboard-modal-content" style={{ minWidth: 900, maxWidth: 1300, margin: '0 auto', overflowX: 'hidden' }}>
-						<div className="dashboard-modal-header" style={{ fontSize: '1.3em' }}>
-							<h2 className="dashboard-modal-title">
-								✨ Create New Package
-							</h2>
+				<div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
+					<div className="modal-container" style={{ maxWidth: '1200px', width: '95%' }}>
+						<div className="modal-header">
+							<h2 className="modal-title">Create New Package</h2>
 							<button
-								className="dashboard-modal-close"
+								className="modal-close"
 								onClick={() => setShowForm(false)}
 								type="button"
 							>✕</button>
 						</div>
-						<form className="dashboard-form" onSubmit={handleSubmit} style={{ minWidth: 820, maxWidth: 1200, margin: '0 auto', fontSize: '1.1em' }}>
-							<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 18, width: '100%' }}>
-								<input
-									type="text"
-									placeholder="Project ID"
-									value={formData.project_id}
-									disabled
-									style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
-								/>
-								<input
-									type="text"
-									placeholder="Project Name"
-									value={formData.project_name}
-									disabled
-									style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
-								/>
+						<form className="modal-form" onSubmit={handleSubmit}>
+							<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+								<div className="form-field">
+									<label>Project ID</label>
+									<input
+										type="text"
+										value={formData.project_id}
+										disabled
+										style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+									/>
+								</div>
+								<div className="form-field">
+									<label>Project Name</label>
+									<input
+										type="text"
+										value={formData.project_name}
+										disabled
+										style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+									/>
+								</div>
 							</div>
-							<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 18, width: '100%' }}>
-								<input
-									type="text"
-									placeholder="Package Name"
-									value={formData.package_name}
-									onChange={e => setFormData({ ...formData, package_name: e.target.value })}
-									required
-									style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
-								/>
-								<input
-									type="number"
-									placeholder="Quantity"
-									value={formData.quantity}
-									onChange={e => setFormData({ ...formData, quantity: e.target.value })}
-									style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
-								/>
-								<input
-									type="number"
-									placeholder="Revenue Lead Time (days)"
-									value={formData.lead_time || ''}
-									onChange={e => setFormData({ ...formData, lead_time: e.target.value })}
-									style={{ flex: 1, minWidth: 0, fontSize: '1.08em', padding: '10px 16px' }}
-								/>
+
+							<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+								<div className="form-field">
+									<label>Package Name *</label>
+									<input
+										type="text"
+										value={formData.package_name}
+										onChange={e => setFormData({ ...formData, package_name: e.target.value })}
+										required
+										placeholder="Enter package name"
+									/>
+								</div>
+								<div className="form-field">
+									<label>Quantity</label>
+									<input
+										type="number"
+										value={formData.quantity}
+										onChange={e => setFormData({ ...formData, quantity: e.target.value })}
+										placeholder="Enter quantity"
+									/>
+								</div>
+								<div className="form-field">
+									<label>Revenue Lead Time (days)</label>
+									<input
+										type="number"
+										value={formData.lead_time || ''}
+										onChange={e => setFormData({ ...formData, lead_time: e.target.value })}
+										placeholder="Lead time in days"
+									/>
+								</div>
 							</div>
-							<div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 12 }}>
-								<label style={{ fontWeight: 500, marginRight: 8 }}>Start Date:</label>
-								<input
-									type="date"
-									placeholder="Start Date"
-									value={formData.start_date}
-									onChange={e => setFormData({ ...formData, start_date: e.target.value })}
-									style={{ minWidth: 180 }}
-								/>
-								<label style={{ fontWeight: 500, marginLeft: 24, marginRight: 8 }}>End Date:</label>
-								<input
-									type="date"
-									placeholder="End Date"
-									value={formData.end_date}
-									onChange={e => setFormData({ ...formData, end_date: e.target.value })}
-									style={{ minWidth: 180 }}
-								/>
+
+							<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+								<div className="form-field">
+									<label>Start Date</label>
+									<input
+										type="date"
+										value={formData.start_date}
+										onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+									/>
+								</div>
+								<div className="form-field">
+									<label>End Date</label>
+									<input
+										type="date"
+										value={formData.end_date}
+										onChange={e => setFormData({ ...formData, end_date: e.target.value })}
+									/>
+								</div>
 							</div>
 
 							{/* Monthly Distribution Table */}
@@ -1014,7 +1094,12 @@ export default function RopLvl1() {
 								<label htmlFor="lvl1-select">Select PCI Items:</label>
 								<div
 									className="custom-dropdown-select"
-									onClick={() => setShowLvl1Dropdown(!showLvl1Dropdown)}
+									onClick={() => {
+										setShowLvl1Dropdown(!showLvl1Dropdown);
+										if (!showLvl1Dropdown) {
+											setPciSearchQuery(''); // Clear search when opening dropdown
+										}
+									}}
 									style={{
 										padding: '16px',
 										border: '1.5px solid #1976d2',
@@ -1047,11 +1132,66 @@ export default function RopLvl1() {
 											borderRadius: '6px',
 											backgroundColor: '#fff',
 											maxHeight: '400px',
-											overflowY: 'auto',
+											display: 'flex',
+											flexDirection: 'column',
 											fontSize: '0.92em',
 										}}
 									>
-										{entries.map(entry => {
+										{/* Search Bar */}
+										<div style={{
+											padding: '12px',
+											borderBottom: '1.5px solid #e0e0e0',
+											backgroundColor: '#f8f9fa',
+											position: 'sticky',
+											top: 0,
+											zIndex: 1
+										}}>
+											<input
+												type="text"
+												placeholder="🔍 Search PCI items..."
+												value={pciSearchQuery}
+												onChange={(e) => setPciSearchQuery(e.target.value)}
+												onClick={(e) => e.stopPropagation()}
+												style={{
+													width: '100%',
+													padding: '10px 12px',
+													border: '1.5px solid #1976d2',
+													borderRadius: '6px',
+													fontSize: '0.95em',
+													outline: 'none',
+													backgroundColor: '#fff'
+												}}
+											/>
+										</div>
+
+										{/* Items List */}
+										<div style={{ overflowY: 'auto', maxHeight: '340px' }}>
+											{(() => {
+												const filteredEntries = entries.filter(entry => {
+													if (!pciSearchQuery.trim()) return true;
+													const searchLower = pciSearchQuery.toLowerCase();
+													return (
+														entry.item_name?.toLowerCase().includes(searchLower) ||
+														entry.product_number?.toLowerCase().includes(searchLower) ||
+														entry.region?.toLowerCase().includes(searchLower)
+													);
+												});
+
+												if (filteredEntries.length === 0) {
+													return (
+														<div style={{
+															padding: '30px 20px',
+															textAlign: 'center',
+															color: '#999',
+															fontSize: '0.95em'
+														}}>
+															<div style={{ fontSize: '2em', marginBottom: '10px' }}>🔍</div>
+															<div>No PCI items found matching "{pciSearchQuery}"</div>
+														</div>
+													);
+												}
+
+												return filteredEntries.map(entry => {
 											const isSelected = selectedLvl1Items.some(item => item.id === entry.id);
 											const selectedItem = selectedLvl1Items.find(item => item.id === entry.id);
 											const lvl2Children = lvl2Items[entry.id] || [];
@@ -1090,9 +1230,9 @@ export default function RopLvl1() {
 																{entry.calculatedUnitPrice.toFixed(2)} {cur}
 															</span>
 														)}
-														<span style={{ 
-															marginRight: '10px', 
-															color: '#666', 
+														<span style={{
+															marginRight: '10px',
+															color: '#666',
 															fontSize: '0.8em',
 															backgroundColor: '#f5f5f5',
 															padding: '2px 6px',
@@ -1118,7 +1258,7 @@ export default function RopLvl1() {
 																			const availableQty = parseInt(entry.total_quantity) || 0;
 																			const packageQty = parseInt(formData.quantity) || 1;
 																			const totalNeeded = selectedQty * packageQty;
-																			
+
 																			if (selectedQty > availableQty || totalNeeded > availableQty) {
 																				return '2px solid #f44336'; // Red border for error
 																			}
@@ -1129,7 +1269,7 @@ export default function RopLvl1() {
 																			const availableQty = parseInt(entry.total_quantity) || 0;
 																			const packageQty = parseInt(formData.quantity) || 1;
 																			const totalNeeded = selectedQty * packageQty;
-																			
+
 																			if (selectedQty > availableQty || totalNeeded > availableQty) {
 																				return '#ffebee'; // Light red background for error
 																			}
@@ -1143,23 +1283,23 @@ export default function RopLvl1() {
 																	const availableQty = entry.total_quantity - (entry.consumption || 0) || 0
 																	const packageQty = parseInt(formData.quantity) || 1;
 																	const totalNeeded = selectedQty * packageQty;
-																	
+
 																	if (selectedQty > availableQty) {
 																		return (
-																			<span style={{ 
-																				marginLeft: '8px', 
-																				color: '#f44336', 
+																			<span style={{
+																				marginLeft: '8px',
+																				color: '#f44336',
 																				fontSize: '0.85em',
 																				fontWeight: '500'
 																			}}>
 																				⚠️ Exceeds available ({availableQty})
 																			</span>
 																		);
-																	} else if (totalNeeded > availableQty ) {
+																	} else if (totalNeeded > availableQty) {
 																		return (
-																			<span style={{ 
-																				marginLeft: '8px', 
-																				color: '#f44336', 
+																			<span style={{
+																				marginLeft: '8px',
+																				color: '#f44336',
 																				fontSize: '0.85em',
 																				fontWeight: '500'
 																			}}>
@@ -1257,7 +1397,9 @@ export default function RopLvl1() {
 													)}
 												</div>
 											);
-										})}
+										});
+											})()}
+										</div>
 									</div>
 								)}
 							</div>
@@ -1287,24 +1429,31 @@ export default function RopLvl1() {
 								</div>
 							</div>
 
-							<div className="form-group" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px', textAlign: 'right' }}>
-								<div style={{ fontSize: '1.3em', marginBottom: '8px' }}>
-									<strong style={{ color: '#39439fff', marginRight: '10px' }}>Package Price:</strong>
-									<strong style={{ color: '#000000ff' }}>
-										{calculatedPackagePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cur}
-									</strong>
-								</div>
-								<div style={{ fontSize: '1.3em' }}>
-									<strong style={{ color: '#39439fff', marginRight: '10px' }}>Total Price:</strong>
-									<strong style={{ color: '#000000ff' }}>
-										{calculatedTotalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cur}
-									</strong>
+							<div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '2px solid #e5e7eb' }}>
+								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+									<div>
+										<div style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '0.25rem' }}>Package Price</div>
+										<div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#124191' }}>
+											{calculatedPackagePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cur}
+										</div>
+									</div>
+									<div style={{ textAlign: 'right' }}>
+										<div style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total Price</div>
+										<div style={{ fontSize: '1.5rem', fontWeight: '600', color: '#124191' }}>
+											{calculatedTotalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cur}
+										</div>
+									</div>
 								</div>
 							</div>
 
-							<button type="submit" disabled={distributionError && monthlyPeriods.length > 0}>
-								🚀 Create Package
-							</button>
+							<div className="form-actions">
+								<button type="button" className="btn-cancel" onClick={() => setShowForm(false)}>
+									Cancel
+								</button>
+								<button type="submit" className="btn-submit" disabled={distributionError && monthlyPeriods.length > 0}>
+									Create Package
+								</button>
+							</div>
 						</form>
 					</div>
 				</div>
@@ -1537,35 +1686,14 @@ export default function RopLvl1() {
 				</div>
 			)}
 
-			{/* Search Bar */}
+			{/* Main Content Section */}
 			<div className="dashboard-content-section">
-				<div className="dashboard-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-					<span>📋 Detailed Entry Management</span>
-					<div style={{ position: 'relative', width: '300px' }}>
-						<input
-							type="text"
-							placeholder="🔍 Search by PCI Name or product number..."
-							value={searchQuery}
-							onChange={e => setSearchQuery(e.target.value)}
-							style={{
-								width: '100%',
-								padding: '10px 15px',
-								border: '2px solid #1976d2',
-								borderRadius: '25px',
-								fontSize: '14px',
-								outline: 'none',
-								transition: 'border-color 0.3s ease'
-							}}
-						/>
-					</div>
-				</div>
-
-				<div className="dashboard-table-container" style={{ overflowX: 'hidden' }}>
+				<div className="data-table-wrapper">
 					{filteredEntries.length > 0 ? (
-						<table className="dashboard-table">
+						<table className="data-table">
 							<thead>
 								<tr>
-									<th></th>
+									
 									<th></th>
 									<th style={{ textAlign: 'center' }}>Product Number</th>
 									<th style={{ textAlign: 'center' }}>PCI Name</th>
@@ -1619,31 +1747,17 @@ export default function RopLvl1() {
 													</button>
 													<button
 														onClick={() => handleEditLvl1(entry)}
-														style={{
-															background: '#2196f3',
-															color: 'white',
-															border: 'none',
-															padding: '6px 12px',
-															borderRadius: '4px',
-															cursor: 'pointer',
-															fontSize: '12px'
-														}}
+														className="btn-action btn-edit"
+														title="Edit PCI"
 													>
-														Details
+														✏️
 													</button>
 													<button
 														onClick={() => handleDeleteLvl1(entry.id)}
-														style={{
-															background: '#f44336',
-															color: 'white',
-															border: 'none',
-															padding: '6px 12px',
-															borderRadius: '4px',
-															cursor: 'pointer',
-															fontSize: '12px'
-														}}
+														className="btn-action btn-delete"
+														title="Delete PCI"
 													>
-														Delete
+														🗑️
 													</button>
 												</div>
 											</td>
@@ -1731,19 +1845,21 @@ export default function RopLvl1() {
 				</div>
 
 				{totalPages > 1 && (
-					<div className="dashboard-pagination">
-						{Array.from({ length: totalPages }, (_, i) => (
-							<button
-								key={i}
-								className={i + 1 === currentPage ? 'active' : ''}
-								onClick={() => setCurrentPage(i + 1)}
-							>
-								{i + 1}
-							</button>
-						))}
-					</div>
+					<Pagination
+						currentPage={currentPage}
+						totalPages={totalPages}
+						onPageChange={(page) => setCurrentPage(page)}
+					/>
 				)}
 			</div>
+
+			{/* Help Modal */}
+			<HelpModal
+				show={showHelpModal}
+				onClose={() => setShowHelpModal(false)}
+				title="ROP Level 1 Analytics - User Guide"
+				sections={helpSections}
+			/>
 		</div>
 	);
 }
