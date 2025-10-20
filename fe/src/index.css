@@ -15,7 +15,7 @@ body {
   text-align: center;
 }
 
-
+/* 
 .auth-container {
   display: flex;
   flex-direction: column;
@@ -25,7 +25,7 @@ body {
  margin-left: auto;
  margin-right:auto;
   
-}
+} */
 
 /* Logo */
 .title::before {
@@ -41,7 +41,7 @@ body {
 }
 
 /* Forms */
-.auth-form,
+/* .auth-form, */
 .upload-form {
   background-color: #ffffff;
   padding: 2rem;
@@ -52,7 +52,7 @@ body {
   border: 2px solid #005AFF;
 }
 
-.auth-form h2,
+/* .auth-form h2, */
 .upload-form h2 {
   font-size: 1.5rem;
   color: #007bff;

@@ -47,6 +47,81 @@ const generateMonthlyPeriods = (startDate, endDate) => {
 	return periods;
 };
 
+// Draft Management Utilities
+const DRAFT_EXPIRY_HOURS = 24;
+
+const getDraftKey = (projectId) => `package_draft_${projectId}`;
+
+const saveDraftToLocalStorage = (projectId, draftData) => {
+	try {
+		const draft = {
+			...draftData,
+			timestamp: new Date().toISOString(),
+			projectId
+		};
+		localStorage.setItem(getDraftKey(projectId), JSON.stringify(draft));
+		console.log('✅ Draft saved to localStorage:', getDraftKey(projectId), draft);
+	} catch (error) {
+		console.error('❌ Failed to save draft:', error);
+	}
+};
+
+const loadDraftFromLocalStorage = (projectId) => {
+	try {
+		const draftString = localStorage.getItem(getDraftKey(projectId));
+		if (!draftString) {
+			console.log('ℹ️ No draft found for:', getDraftKey(projectId));
+			return null;
+		}
+
+		const draft = JSON.parse(draftString);
+
+		// Check if draft has expired (24 hours)
+		const draftTime = new Date(draft.timestamp);
+		const now = new Date();
+		const hoursDiff = (now - draftTime) / (1000 * 60 * 60);
+
+		if (hoursDiff > DRAFT_EXPIRY_HOURS) {
+			console.log('⏰ Draft expired (older than 24h), clearing...');
+			clearDraftFromLocalStorage(projectId);
+			return null;
+		}
+
+		console.log('✅ Draft loaded from localStorage:', draft);
+		return draft;
+	} catch (error) {
+		console.error('❌ Failed to load draft:', error);
+		return null;
+	}
+};
+
+const clearDraftFromLocalStorage = (projectId) => {
+	try {
+		localStorage.removeItem(getDraftKey(projectId));
+	} catch (error) {
+		console.error('Failed to clear draft:', error);
+	}
+};
+
+const hasDraft = (projectId) => {
+	const draft = loadDraftFromLocalStorage(projectId);
+	return draft !== null;
+};
+
+const getTimeSince = (timestamp) => {
+	const now = new Date();
+	const then = new Date(timestamp);
+	const seconds = Math.floor((now - then) / 1000);
+
+	if (seconds < 60) return 'just now';
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+	const days = Math.floor(hours / 24);
+	return `${days} day${days > 1 ? 's' : ''} ago`;
+};
+
 export default function RopLvl1() {
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -124,8 +199,20 @@ export default function RopLvl1() {
 	// Modern UI state
 	const [showHelpModal, setShowHelpModal] = useState(false);
 
+	// Draft management state
+	const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+	const [loadedDraft, setLoadedDraft] = useState(null);
+
 	useEffect(() => {
 		fetchEntries();
+
+		// Check for draft on component mount
+		if (projectState?.pid_po) {
+			const draft = loadDraftFromLocalStorage(projectState.pid_po);
+			if (draft && draft.formData.package_name) {
+				setLoadedDraft(draft);
+			}
+		}
 	}, []);
 
 	// Generate monthly periods when dates change
@@ -194,6 +281,40 @@ export default function RopLvl1() {
 		validateQuantities();
 	}, [selectedLvl1Items, formData.quantity, entries, error]);
 
+	// Auto-save draft to localStorage (debounced by 2 seconds)
+	useEffect(() => {
+		// Only auto-save if modal is open and there's meaningful data
+		if (!showForm || !formData.package_name) return;
+
+		const timeoutId = setTimeout(() => {
+			const draftData = {
+				formData,
+				selectedLvl1Items,
+				monthlyDistributions,
+				monthlyPeriods
+			};
+			saveDraftToLocalStorage(projectState?.pid_po, draftData);
+		}, 2000); // 2-second debounce
+
+		return () => clearTimeout(timeoutId);
+	}, [showForm, formData, selectedLvl1Items, monthlyDistributions, monthlyPeriods, projectState?.pid_po]);
+
+	// Check for draft when modal opens
+	useEffect(() => {
+		if (showForm && !isEditing) {
+			// Check if we already have a loaded draft
+			if (loadedDraft && loadedDraft.formData.package_name) {
+				setShowDraftPrompt(true);
+			} else {
+				// Try to load draft
+				const draft = loadDraftFromLocalStorage(projectState?.pid_po);
+				if (draft && draft.formData.package_name) {
+					setLoadedDraft(draft);
+					setShowDraftPrompt(true);
+				}
+			}
+		}
+	}, [showForm, isEditing, projectState?.pid_po, loadedDraft]);
 
 	// Auto-distribute quantity evenly
 	const handleAutoDistribute = () => {
@@ -359,6 +480,26 @@ export default function RopLvl1() {
 		}
 	};
 
+	// Restore draft from localStorage
+	const handleRestoreDraft = () => {
+		if (!loadedDraft) return;
+
+		setFormData(loadedDraft.formData);
+		setSelectedLvl1Items(loadedDraft.selectedLvl1Items || []);
+		setMonthlyDistributions(loadedDraft.monthlyDistributions || []);
+		setMonthlyPeriods(loadedDraft.monthlyPeriods || []);
+
+		setShowDraftPrompt(false);
+		setLoadedDraft(null);
+	};
+
+	// Discard draft and start fresh
+	const handleDiscardDraft = () => {
+		clearDraftFromLocalStorage(projectState?.pid_po);
+		setShowDraftPrompt(false);
+		setLoadedDraft(null);
+	};
+
 	const resetForm = () => {
 		setFormData({
 			project_id: projectState?.pid_po || '',
@@ -381,6 +522,8 @@ export default function RopLvl1() {
 		setShowForm(false);
 		setCalculatedPackagePrice(0);
 		setCalculatedTotalPrice(0);
+		// Clear draft from localStorage when form is reset
+		clearDraftFromLocalStorage(projectState?.pid_po);
 	};
 
 	const resetLvl1Form = () => {
@@ -919,6 +1062,91 @@ export default function RopLvl1() {
 				showClearButton={!!searchQuery}
 				onClearSearch={() => setSearchQuery('')}
 			/>
+
+			{/* Draft Restoration Prompt */}
+			{showDraftPrompt && loadedDraft && (
+				<div className="modal-overlay" style={{ zIndex: 1001 }}>
+					<div className="modal-container" style={{ maxWidth: '500px', width: '90%' }}>
+						<div className="modal-header" style={{ background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', borderBottom: '3px solid #0284c7' }}>
+							<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+								<span style={{ fontSize: '1.5rem' }}>💾</span>
+								<h2 className="modal-title" style={{ color: '#0c4a6e' }}>Draft Found</h2>
+							</div>
+						</div>
+						<div style={{ padding: '1.5rem' }}>
+							<p style={{ marginBottom: '1rem', color: '#374151', fontSize: '0.95rem' }}>
+								We found an unsaved draft from <strong>{getTimeSince(loadedDraft.timestamp)}</strong>.
+							</p>
+							<div style={{
+								backgroundColor: '#f8fafc',
+								padding: '1rem',
+								borderRadius: '8px',
+								marginBottom: '1.5rem',
+								border: '1px solid #e2e8f0'
+							}}>
+								<div style={{ marginBottom: '0.5rem' }}>
+									<strong style={{ color: '#124191' }}>Package Name:</strong>
+									<span style={{ marginLeft: '0.5rem', color: '#1f2937' }}>{loadedDraft.formData.package_name}</span>
+								</div>
+								<div style={{ marginBottom: '0.5rem' }}>
+									<strong style={{ color: '#124191' }}>Quantity:</strong>
+									<span style={{ marginLeft: '0.5rem', color: '#1f2937' }}>{loadedDraft.formData.quantity || 'Not set'}</span>
+								</div>
+								<div>
+									<strong style={{ color: '#124191' }}>PCI Items Selected:</strong>
+									<span style={{ marginLeft: '0.5rem', color: '#1f2937' }}>
+										{loadedDraft.selectedLvl1Items?.length || 0} item(s)
+									</span>
+								</div>
+							</div>
+							<p style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '1.5rem' }}>
+								Would you like to continue where you left off?
+							</p>
+							<div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+								<button
+									type="button"
+									onClick={handleDiscardDraft}
+									style={{
+										padding: '0.625rem 1.25rem',
+										backgroundColor: '#ef4444',
+										color: 'white',
+										border: 'none',
+										borderRadius: '6px',
+										fontSize: '0.95rem',
+										fontWeight: '500',
+										cursor: 'pointer',
+										transition: 'all 0.2s'
+									}}
+									onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
+									onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
+								>
+									Discard & Start Fresh
+								</button>
+								<button
+									type="button"
+									onClick={handleRestoreDraft}
+									style={{
+										padding: '0.625rem 1.25rem',
+										backgroundColor: '#10b981',
+										color: 'white',
+										border: 'none',
+										borderRadius: '6px',
+										fontSize: '0.95rem',
+										fontWeight: '500',
+										cursor: 'pointer',
+										transition: 'all 0.2s'
+									}}
+									onMouseOver={(e) => e.target.style.backgroundColor = '#059669'}
+									onMouseOut={(e) => e.target.style.backgroundColor = '#10b981'}
+								>
+									Restore Draft
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* Package Creation Form Modal */}
 			{showForm && (
 				<div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
