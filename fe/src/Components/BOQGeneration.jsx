@@ -71,9 +71,7 @@ export default function BOQGeneration() {
     try {
       const data = await apiCall('/get_project');
       setProjects(data || []);
-      if (data && data.length > 0) {
-        setSelectedProject(data[0].pid_po);
-      }
+      // Don't set a default project - let user select one
     } catch (err) {
       setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);
@@ -135,7 +133,7 @@ export default function BOQGeneration() {
   const onSearchChange = (e) => {
     const v = e.target.value;
     setSearchTerm(v);
-    fetchReferences(1, v);
+    fetchReferences(1, v, selectedProject);
   };
 
   // --- Handle Upload ---

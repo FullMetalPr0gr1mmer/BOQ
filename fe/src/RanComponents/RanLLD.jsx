@@ -72,10 +72,9 @@ export default function RANLLD() {
   const fetchProjects = async () => {
     try {
       const data = await apiCall('/ran-projects');
-      setProjects(data || []);
-      if (data && data.length > 0) {
-        setSelectedProject(data[0].pid_po);
-      }
+      const projectsList = data?.records || data || [];
+      setProjects(projectsList);
+      // Don't set a default project - let user select one
     } catch (err) {
       setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);
@@ -200,7 +199,7 @@ export default function RANLLD() {
   const onSearchChange = (e) => {
     const v = e.target.value;
     setSearchTerm(v);
-    fetchSites(1, v);
+    fetchSites(1, v, rowsPerPage, selectedProject);
   };
 
   const handleUpload = async (e) => {

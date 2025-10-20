@@ -80,7 +80,7 @@ def get_ranlvl3_by_project_id(db: Session, project_id: str):
 
 
 def get_all_ranlvl3(db: Session, skip: int = 0, limit: int = 100, search: Optional[str] = None,
-                    accessible_projects: List[str] = None):
+                    accessible_projects: List[str] = None, project_id: Optional[str] = None):
     query = db.query(RANLvl3)
 
     # Filter by accessible projects if not senior admin
@@ -88,6 +88,13 @@ def get_all_ranlvl3(db: Session, skip: int = 0, limit: int = 100, search: Option
         if not accessible_projects:  # Empty list means no access
             return {"total": 0, "records": []}
         query = query.filter(RANLvl3.project_id.in_(accessible_projects))
+
+    # Filter by specific project if provided
+    if project_id:
+        # Also check if user has access to this specific project
+        if accessible_projects is not None and project_id not in accessible_projects:
+            return {"total": 0, "records": []}
+        query = query.filter(RANLvl3.project_id == project_id)
 
     if search:
         search_pattern = f"%{search}%"
@@ -344,18 +351,26 @@ def create_ran_lvl3(
 @RANLvl3Router.get("", response_model=PaginatedRANLvl3Response)
 def get_all_ran_lvl3(
         skip: int = Query(0, ge=0),
-        limit: int = Query(100, ge=1, le=200),
-        search: Optional[str] = Query(None, min_length=1),
+        limit: int = Query(100, ge=1, le=500),
+        search: Optional[str] = Query(None),
+        project_id: Optional[str] = Query(None),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Retrieve all RAN Level 3 records with pagination and optional search.
     Users can only see records from projects they have access to.
+
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        search: Search term to filter by item name
+        project_id: Filter by specific project ID
     """
     try:
         accessible_projects = get_accessible_projects_for_user(current_user, db)
-        result = get_all_ranlvl3(db=db, skip=skip, limit=limit, search=search, accessible_projects=accessible_projects)
+        result = get_all_ranlvl3(db=db, skip=skip, limit=limit, search=search,
+                                 accessible_projects=accessible_projects, project_id=project_id)
         return PaginatedRANLvl3Response(total=result["total"], records=result["records"])
     except Exception as e:
         raise HTTPException(

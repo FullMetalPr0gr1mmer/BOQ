@@ -76,9 +76,7 @@ export default function Lvl3() {
     try {
       const data = await apiCall('/get_project');
       setProjects(data || []);
-      if (data && data.length > 0) {
-        setSelectedProject(data[0].pid_po);
-      }
+      // Don't set a default project - let user select one
     } catch (err) {
       setTransient(setError, 'Failed to load projects. Please ensure you have project access.');
       console.error(err);

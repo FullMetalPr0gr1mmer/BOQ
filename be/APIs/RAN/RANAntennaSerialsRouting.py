@@ -74,7 +74,7 @@ def get_antenna_serial(db: Session, antenna_serial_id: int):
 
 
 def get_all_antenna_serials(db: Session, skip: int = 0, limit: int = 100, search: Optional[str] = None,
-                            accessible_projects: List[str] = None):
+                            accessible_projects: List[str] = None, project_id: Optional[str] = None):
     query = db.query(RANAntennaSerials)
 
     # Filter by accessible projects if not senior admin
@@ -82,6 +82,13 @@ def get_all_antenna_serials(db: Session, skip: int = 0, limit: int = 100, search
         if not accessible_projects:  # Empty list means no access
             return {"total": 0, "records": []}
         query = query.filter(RANAntennaSerials.project_id.in_(accessible_projects))
+
+    # Filter by specific project if provided
+    if project_id:
+        # Also check if user has access to this specific project
+        if accessible_projects is not None and project_id not in accessible_projects:
+            return {"total": 0, "records": []}
+        query = query.filter(RANAntennaSerials.project_id == project_id)
 
     if search:
         search_pattern = f"%{search}%"
@@ -168,24 +175,73 @@ def create_ran_antenna_serial(
 @RANAntennaSerialsRouter.get("", response_model=PaginatedRANAntennaSerials)
 def get_all_ran_antenna_serials(
         skip: int = Query(0, ge=0),
-        limit: int = Query(100, ge=1, le=200),
-        search: Optional[str] = Query(None, min_length=1),
+        limit: int = Query(100, ge=1, le=500),
+        search: Optional[str] = Query(None),
+        project_id: Optional[str] = Query(None),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Retrieve all RAN Antenna Serial records with pagination and optional search.
     Users can only see records from projects they have access to.
+
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        search: Search term to filter by MRBTS, antenna model, or serial number
+        project_id: Filter by specific project ID
     """
     try:
         accessible_projects = get_accessible_projects_for_antenna_serials(current_user, db)
         result = get_all_antenna_serials(db=db, skip=skip, limit=limit, search=search,
-                                        accessible_projects=accessible_projects)
+                                        accessible_projects=accessible_projects, project_id=project_id)
         return PaginatedRANAntennaSerials(total=result["total"], records=result["records"])
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving antenna serial records: {str(e)}"
+        )
+
+
+@RANAntennaSerialsRouter.get("/stats")
+def get_ran_antenna_serials_stats(
+        project_id: Optional[str] = Query(None),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Get statistics for RAN Antenna Serial records.
+
+    Args:
+        project_id: Optional project ID to filter statistics
+    """
+    try:
+        accessible_projects = get_accessible_projects_for_antenna_serials(current_user, db)
+        query = db.query(RANAntennaSerials)
+
+        # Filter by accessible projects if not senior admin
+        if accessible_projects is not None:
+            if not accessible_projects:
+                return {"total_antennas": 0, "unique_mrbts": 0}
+            query = query.filter(RANAntennaSerials.project_id.in_(accessible_projects))
+
+        # Filter by specific project if provided
+        if project_id:
+            if accessible_projects is not None and project_id not in accessible_projects:
+                return {"total_antennas": 0, "unique_mrbts": 0}
+            query = query.filter(RANAntennaSerials.project_id == project_id)
+
+        total_antennas = query.count()
+        unique_mrbts = query.distinct(RANAntennaSerials.mrbts).count()
+
+        return {
+            "total_antennas": total_antennas,
+            "unique_mrbts": unique_mrbts
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving antenna serial stats: {str(e)}"
         )
 
 

@@ -110,13 +110,20 @@ def create_ran_site(
 @ran_lld_router.get("", response_model=PaginatedRANSites)
 def get_ran_sites(
         skip: int = Query(0, ge=0),
-        limit: int = Query(50, ge=1, le=100),
-        search: str = Query(None, min_length=1),
+        limit: int = Query(50, ge=1, le=500),
+        search: str = Query(None),
+        project_id: str = Query(None),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Get all RAN Sites accessible to the current user with pagination and search.
+
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        search: Search term to filter by site_id or technical_boq
+        project_id: Filter by specific project ID (pid_po)
     """
     try:
         query = db.query(RAN_LLD)
@@ -127,6 +134,13 @@ def get_ran_sites(
             if not accessible_projects:  # Empty list means no access
                 return {"records": [], "total": 0}
             query = query.filter(RAN_LLD.pid_po.in_(accessible_projects))
+
+        # Filter by specific project if provided
+        if project_id:
+            # Also check if user has access to this specific project
+            if accessible_projects is not None and project_id not in accessible_projects:
+                return {"records": [], "total": 0}
+            query = query.filter(RAN_LLD.pid_po == project_id)
 
         if search:
             # Search by site_id and technical_boq

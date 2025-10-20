@@ -74,7 +74,7 @@ def get_raninventory(db: Session, raninventory_id: int):
 
 
 def get_all_raninventory(db: Session, skip: int = 0, limit: int = 100, search: Optional[str] = None,
-                         accessible_projects: List[str] = None):
+                         accessible_projects: List[str] = None, project_id: Optional[str] = None):
     query = db.query(RANInventory)
 
     # Filter by accessible projects if not senior admin
@@ -82,6 +82,13 @@ def get_all_raninventory(db: Session, skip: int = 0, limit: int = 100, search: O
         if not accessible_projects:  # Empty list means no access
             return {"total": 0, "records": []}
         query = query.filter(RANInventory.pid_po.in_(accessible_projects))
+
+    # Filter by specific project if provided
+    if project_id:
+        # Also check if user has access to this specific project
+        if accessible_projects is not None and project_id not in accessible_projects:
+            return {"total": 0, "records": []}
+        query = query.filter(RANInventory.pid_po == project_id)
 
     if search:
         search_pattern = f"%{search}%"
@@ -170,24 +177,73 @@ def create_ran_inventory(
 @RANInventoryRouter.get("", response_model=PaginatedRANInventoryResponse)
 def get_all_ran_inventory_records(
         skip: int = Query(0, ge=0),
-        limit: int = Query(100, ge=1, le=200),
-        search: Optional[str] = Query(None, min_length=1),
+        limit: int = Query(100, ge=1, le=500),
+        search: Optional[str] = Query(None),
+        project_id: Optional[str] = Query(None),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Retrieve all RAN Inventory records with pagination and optional search.
     Users can only see records from projects they have access to.
+
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        search: Search term to filter by MRBTS, Site ID, Serial Number, etc.
+        project_id: Filter by specific project ID (pid_po)
     """
     try:
         accessible_projects = get_accessible_projects_for_inventory(current_user, db)
         result = get_all_raninventory(db=db, skip=skip, limit=limit, search=search,
-                                      accessible_projects=accessible_projects)
+                                      accessible_projects=accessible_projects, project_id=project_id)
         return PaginatedRANInventoryResponse(total=result["total"], records=result["records"])
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving RAN Inventory records: {str(e)}"
+        )
+
+
+@RANInventoryRouter.get("/stats")
+def get_ran_inventory_stats(
+        project_id: Optional[str] = Query(None),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Get statistics for RAN Inventory records.
+
+    Args:
+        project_id: Optional project ID to filter statistics
+    """
+    try:
+        accessible_projects = get_accessible_projects_for_inventory(current_user, db)
+        query = db.query(RANInventory)
+
+        # Filter by accessible projects if not senior admin
+        if accessible_projects is not None:
+            if not accessible_projects:
+                return {"total_items": 0, "unique_sites": 0}
+            query = query.filter(RANInventory.pid_po.in_(accessible_projects))
+
+        # Filter by specific project if provided
+        if project_id:
+            if accessible_projects is not None and project_id not in accessible_projects:
+                return {"total_items": 0, "unique_sites": 0}
+            query = query.filter(RANInventory.pid_po == project_id)
+
+        total_items = query.count()
+        unique_sites = query.distinct(RANInventory.site_id).count()
+
+        return {
+            "total_items": total_items,
+            "unique_sites": unique_sites
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving RAN Inventory stats: {str(e)}"
         )
 
 

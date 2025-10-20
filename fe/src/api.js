@@ -98,8 +98,10 @@ export async function apiCall(endpoint, options = {}) {
     if (!text) return null;
     return JSON.parse(text);
   } catch (error) {
-    // Optionally, you can emit a global event or use a state manager for error messages
-    console.error('API call failed:', error);
+    // Don't log AbortError - it's expected when requests are cancelled
+    if (error.name !== 'AbortError') {
+      console.error('API call failed:', error);
+    }
     throw error;
   }
 }

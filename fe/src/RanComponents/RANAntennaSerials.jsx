@@ -27,7 +27,7 @@ export default function RANAntennaSerials() {
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
-  const [stats, setStats] = useState({ total_records: 0 });
+  const [stats, setStats] = useState({ total_antennas: 0, unique_mrbts: 0 });
   const [showHelpModal, setShowHelpModal] = useState(false);
   const fetchAbort = useRef(null);
 
@@ -42,12 +42,10 @@ export default function RANAntennaSerials() {
   // --- API Functions ---
   const fetchProjects = async () => {
     try {
-      // Assuming the endpoint is consistent with other components
-      const data = await apiCall('/ran-projects'); 
-      setProjects(data || []);
-      if (data && data.length > 0) {
-        setSelectedProject(data[0].pid_po);
-      }
+      const data = await apiCall('/ran-projects');
+      const projectsList = data?.records || data || [];
+      setProjects(projectsList);
+      // Don't set a default project - let user select one
     } catch (err) {
       setTransient(setError, 'Failed to load projects.');
     }
@@ -98,7 +96,8 @@ export default function RANAntennaSerials() {
   // --- Initial Data Load ---
   useEffect(() => {
     fetchProjects();
-    // Subsequent data fetching will be triggered by the selectedProject state change
+    fetchAntennaSerials(1, '', rowsPerPage, '');
+    fetchStats('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -215,7 +214,8 @@ export default function RANAntennaSerials() {
 
   // --- UI Component Definitions ---
   const statCards = [
-    { label: 'Total Records', value: stats.total_records },
+    { label: 'Total Antennas', value: stats.total_antennas || 0 },
+    { label: 'Unique MRBTS', value: stats.unique_mrbts || 0 },
     { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
     { label: 'Showing', value: `${rows.length} records` },
     {

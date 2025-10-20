@@ -125,18 +125,46 @@ def add_ran_project(
 
 @RANProjectRoute.get("")
 def get_ran_projects(
+        skip: int = 0,
+        limit: int = 10,
+        search: str = "",
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
-    Get all RAN projects accessible to the current user.
+    Get all RAN projects accessible to the current user with pagination.
     - senior_admin: Can see all projects
     - admin: Can see only projects they have access to
     - user: Can see only projects they have access to
+
+    Args:
+        skip: Number of records to skip (for pagination)
+        limit: Maximum number of records to return
+        search: Search term to filter by project name, pid, or po
     """
     try:
         accessible_projects = get_user_accessible_ran_projects(current_user, db)
-        return accessible_projects
+
+        # Apply search filter if provided
+        if search.strip():
+            search_lower = search.strip().lower()
+            accessible_projects = [
+                p for p in accessible_projects
+                if (search_lower in (p.project_name or "").lower() or
+                    search_lower in (p.pid or "").lower() or
+                    search_lower in (p.po or "").lower() or
+                    search_lower in (p.pid_po or "").lower())
+            ]
+
+        total = len(accessible_projects)
+
+        # Apply pagination
+        paginated_projects = accessible_projects[skip:skip + limit]
+
+        return {
+            "records": paginated_projects,
+            "total": total
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
