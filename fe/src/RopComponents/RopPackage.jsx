@@ -1173,99 +1173,145 @@ export default function RopPackage() {
                     {expandedRows[pkg.id] && (
                       <tr className="expanded-row">
                         <td colSpan="6">
-                          <div className="sub-table-container" style={{ display: 'flex', gap: '20px' }}>
-                            <div className="pci-items-table">
-                              <h4>PCI Items (Cost : {pkg.price ? pkg.price.toLocaleString() : 'N/A'})</h4>
-                              <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}>
-                                <thead>
-                                  <tr>
-                                    <th style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>Item Name</th>
-                                    <th style={{ width: 'auto', whiteSpace: 'nowrap' }}>Quantity</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {pkg.lvl1_items && pkg.lvl1_items.length > 0 ? (
-                                    pkg.lvl1_items.map((item, index) => (
-                                      <tr key={index}>
-                                        <td style={{ width: 'fit-content', whiteSpace: 'nowrap', fontSize: '0.95em' }}>{item.name || item}</td>
-                                        <td style={{ width: 'auto', whiteSpace: 'nowrap' }}>
-                                          <input
-                                            type="number"
-                                            value={editingQuantities[pkg.id]?.[index] ?? item.quantity ?? ''}
-                                            min={0}
-                                            style={{ width: 'auto', minWidth: 24, padding: '1px 2px', borderRadius: 3, border: '1px solid #ccc', fontSize: '0.95em'  }}
-                                            onChange={e => handleQuantityChange(pkg.id, index, e.target.value)}
-                                            disabled={true} 
-                                          />
-                                        </td>
-                                      </tr>
-                                    ))
-                                  ) : (
-                                    <tr>
-                                      <td colSpan={2}>No Lvl1 items found for this package.</td>
+                          <div className="sub-table-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            {/* First Row - PCI Consumed and Revenue Details side by side */}
+                            <div style={{ display: 'flex', gap: '20px', width: '100%' }}>
+                              <div className="pci-items-table" style={{ width: '30%' }}>
+                                <h4 style={{ fontSize: '0.95em', marginBottom: '8px', color: '#1976d2', borderBottom: '2px solid #1976d2', paddingBottom: '4px' }}>
+                                  PCI Consumed <span style={{ fontSize: '0.85em', color: '#666' }}>(Cost: {pkg.price ? pkg.price.toLocaleString() : 'N/A'})</span>
+                                </h4>
+                                <table className="sub-table" style={{ width: '100%', fontSize: '0.9em', borderCollapse: 'collapse' }}>
+                                  <thead>
+                                    <tr style={{ backgroundColor: '#f5f5f5' }}>
+                                      <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '600' }}>Item Name</th>
+                                      <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '600', width: '80px' }}>Qty</th>
+                                      <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '600', width: '100px' }}>Total</th>
                                     </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                            
-                            <div className="monthly-distributions-summary">
-                              <h4>Monthly Distribution Summary</h4>
-                              <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}>
-                                <thead>
-                                  <tr>
-                                    <th>Month</th>
-                                    <th>Quantity</th>
-                                    <th>Revenue</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {pkg.monthly_distributions && pkg.monthly_distributions.length > 0 ? (
-                                    pkg.monthly_distributions
-                                      .filter(d => d.quantity > 0)
-                                      .sort((a, b) => a.year - b.year || a.month - b.month)
-                                      .map((dist, index) => (
-                                        <tr key={index}>
-                                          <td>{moment({ year: dist.year, month: dist.month - 1 }).format('MMM YYYY')}</td>
-                                          <td>{dist.quantity}</td>
-                                          <td>{(dist.quantity * (pkg.price || 0)).toLocaleString()}</td>
+                                  </thead>
+                                  <tbody>
+                                    {pkg.lvl1_items && pkg.lvl1_items.length > 0 ? (
+                                      pkg.lvl1_items.map((item, index) => (
+                                        <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                          <td style={{ padding: '4px 8px', fontSize: '0.85em', textAlign: 'center' }}>{item.name || item}</td>
+                                          <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '0.85em', fontWeight: '500' }}>
+                                              {editingQuantities[pkg.id]?.[index] ?? item.quantity ?? ''}
+                                            </span>
+                                          </td>
+                                          <td style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '600', color: 'black' }}>
+                                            {((editingQuantities[pkg.id]?.[index] ?? item.quantity ?? 0) * (pkg.quantity || 0)).toLocaleString()}
+                                          </td>
                                         </tr>
                                       ))
-                                  ) : (
-                                    <tr>
-                                      <td colSpan={3}>No monthly distributions found.</td>
+                                    ) : (
+                                      <tr>
+                                        <td colSpan={3} style={{ padding: '8px', textAlign: 'center', fontSize: '0.85em', color: '#999' }}>No items found</td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              <div className="payment-details-table" style={{ width: '30%' }}>
+                                <h4 style={{ fontSize: '0.95em', marginBottom: '8px', color: '#9c27b0', borderBottom: '2px solid #9c27b0', paddingBottom: '4px' }}>
+                                  Revenue Details
+                                </h4>
+                                <table className="sub-table" style={{ width: '100%', fontSize: '0.9em', borderCollapse: 'collapse' }}>
+                                  <tbody>
+                                    <tr style={{ borderBottom: '1px solid #eee' }}>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em', fontWeight: '600' }}>Revenue of:</td>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em' }}>{paymentDetails.paymentOf}</td>
                                     </tr>
-                                  )}
-                                </tbody>
-                              </table>
+                                    <tr style={{ borderBottom: '1px solid #eee' }}>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em', fontWeight: '600' }}>Revenue Date:</td>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em' }}>{paymentDetails.paymentDate}</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #eee' }}>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em', fontWeight: '600' }}>Total Amount:</td>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em', fontWeight: '500', color: 'black' }}>{paymentDetails.paymentAmount}</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #eee' }}>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em', fontWeight: '600' }}>Currency:</td>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em' }}>{pkg.currency ? pkg.currency : 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em', fontWeight: '600' }}>Lead Time:</td>
+                                      <td style={{ padding: '4px 8px', fontSize: '0.85em' }}>{pkg.lead_time || 'N/A'}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
-                            
-                            <div className="payment-details-table">
-                              <h4>Revenue Details</h4>
-                              <table className="sub-table" style={{ width: 'fit-content', minWidth: 0, maxWidth: 'none' }}>
-                                <tbody>
-                                  <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Revenue of:</td>
-                                    <td>{paymentDetails.paymentOf}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Revenue Date:</td>
-                                    <td>{paymentDetails.paymentDate}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Total Revenue Amount:</td>
-                                    <td>{paymentDetails.paymentAmount}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Revenue Currency:</td>
-                                    <td>{pkg.currency ? pkg.currency : 'N/A'}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ fontWeight: 'bold' }}>Revenue Lead Time:</td>
-                                    <td>{pkg.lead_time || 'N/A'}</td>
-                                  </tr>
-                                </tbody>
-                              </table>
+
+                            {/* Second Row - Monthly Distributions and Revenue side by side */}
+                            <div style={{ display: 'flex', gap: '20px', width: '100%' }}>
+                              <div className="package-monthly-distributions" style={{ width: '30%' }}>
+                                <h4 style={{ fontSize: '0.95em', marginBottom: '8px', color: '#4caf50', borderBottom: '2px solid #4caf50', paddingBottom: '4px' }}>
+                                  Monthly Distributions
+                                </h4>
+                                <table className="sub-table" style={{ width: '100%', fontSize: '0.9em', borderCollapse: 'collapse' }}>
+                                  <thead>
+                                    <tr style={{ backgroundColor: '#f5f5f5' }}>
+                                      <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '600' }}>Month</th>
+                                      <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '600' }}>Qty</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {pkg.monthly_distributions && pkg.monthly_distributions.length > 0 ? (
+                                      pkg.monthly_distributions
+                                        .filter(d => d.quantity > 0)
+                                        .sort((a, b) => a.year - b.year || a.month - b.month)
+                                        .map((dist, index) => (
+                                          <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                            <td style={{ padding: '4px 8px', fontSize: '0.85em', textAlign: 'center' }}>{moment({ year: dist.year, month: dist.month - 1 }).format('MMM YY')}</td>
+                                            <td style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '500' }}>{dist.quantity}</td>
+                                          </tr>
+                                        ))
+                                    ) : (
+                                      <tr>
+                                        <td colSpan={2} style={{ padding: '8px', textAlign: 'center', fontSize: '0.85em', color: '#999' }}>No distributions</td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              <div className="package-monthly-revenue" style={{ width: '30%' }}>
+                                <h4 style={{ fontSize: '0.95em', marginBottom: '8px', color: '#ff9800', borderBottom: '2px solid #ff9800', paddingBottom: '4px' }}>
+                                  Monthly Revenue
+                                </h4>
+                                <table className="sub-table" style={{ width: '100%', fontSize: '0.9em', borderCollapse: 'collapse' }}>
+                                  <thead>
+                                    <tr style={{ backgroundColor: '#f5f5f5' }}>
+                                      <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '600' }}>Month</th>
+                                      <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '600' }}>Revenue</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {pkg.monthly_distributions && pkg.monthly_distributions.length > 0 ? (
+                                      pkg.monthly_distributions
+                                        .filter(d => d.quantity > 0)
+                                        .sort((a, b) => a.year - b.year || a.month - b.month)
+                                        .map((dist, index) => {
+                                          const leadTimeMonths = pkg.lead_time ? Math.floor(pkg.lead_time / 30) : 0;
+                                          const revenueMonth = moment({ year: dist.year, month: dist.month - 1 }).add(leadTimeMonths, 'months');
+                                          return (
+                                            <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                              <td style={{ padding: '4px 8px', fontSize: '0.85em', textAlign: 'center' }}>{revenueMonth.format('MMM YY')}</td>
+                                              <td style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '500' }}>
+                                                {(dist.quantity * (pkg.price || 0)).toLocaleString()}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })
+                                    ) : (
+                                      <tr>
+                                        <td colSpan={2} style={{ padding: '8px', textAlign: 'center', fontSize: '0.85em', color: '#999' }}>No revenue data</td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
                           </div>
                         </td>
