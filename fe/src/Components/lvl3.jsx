@@ -25,6 +25,7 @@ const initialLvl3State = {
   project_name: '',
   item_name: '',
   uom: '',
+  upl_line: '',
   total_quantity: '',
   total_price: '',
   service_type: '',
@@ -128,11 +129,20 @@ export default function Lvl3() {
       // Apply search filter
       if (search.trim()) {
         const searchLower = search.toLowerCase();
-        filtered = filtered.filter(entry =>
-          entry.project_name?.toLowerCase().includes(searchLower) ||
-          entry.item_name?.toLowerCase().includes(searchLower) ||
-          entry.project_id?.toLowerCase().includes(searchLower)
-        );
+        filtered = filtered.filter(entry => {
+          // Check project, item name, and project ID
+          const basicMatch = entry.project_name?.toLowerCase().includes(searchLower) ||
+                            entry.item_name?.toLowerCase().includes(searchLower) ||
+                            entry.project_id?.toLowerCase().includes(searchLower);
+
+          // Check service type (both by number and by label)
+          const serviceTypeMatch = (entry.service_type || []).some(val => {
+            const label = SERVICE_LABELS[val] || val;
+            return label.toLowerCase().includes(searchLower) || val.toLowerCase().includes(searchLower);
+          });
+
+          return basicMatch || serviceTypeMatch;
+        });
       }
 
       setTotal(filtered.length);
@@ -215,6 +225,7 @@ export default function Lvl3() {
       project_name: entry.project_name,
       item_name: entry.item_name,
       uom: entry.uom,
+      upl_line: entry.upl_line || '',
       total_quantity: entry.total_quantity,
       total_price: entry.total_price,
       service_type: (entry.service_type && entry.service_type.length > 0)
@@ -618,7 +629,7 @@ export default function Lvl3() {
       <FilterBar
         searchTerm={searchTerm}
         onSearchChange={onSearchChange}
-        searchPlaceholder="Filter by Project Name or Item Name..."
+        searchPlaceholder="Filter by Project Name, Item Name or Service Type..."
         dropdowns={[
           {
             label: 'Project',
@@ -657,6 +668,7 @@ export default function Lvl3() {
               <th>Project Name</th>
               <th>Item Name</th>
               <th>UOM</th>
+              <th>UPL Line</th>
               <th>Total Quantity</th>
               <th>Total Price</th>
               <th>Service Type</th>
@@ -666,7 +678,7 @@ export default function Lvl3() {
           <tbody>
             {paginatedEntries.length === 0 && !loading ? (
               <tr>
-                <td colSpan={9} className="no-data">No Level 3 entries found</td>
+                <td colSpan={10} className="no-data">No Level 3 entries found</td>
               </tr>
             ) : (
               paginatedEntries.map((entry) => (
@@ -685,6 +697,7 @@ export default function Lvl3() {
                     <td>{entry.project_name}</td>
                     <td>{entry.item_name}</td>
                     <td>{entry.uom}</td>
+                    <td>{entry.upl_line}</td>
                     <td>{entry.total_quantity?.toLocaleString()}</td>
                     <td>{entry.total_price?.toLocaleString()}</td>
                     <td>{(entry.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
@@ -856,6 +869,12 @@ export default function Lvl3() {
             value={formData.uom}
             onChange={handleChange}
             required
+          />
+          <FormField
+            label="UPL Line"
+            name="upl_line"
+            value={formData.upl_line}
+            onChange={handleChange}
           />
           <FormField
             label="Total Quantity"
