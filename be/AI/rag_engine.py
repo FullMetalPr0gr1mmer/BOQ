@@ -456,10 +456,17 @@ Respond in JSON format:
 
         context = "\n\n".join(context_parts)
 
-        # Build prompt
-        system_prompt = """You are a helpful assistant that answers questions based on provided document excerpts.
-Always cite your sources using [Source N] notation.
-If the information is not in the provided context, say so clearly."""
+        # Build prompt with emphasis on accuracy and preventing hallucinations
+        system_prompt = """You are a precise document analysis assistant. Your ONLY job is to answer questions using EXACTLY the information provided in the document excerpts below.
+
+CRITICAL RULES:
+1. ONLY use information explicitly stated in the provided context
+2. Be specific and detailed when answering - quote relevant parts of the context
+3. If the answer is not in the context, clearly state: "I cannot find this information in the provided documents."
+4. Do NOT make assumptions, inferences, or add knowledge from outside the provided context
+5. Always cite sources using [Source N] notation
+6. If the context mentions something but doesn't fully explain it, acknowledge the limitation
+7. Do NOT fabricate or hallucinate information that isn't in the context"""
 
         # Add conversation history if available
         messages = []
@@ -476,24 +483,58 @@ Question: {question}
 Please answer based on the context above, citing sources."""
         })
 
-        # Get answer from Ollama
-        answer = self.ollama_client.chat(messages, system_prompt=system_prompt)
+        # Get answer from Ollama with low temperature for factual, deterministic responses
+        answer = self.ollama_client.chat(messages, system_prompt=system_prompt, temperature=0.1)
 
         # Calculate confidence based on similarity scores
         avg_score = sum(r['similarity_score'] for r in search_results) / len(search_results)
 
-        # Get document details for sources
-        sources = []
+        # Get document details for sources - GROUP BY DOCUMENT to avoid duplicates
+        doc_sources = {}  # document_id -> {doc info, pages[], chunks[]}
+
         for result in search_results:
-            doc = db.query(Document).filter(Document.id == result['document_id']).first()
-            if doc:
-                sources.append({
-                    "document_id": doc.id,
-                    "filename": doc.filename,
-                    "chunk_text": result['text'][:200] + "...",
-                    "page_number": result.get('page_number'),
-                    "similarity_score": result['similarity_score']
-                })
+            doc_id = result['document_id']
+
+            if doc_id not in doc_sources:
+                doc = db.query(Document).filter(Document.id == doc_id).first()
+                if doc:
+                    doc_sources[doc_id] = {
+                        "document_id": doc.id,
+                        "filename": doc.filename,
+                        "pages": set(),
+                        "chunks": [],
+                        "max_score": result['similarity_score']
+                    }
+
+            # Add page number and chunk
+            if result.get('page_number'):
+                doc_sources[doc_id]["pages"].add(result['page_number'])
+            doc_sources[doc_id]["chunks"].append(result['text'][:200])
+
+            # Track highest similarity score for this document
+            if result['similarity_score'] > doc_sources[doc_id]["max_score"]:
+                doc_sources[doc_id]["max_score"] = result['similarity_score']
+
+        # Convert to final sources list (one entry per document)
+        sources = []
+        for doc_info in doc_sources.values():
+            # Get most relevant chunk (first one, as they're sorted by relevance)
+            best_chunk = doc_info["chunks"][0] if doc_info["chunks"] else ""
+
+            # Format page numbers
+            pages_list = sorted(list(doc_info["pages"]))
+            page_str = ", ".join(map(str, pages_list)) if pages_list else None
+
+            sources.append({
+                "document_id": doc_info["document_id"],
+                "filename": doc_info["filename"],
+                "chunk_text": best_chunk + "...",
+                "page_number": page_str,  # Now shows "1, 3, 5" instead of just "1"
+                "similarity_score": doc_info["max_score"]
+            })
+
+        # Sort by similarity score (highest first)
+        sources.sort(key=lambda x: x['similarity_score'], reverse=True)
 
         return {
             "answer": answer,

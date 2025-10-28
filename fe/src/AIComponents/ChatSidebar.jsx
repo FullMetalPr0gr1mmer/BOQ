@@ -12,6 +12,8 @@ const ChatSidebar = ({ isOpen, onClose, projectContext }) => {
   const [attachedFile, setAttachedFile] = useState(null);
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -35,6 +37,71 @@ const ChatSidebar = ({ isOpen, onClose, projectContext }) => {
       ]);
     }
   }, [isOpen]);
+
+  // Fetch existing documents when Documents tab is opened
+  useEffect(() => {
+    if (isOpen && activeTab === 'documents') {
+      fetchDocuments();
+    }
+  }, [isOpen, activeTab]);
+
+  const fetchDocuments = async () => {
+    setIsLoadingDocuments(true);
+    try {
+      // Build query params
+      const params = new URLSearchParams({
+        limit: '50'
+      });
+
+      // Optionally filter by project context
+      if (projectContext) {
+        params.append('project_id', projectContext.id);
+      }
+
+      const response = await apiCall(`/ai/documents/?${params.toString()}`, {
+        method: 'GET'
+      });
+
+      // Set the fetched documents
+      setUploadedDocuments(response);
+      console.log('Fetched documents:', response.length);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      // Don't show error to user, just log it
+      // User can still upload new documents
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId, filename) => {
+    // Show confirmation
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${filename}"?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingDocId(documentId);
+
+    try {
+      await apiCall(`/ai/documents/${documentId}`, {
+        method: 'DELETE'
+      });
+
+      // Remove from local state
+      setUploadedDocuments(prev =>
+        prev.filter(doc => doc.document_id !== documentId)
+      );
+
+      console.log('Document deleted successfully:', filename);
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete document. Please try again.');
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
 
   const getWelcomeMessage = () => {
     const baseMessage = `Hello! I'm Alfred and I'll be your assisstant for today.
@@ -161,13 +228,7 @@ What would you like to do today?`;
   };
 
   const handleSendMessage = async () => {
-    if ((!inputMessage.trim() && !attachedFile) || isLoading) return;
-
-    // If there's an attached file, upload it first
-    if (attachedFile) {
-      await handleUploadFile();
-      return;
-    }
+    if (!inputMessage.trim() || isLoading) return;
 
     const userMessage = {
       role: 'user',
@@ -185,7 +246,8 @@ What would you like to do today?`;
         body: JSON.stringify({
           message: inputMessage,
           conversation_id: conversationId,
-          project_context: projectContext
+          project_context: projectContext,
+          chat_context: activeTab // 'chat' or 'documents'
         })
       });
 
@@ -381,62 +443,25 @@ What would you like to do today?`;
           )}
 
           <div className="sidebar-input-area">
-            {attachedFile && (
-              <div className="attached-file-preview">
-                <div className="attached-file-info">
-                  <FiFileText size={16} />
-                  <span className="attached-file-name">{attachedFile.name}</span>
-                  <span className="attached-file-size">
-                    ({(attachedFile.size / 1024).toFixed(1)} KB)
-                  </span>
-                </div>
-                <button
-                  className="remove-attachment-btn"
-                  onClick={handleRemoveAttachment}
-                  title="Remove attachment"
-                >
-                  <FiX size={16} />
-                </button>
-              </div>
-            )}
-
             <div className="input-controls">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                accept=".pdf,.doc,.docx,.txt"
-                style={{ display: 'none' }}
-              />
-              <button
-                className="attach-file-btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading || isUploading}
-                title="Attach document (PDF, DOC, DOCX, TXT)"
-              >
-                <FiPaperclip size={18} />
-              </button>
-
               <textarea
                 className="sidebar-input"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={attachedFile ? "Press Send to upload..." : "Ask me anything or attach a document..."}
+                placeholder="Ask me anything about your projects and database..."
                 rows={2}
-                disabled={isLoading || isUploading}
+                disabled={isLoading}
               />
 
               <button
                 className="sidebar-send-btn"
                 onClick={handleSendMessage}
-                disabled={isLoading || isUploading || (!inputMessage.trim() && !attachedFile)}
-                title={attachedFile ? "Upload file" : "Send message"}
+                disabled={isLoading || !inputMessage.trim()}
+                title="Send message"
               >
-                {isUploading ? (
+                {isLoading ? (
                   <FiLoader className="spinner" size={18} />
-                ) : attachedFile ? (
-                  <FiUpload size={18} />
                 ) : (
                   <FiSend size={18} />
                 )}
@@ -448,17 +473,178 @@ What would you like to do today?`;
 
       {activeTab === 'documents' && (
         <div className="sidebar-documents-tab">
-          <div className="documents-placeholder">
-            <FiFileText size={48} />
+          <div className="documents-header">
             <h3>Document Management</h3>
-            <p>Upload and manage your project documents here.</p>
-            <p className="coming-soon">Document upload interface coming soon...</p>
-            <button
-              className="switch-to-chat-btn"
-              onClick={() => setActiveTab('chat')}
-            >
-              Go to Chat
-            </button>
+            <p>Upload documents to ask questions about them. Answers will be based on the uploaded content.</p>
+          </div>
+
+          {/* Documents List with Upload Button */}
+          <div className="documents-list">
+            <div className="documents-list-header">
+              <h4>Documents ({uploadedDocuments.length})</h4>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept=".pdf,.doc,.docx,.txt"
+                style={{ display: 'none' }}
+              />
+              <button
+                className="btn-upload-compact"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading || attachedFile !== null}
+                title="Upload new document"
+              >
+                <FiUpload size={14} />
+                Upload
+              </button>
+            </div>
+
+            {/* Show file preview when selected */}
+            {attachedFile && (
+              <div className="file-preview-compact">
+                <FiFileText size={16} />
+                <span className="file-preview-name">{attachedFile.name}</span>
+                <button
+                  className="btn-upload-file-compact"
+                  onClick={handleUploadFile}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <FiLoader className="spinner" size={14} />
+                  ) : (
+                    <FiUpload size={14} />
+                  )}
+                </button>
+                <button
+                  className="btn-remove-file-compact"
+                  onClick={handleRemoveAttachment}
+                  disabled={isUploading}
+                >
+                  <FiX size={14} />
+                </button>
+              </div>
+            )}
+
+            {uploadedDocuments.length > 0 && (
+              <div className="documents-list-items">
+              {uploadedDocuments.map((doc, index) => (
+                <div
+                  key={index}
+                  className={`document-item ${deletingDocId === doc.document_id ? 'deleting' : ''}`}
+                >
+                  <FiFileText size={20} />
+                  <div className="document-info">
+                    <span className="document-name">{doc.filename}</span>
+                    <span className="document-status">
+                      {doc.processing_status === 'completed' ? '✓ Ready' : '⏳ Processing'}
+                    </span>
+                  </div>
+                  <button
+                    className="btn-delete-doc"
+                    onClick={() => handleDeleteDocument(doc.document_id, doc.filename)}
+                    disabled={deletingDocId !== null}
+                    title="Delete document"
+                  >
+                    {deletingDocId === doc.document_id ? (
+                      <FiLoader className="spinner" size={16} />
+                    ) : (
+                      <FiTrash2 size={16} />
+                    )}
+                  </button>
+                </div>
+              ))}
+              </div>
+            )}
+          </div>
+
+          {/* Chat Interface for Document Questions */}
+          <div className="documents-chat-section">
+            <h4>Ask Questions About Your Documents</h4>
+
+            {isLoadingDocuments ? (
+              <div className="documents-loading">
+                <FiLoader className="spinner" size={32} />
+                <p>Loading your documents...</p>
+              </div>
+            ) : uploadedDocuments.length === 0 ? (
+              <div className="documents-empty-state">
+                <FiFileText size={48} />
+                <h4>No Documents Yet</h4>
+                <p>Upload a document above to start asking questions about it.</p>
+              </div>
+            ) : (
+              <>
+                <div className="documents-messages">
+                  {messages
+                    .filter(msg => msg.sources || msg.uploadedDocument)
+                    .map((message, index) => (
+                      <div key={index} className={`sidebar-message ${message.role}`}>
+                        <div className="message-avatar">
+                          {message.role === 'user' ? <FiUser size={16} /> : <FiMessageSquare size={16} />}
+                        </div>
+                        <div className="message-bubble">
+                          <div className="message-text">{message.content}</div>
+
+                          {message.sources && message.sources.length > 0 && (
+                            <div className="message-sources-list">
+                              <strong>Sources:</strong>
+                              {message.sources.map((source, i) => (
+                                <div key={i} className="source-card">
+                                  <div className="source-filename">{source.filename}</div>
+                                  {source.page_number && (
+                                    <div className="source-page">Page {source.page_number}</div>
+                                  )}
+                                  <div className="source-text">{source.chunk_text}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="message-time">
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                  {isLoading && (
+                    <div className="sidebar-message assistant">
+                      <div className="message-avatar">
+                        <FiMessageSquare size={16} />
+                      </div>
+                      <div className="message-bubble">
+                        <FiLoader className="spinner" size={16} />
+                        <span className="typing-text">Searching documents...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="documents-input-area">
+                  <textarea
+                    className="sidebar-input"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Ask questions about your documents..."
+                    rows={2}
+                    disabled={isLoading}
+                  />
+                  <button
+                    className="sidebar-send-btn"
+                    onClick={handleSendMessage}
+                    disabled={isLoading || !inputMessage.trim()}
+                  >
+                    {isLoading ? (
+                      <FiLoader className="spinner" size={18} />
+                    ) : (
+                      <FiSend size={18} />
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

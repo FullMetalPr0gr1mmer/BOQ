@@ -149,7 +149,8 @@ If you're not sure about something, ask for clarification rather than guessing."
         user_id: int,
         db: Session,
         conversation_id: Optional[str] = None,
-        project_context: Optional[Dict[str, Any]] = None
+        project_context: Optional[Dict[str, Any]] = None,
+        chat_context: Optional[str] = 'chat'
     ) -> Dict[str, Any]:
         """
         Main chat interface
@@ -160,6 +161,7 @@ If you're not sure about something, ask for clarification rather than guessing."
             db: Database session
             conversation_id: Optional conversation UUID for continuity
             project_context: Optional current project context
+            chat_context: Context of the chat - 'chat' for tasks/database, 'documents' for document Q&A
 
         Returns:
             Response with text, actions, and data
@@ -185,20 +187,25 @@ If you're not sure about something, ask for clarification rather than guessing."
         # Save user message
         self._save_message(db, user_id, conversation_id, "user", message, project_context)
 
-        # Skip RAG for:
-        # 1. Follow-up questions about previous results (should use conversation context)
-        # 2. Explicit database queries (should use function calling, not document search)
-        is_followup = self._is_followup_question(message, history)
-        is_db_query = self._is_database_query(message)
+        # RAG decision based on chat_context:
+        # - 'documents' tab: ALWAYS use RAG (user wants document Q&A)
+        # - 'chat' tab: SKIP RAG (user wants database/task queries)
+        if chat_context == 'documents':
+            logger.info(f"[RAG] Using RAG - user is in Documents tab")
+            rag_response = self._try_rag_response(message, db, project_context)
+        else:
+            # In chat tab, skip RAG for database/task queries
+            is_followup = self._is_followup_question(message, history)
+            is_db_query = self._is_database_query(message)
 
-        if is_followup or is_db_query:
             if is_followup:
                 logger.info(f"[RAG] Skipping RAG - detected follow-up question about previous context")
             if is_db_query:
                 logger.info(f"[RAG] Skipping RAG - detected explicit database query")
+
+            # Always skip RAG in chat tab
+            logger.info(f"[RAG] Skipping RAG - user is in Chat tab (for tasks/database)")
             rag_response = None
-        else:
-            rag_response = self._try_rag_response(message, db, project_context)
 
         if rag_response:
             # Save assistant response

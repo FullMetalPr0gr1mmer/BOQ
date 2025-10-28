@@ -11,6 +11,10 @@ class ChatMessage(BaseModel):
         None,
         description="Current project context: {'type': 'boq', 'id': 123}"
     )
+    chat_context: Optional[str] = Field(
+        'chat',
+        description="Context of where message is from: 'chat' for tasks/database queries, 'documents' for document Q&A"
+    )
     stream: bool = Field(False, description="Enable streaming responses")
 
 

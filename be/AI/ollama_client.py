@@ -2,6 +2,7 @@
 Ollama client for LLM inference
 """
 import json
+import os
 from typing import List, Dict, Any, Optional
 import ollama
 import logging
@@ -11,22 +12,41 @@ logger = logging.getLogger(__name__)
 
 class OllamaClient:
     """
-    Wrapper for Ollama API
+    Wrapper for Ollama API with environment-based model selection
     """
 
-    DEFAULT_MODEL = "llama3.1:8b"  # Using llama3.2:1b (ensure sufficient RAM)
+    @staticmethod
+    def get_default_model() -> str:
+        """
+        Get the appropriate model based on environment
 
-    def __init__(self, host: str = "http://localhost:11434", model: str = None):
+        Returns:
+            Model name (gemma2:9b for production, llama3.2:1b for development)
+        """
+        environment = os.getenv("ENVIRONMENT", "development").lower()
+
+        if environment == "production":
+            model = os.getenv("OLLAMA_MODEL_PRODUCTION", "gemma2:9b")
+            logger.info(f"Using PRODUCTION model: {model}")
+        else:
+            model = os.getenv("OLLAMA_MODEL_DEVELOPMENT", "llama3.2:1b")
+            logger.info(f"Using DEVELOPMENT model: {model}")
+
+        return model
+
+    def __init__(self, host: str = None, model: str = None):
         """
         Initialize Ollama client
 
         Args:
-            host: Ollama server URL
-            model: Model name to use
+            host: Ollama server URL (defaults to OLLAMA_HOST env var or localhost:11434)
+            model: Model name to use (defaults to environment-based selection)
         """
-        self.host = host
-        self.model = model or self.DEFAULT_MODEL
-        self.client = ollama.Client(host=host)
+        self.host = host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.model = model or self.get_default_model()
+        self.client = ollama.Client(host=self.host)
+
+        logger.info(f"Initialized OllamaClient with model: {self.model}, host: {self.host}")
 
     def generate(
         self,
