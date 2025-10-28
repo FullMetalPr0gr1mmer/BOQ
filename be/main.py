@@ -25,6 +25,28 @@ Created: [Date]
 Last Modified: [Date]
 """
 
+import os
+import logging
+
+# CRITICAL: Force offline mode for HuggingFace before ANY imports
+# This prevents connection errors when WiFi changes or is unavailable
+os.environ['HF_HUB_OFFLINE'] = '1'
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
+os.environ['HF_DATASETS_OFFLINE'] = '1'
+# Disable SSL cert verification for local operations
+os.environ['CURL_CA_BUNDLE'] = ''
+os.environ['REQUESTS_CA_BUNDLE'] = ''
+os.environ['SSL_CERT_FILE'] = ''
+
+# Configure logging to show INFO level messages
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Console output
+    ]
+)
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +77,11 @@ from APIs.RAN.RANProjectRouting import RANProjectRoute
 from APIs.RAN.RAN_LLDRouting import ran_lld_router
 from APIs.RAN.RANAntennaSerialsRouting import RANAntennaSerialsRouter
 
+# AI API imports
+from APIs.AI import chat_router, document_router
+
+# Import AI models so SQLAlchemy recognizes them
+from Models.AI import Document, DocumentChunk, ChatHistory, AIAction
 
 # # PMA (Project Management Assistant) API import
 # from RAG.PMA import pma
@@ -110,6 +137,10 @@ app.include_router(ROPProjectrouter)    # ROP project management
 app.include_router(ROPLvl1router)       # ROP Level 1 operations
 app.include_router(ROPLvl2router)       # ROP Level 2 operations
 app.include_router(RopPackageRouter)    # ROP package management
+
+# AI Assistant
+app.include_router(chat_router)         # AI chat and conversation
+app.include_router(document_router)     # AI document management and RAG
 
 # app.include_router(pma)    # Project Management Assistant (PMA) routes
 

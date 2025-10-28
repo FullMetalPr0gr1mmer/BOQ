@@ -34,7 +34,7 @@ Usage:
     finally:
         db.close()
 
-Author: [Your Name]
+Author: [Kareem Hosny]
 Created: [Date]
 Last Modified: [Date]
 """

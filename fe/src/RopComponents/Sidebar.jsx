@@ -3,10 +3,13 @@ import { FaSignOutAlt, FaTimes, FaClipboardList, FaChevronDown, FaChevronRight, 
 import { FaProjectDiagram, FaMapMarkerAlt, FaBox, FaLayerGroup, FaCubes, FaFile, FaRobot, FaNetworkWired, FaBroadcastTower, FaAnchor, FaMobileAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import '../css/Sidebar.css';
+import ChatSidebar from '../AIComponents/ChatSidebar';
+import { FiPaperclip } from 'react-icons/fi';
 
 function Sidebar({ isOpen, onClose, onSelect, user }) {
     const navigate = useNavigate();
     const [expandedSections, setExpandedSections] = useState({});
+    const [chatOpen, setChatOpen] = useState(false);
 
     const toggleSection = (sectionKey) => {
         setExpandedSections(prev => ({
@@ -42,7 +45,7 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
         {
             key: 'le-automation',
             title: 'LE Automation',
-            icon: <FaRobot />,
+            icon: <FiPaperclip />,
             items: [
                 { label: 'Projects', path: '/rop-project', icon: <FaProjectDiagram /> },
                 { label: 'Level 1', path: '/rop-lvl1', icon: <FaLayerGroup /> },
@@ -134,6 +137,21 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                             </button>
                         </div>
                     )}
+
+                    {/* AI Assistant - Only for senior_admin */}
+                    {user?.role === 'senior_admin' && (
+                        <div className="nav-section">
+                            <button
+                                className="nav-section-header single-item"
+                                onClick={() => setChatOpen(true)}
+                            >
+                                <span className="nav-section-title">
+                                    <span className="nav-icon"><FaRobot /></span>
+                                    AI Assistant
+                                </span>
+                            </button>
+                        </div>
+                    )}
                 </nav>
 
                 {/* Footer / Logout */}
@@ -144,6 +162,13 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                     </button>
                 </div>
             </div>
+
+            {/* AI Chat Sidebar */}
+            <ChatSidebar
+                isOpen={chatOpen}
+                onClose={() => setChatOpen(false)}
+                projectContext={null}
+            />
         </>
     );
 }

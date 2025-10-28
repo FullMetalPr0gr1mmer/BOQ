@@ -1,0 +1,42 @@
+# AI-specific dependencies for BOQ Application
+# Install with: pip install -r requirements-ai.txt
+
+# LLM and Embeddings (already in main requirements.txt, listed here for reference)
+# sentence-transformers==5.1.1
+# torch==2.8.0
+# transformers==4.56.2
+
+# Ollama Python Client
+ollama==0.4.5
+
+# Vector Database Client
+qdrant-client==1.12.1
+
+# Redis for task queue and caching
+redis==5.2.1
+celery==5.4.0
+
+# Enhanced PDF processing
+pypdf==5.1.0  # More modern than PyPDF2
+pdfplumber==0.11.5  # Better table extraction
+python-magic-bin==0.4.14  # File type detection (Windows compatible)
+
+# Document processing
+python-docx==1.2.0  # Already in main requirements
+markdown==3.7
+
+# JSON schema validation for function calling
+pydantic==2.10.5  # Already in main requirements
+
+# Async HTTP client for Ollama
+# Note: httpx version must be compatible with ollama (requires <0.28.0)
+httpx>=0.27.0,<0.28.0
+
+# Text processing (optional - not currently used)
+# Note: spaCy 3.8.7 is the latest version compatible with Python 3.13
+# nltk==3.9.1
+# spacy==3.8.7  # Use 3.8.7 instead of 3.8.3 for Python 3.13 compatibility
+# Uncomment above if you need advanced NLP features
+
+# Job scheduling
+apscheduler==3.10.4
