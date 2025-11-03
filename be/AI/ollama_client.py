@@ -21,7 +21,7 @@ class OllamaClient:
         Get the appropriate model based on environment
 
         Returns:
-            Model name (gemma2:9b for production, llama3.2:1b for development)
+            Model name (gemma for production, llama3.1:8b for development)
         """
         environment = os.getenv("ENVIRONMENT", "development").lower()
 
@@ -29,7 +29,7 @@ class OllamaClient:
             model = os.getenv("OLLAMA_MODEL_PRODUCTION", "gemma2:9b")
             logger.info(f"Using PRODUCTION model: {model}")
         else:
-            model = os.getenv("OLLAMA_MODEL_DEVELOPMENT", "llama3.2:1b")
+            model = os.getenv("OLLAMA_MODEL_DEVELOPMENT", "llama3.1:8b")
             logger.info(f"Using DEVELOPMENT model: {model}")
 
         return model
@@ -42,6 +42,10 @@ class OllamaClient:
             host: Ollama server URL (defaults to OLLAMA_HOST env var or localhost:11434)
             model: Model name to use (defaults to environment-based selection)
         """
+        # Disable proxy for localhost connections
+        os.environ['NO_PROXY'] = 'localhost,127.0.0.1'
+        os.environ['no_proxy'] = 'localhost,127.0.0.1'
+
         self.host = host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
         self.model = model or self.get_default_model()
         self.client = ollama.Client(host=self.host)

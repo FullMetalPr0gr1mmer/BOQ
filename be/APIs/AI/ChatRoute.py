@@ -65,7 +65,9 @@ async def chat(
         )
 
     except Exception as e:
+        import traceback
         logger.error(f"Chat error for user {current_user.id}: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing chat: {str(e)}"

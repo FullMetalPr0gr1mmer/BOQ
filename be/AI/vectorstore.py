@@ -17,7 +17,7 @@ os.environ['SSL_CERT_FILE'] = ''
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, MatchAny
-from sentence_transformers import SentenceTransformer
+import ollama
 import logging
 
 # Disable SSL verification warnings for local development
@@ -33,22 +33,25 @@ class VectorStore:
     """
 
     COLLECTION_NAME = "boq_documents"
-    EMBEDDING_MODEL = "all-MiniLM-L6-v2"  # 384-dimensional embeddings
-    VECTOR_SIZE = 384
+    EMBEDDING_MODEL = "nomic-embed-text"
+    VECTOR_SIZE = 768
 
-    def __init__(self, qdrant_host: str = "localhost", qdrant_port: int = 6333):
+    def __init__(self, qdrant_host: str = "localhost", qdrant_port: int = 6333, ollama_host: str = "http://localhost:11434"):
         """
         Initialize Qdrant client and embedding model
 
         Args:
             qdrant_host: Qdrant server host
             qdrant_port: Qdrant server port
+            ollama_host: Ollama server URL
         """
+        # Disable proxy for localhost connections
+        os.environ['NO_PROXY'] = 'localhost,127.0.0.1'
+        os.environ['no_proxy'] = 'localhost,127.0.0.1'
+
         self.client = QdrantClient(host=qdrant_host, port=qdrant_port)
-        # Load model from local cache only - environment variables prevent downloading
-        logger.info(f"Loading embedding model '{self.EMBEDDING_MODEL}' in offline mode")
-        self.embedding_model = SentenceTransformer(self.EMBEDDING_MODEL, device='cpu')
-        logger.info(f"Successfully loaded embedding model from local cache")
+        self.ollama_client = ollama.Client(host=ollama_host)
+        logger.info(f"Initialized VectorStore with Ollama embedding model: {self.EMBEDDING_MODEL}")
         self._ensure_collection_exists()
 
     def _ensure_collection_exists(self):
@@ -68,20 +71,23 @@ class VectorStore:
 
     def embed_text(self, text: str) -> List[float]:
         """
-        Generate embedding for text
+        Generate embedding for text using Ollama
 
         Args:
             text: Input text
 
         Returns:
-            Embedding vector
+            Embedding vector (768-dimensional)
         """
-        embedding = self.embedding_model.encode(text, normalize_embeddings=True)
-        return embedding.tolist()
+        response = self.ollama_client.embeddings(
+            model=self.EMBEDDING_MODEL,
+            prompt=text
+        )
+        return response['embedding']
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
-        Generate embeddings for multiple texts
+        Generate embeddings for multiple texts using Ollama
 
         Args:
             texts: List of input texts
@@ -89,8 +95,14 @@ class VectorStore:
         Returns:
             List of embedding vectors
         """
-        embeddings = self.embedding_model.encode(texts, normalize_embeddings=True)
-        return embeddings.tolist()
+        embeddings = []
+        for text in texts:
+            response = self.ollama_client.embeddings(
+                model=self.EMBEDDING_MODEL,
+                prompt=text
+            )
+            embeddings.append(response['embedding'])
+        return embeddings
 
     def add_document_chunks(
         self,
