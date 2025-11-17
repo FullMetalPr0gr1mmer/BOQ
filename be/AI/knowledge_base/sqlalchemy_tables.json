@@ -1,0 +1,3544 @@
+[
+  {
+    "table_name": "audit_logs",
+    "model_name": "AuditLog",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "users.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "action",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "resource_type",
+        "type": "VARCHAR(50)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "resource_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "resource_name",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "details",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "ip_address",
+        "type": "VARCHAR(45)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "user_agent",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "timestamp",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function datetime.utcnow at 0x000001E629524900>",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "user",
+        "target_model": "User",
+        "join_condition": "AuditLog.user_id == User.id",
+        "back_populates": "audit_logs",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.Admin.AuditLog"
+  },
+  {
+    "table_name": "audit_logs",
+    "model_name": "AuditLog",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "users.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "action",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "resource_type",
+        "type": "VARCHAR(50)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "resource_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "resource_name",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "details",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "ip_address",
+        "type": "VARCHAR(45)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "user_agent",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "timestamp",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function datetime.utcnow at 0x000001E629524900>",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "user",
+        "target_model": "User",
+        "join_condition": "AuditLog.user_id == User.id",
+        "back_populates": "audit_logs",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.Admin.User"
+  },
+  {
+    "table_name": "roles",
+    "model_name": "Role",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": "Primary key, auto-incrementing"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": true,
+        "indexed": true,
+        "description": "Unique role name (e.g., 'admin', 'user', 'viewer')"
+      }
+    ],
+    "relationships": [
+      {
+        "name": "users",
+        "target_model": "User",
+        "join_condition": "Role.id == User.role_id",
+        "back_populates": "role",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "Role Model - Defines user roles and permissions. This model stores role definitions that determine what actions users can perform within the system. Attributes: id (int): Primary key, auto-incrementing name (str): Unique role name (e.g., 'admin', 'user', 'viewer') Max length: 100 characters Relationships: users: One-to-many relationship with User model A role can be assigned to multiple users Common Roles: - admin: Full system access and administration - user: Standard user with project access - viewer: Read-only access to assigned projects Usage Example: admin_role = Role(name=\"admin\") user_role = Role(name=\"user\")",
+    "module_path": "Models.Admin.User"
+  },
+  {
+    "table_name": "users",
+    "model_name": "User",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": "Primary key, auto-incrementing"
+      },
+      {
+        "name": "username",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": true,
+        "indexed": true,
+        "description": "Unique username for login"
+      },
+      {
+        "name": "email",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": true,
+        "indexed": true,
+        "description": "Unique email address"
+      },
+      {
+        "name": "hashed_password",
+        "type": "VARCHAR",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": "Bcrypt hashed password (never store plain text)"
+      },
+      {
+        "name": "registered_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "2025-11-07 01:25:44.430917",
+        "unique": false,
+        "indexed": false,
+        "description": "Account creation timestamp"
+      },
+      {
+        "name": "role_id",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "roles.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": "Foreign key linking to Role model"
+      }
+    ],
+    "relationships": [
+      {
+        "name": "role",
+        "target_model": "Role",
+        "join_condition": "User.role_id == Role.id",
+        "back_populates": "users",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      },
+      {
+        "name": "audit_logs",
+        "target_model": "AuditLog",
+        "join_condition": "User.id == AuditLog.user_id",
+        "back_populates": "user",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "User Model - Represents system users with authentication and authorization. This model stores user account information, authentication credentials, and links to roles for permission management. Attributes: id (int): Primary key, auto-incrementing username (str): Unique username for login Max length: 100 characters email (str): Unique email address Max length: 100 characters hashed_password (str): Bcrypt hashed password (never store plain text) registered_at (datetime): Account creation timestamp role_id (int): Foreign key linking to Role model Relationships: role: Many-to-one relationship with Role model Each user has exactly one role audit_logs: One-to-many relationship with AuditLog model Tracks user actions for audit purposes Security Features: - Passwords are stored as bcrypt hashes - Unique constraints on username and email - Role-based access control - Audit trail for user actions Usage Example: user = User( username=\"john_doe\", email=\"john@company.com\", hashed_password=bcrypt_hash, role_id=user_role.id )",
+    "module_path": "Models.Admin.User"
+  },
+  {
+    "table_name": "user_project_access",
+    "model_name": "UserProjectAccess",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": "Primary key, auto-incrementing"
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "users.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": "Foreign key to User model"
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": "Foreign key to BOQ projects table (optional)"
+      },
+      {
+        "name": "Ranproject_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "ran_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": "Foreign key to RAN projects table (optional)"
+      },
+      {
+        "name": "Ropproject_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "rop_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": "Foreign key to ROP projects table (optional)"
+      },
+      {
+        "name": "permission_level",
+        "type": "VARCHAR(50)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "view",
+        "unique": false,
+        "indexed": false,
+        "description": "Level of access (view, edit, admin)"
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "User Project Access Model - Manages project-specific user permissions. This model provides fine-grained access control by defining which projects a user can access and what level of permissions they have for each project. Attributes: id (int): Primary key, auto-incrementing user_id (int): Foreign key to User model project_id (str): Foreign key to BOQ projects table (optional) permission_level (str): Level of access (view, edit, admin) Default: \"view\" Ranproject_id (str): Foreign key to RAN projects table (optional) Ropproject_id (str): Foreign key to ROP projects table (optional) Permission Levels: - view: Read-only access to project data - edit: Can modify project data - admin: Full control over project (edit, delete, manage users) Project Types: - BOQ Projects: Standard Bill of Quantities projects - RAN Projects: Radio Access Network projects - ROP Projects: Resource Optimization Planning projects Business Logic: - A user can have access to multiple projects - Different permission levels for different projects - Supports all three project types in the system - Nullable project IDs allow for flexible access patterns Usage Example: access = UserProjectAccess( user_id=user.id, project_id=\"PRJ001_PO123\", permission_level=\"edit\" )",
+    "module_path": "Models.Admin.User"
+  },
+  {
+    "table_name": "ai_actions",
+    "model_name": "AIAction",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "users.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "conversation_id",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "action_type",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "action_params",
+        "type": "JSON",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "action_result",
+        "type": "JSON",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "success",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "error_message",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "timestamp",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function datetime.utcnow at 0x000001E629586160>",
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "execution_time_ms",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "user",
+        "target_model": "User",
+        "join_condition": "AIAction.user_id == User.id",
+        "back_populates": null,
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "Audit log for AI-performed actions Tracks what the AI did for compliance and debugging",
+    "module_path": "Models.AI.Document"
+  },
+  {
+    "table_name": "chat_history",
+    "model_name": "ChatHistory",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "users.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "conversation_id",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "role",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "content",
+        "type": "TEXT",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "project_type",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "timestamp",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function datetime.utcnow at 0x000001E629584CC0>",
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "tokens_used",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "0",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "function_calls",
+        "type": "JSON",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function list at 0x000001E629584D60>",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "user",
+        "target_model": "User",
+        "join_condition": "ChatHistory.user_id == User.id",
+        "back_populates": null,
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "Stores conversation history for context-aware AI responses",
+    "module_path": "Models.AI.Document"
+  },
+  {
+    "table_name": "documents",
+    "model_name": "Document",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_type",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "filename",
+        "type": "VARCHAR(255)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "file_path",
+        "type": "VARCHAR(500)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "file_type",
+        "type": "VARCHAR(50)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "file_size",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "upload_date",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function datetime.utcnow at 0x000001E62955E2A0>",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "uploaded_by",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "users.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "tags",
+        "type": "JSON",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function list at 0x000001E62955E480>",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "summary",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "document_type",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "extracted_entities",
+        "type": "JSON",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function dict at 0x000001E62955E520>",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "processing_status",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "pending",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "processing_error",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "chunks",
+        "target_model": "DocumentChunk",
+        "join_condition": "Document.id == DocumentChunk.document_id",
+        "back_populates": "document",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')"
+      },
+      {
+        "name": "uploader",
+        "target_model": "User",
+        "join_condition": "Document.uploaded_by == User.id",
+        "back_populates": null,
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "Stores metadata for uploaded documents (PDFs, DOCX, etc.) Linked to projects for context-aware retrieval",
+    "module_path": "Models.AI.Document"
+  },
+  {
+    "table_name": "document_chunks",
+    "model_name": "DocumentChunk",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "document_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "documents.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "chunk_text",
+        "type": "TEXT",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "chunk_index",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "vector_id",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": true,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "page_number",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "section_title",
+        "type": "VARCHAR(255)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "chunk_metadata",
+        "type": "JSON",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "<function dict at 0x000001E62955FC40>",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "document",
+        "target_model": "Document",
+        "join_condition": "DocumentChunk.document_id == Document.id",
+        "back_populates": "chunks",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "Text chunks from documents for vector search Each chunk is embedded and stored in Qdrant",
+    "module_path": "Models.AI.Document"
+  },
+  {
+    "table_name": "boq_reference",
+    "model_name": "BOQReference",
+    "columns": [
+      {
+        "name": "id",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": "<function BOQReference.<lambda> at 0x000001E629587420>",
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "linkid",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "interface_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "site_ip_a",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "site_ip_b",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.BOQ.BOQReference"
+  },
+  {
+    "table_name": "dismantling",
+    "model_name": "Dismantling",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "nokia_link_id",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "nec_dismantling_link_id",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "no_of_dismantling",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "comments",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.BOQ.Dismantling"
+  },
+  {
+    "table_name": "inventory",
+    "model_name": "Inventory",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "site_id",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "site_name",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "slot_id",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "port_id",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "company_id",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "mnemonic",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "clei_code",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "part_no",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "software_no",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "factory_id",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "serial_no",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "date_id",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "manufactured_date",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "customer_field",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "license_points_consumed",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "alarm_status",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "Aggregated_alarm_status",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.BOQ.Inventory"
+  },
+  {
+    "table_name": "items_for_lvl3",
+    "model_name": "ItemsForLvl3",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "lvl3_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "lvl3.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "item_details",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "vendor_part_number",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "service_type",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "[]",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "category",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "uom",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "upl_line",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "price",
+        "type": "FLOAT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "lvl3",
+        "target_model": "Lvl3",
+        "join_condition": "ItemsForLvl3.lvl3_id == Lvl3.id",
+        "back_populates": "items",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {
+      "TypeofService": [
+        "Software",
+        "Hardware",
+        "Service"
+      ]
+    },
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.BOQ.Levels"
+  },
+  {
+    "table_name": "lvl1",
+    "model_name": "Lvl1",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "region",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "service_type",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "price",
+        "type": "FLOAT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {
+      "TypeofService": [
+        "Software",
+        "Hardware",
+        "Service"
+      ]
+    },
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.BOQ.Levels"
+  },
+  {
+    "table_name": "lvl3",
+    "model_name": "Lvl3",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "service_type",
+        "type": "VARCHAR",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "[]",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "uom",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "upl_line",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "total_quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "total_price",
+        "type": "FLOAT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "items",
+        "target_model": "ItemsForLvl3",
+        "join_condition": "Lvl3.id == ItemsForLvl3.lvl3_id",
+        "back_populates": "lvl3",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')"
+      }
+    ],
+    "enums": {
+      "TypeofService": [
+        "Software",
+        "Hardware",
+        "Service"
+      ]
+    },
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.BOQ.Levels"
+  },
+  {
+    "table_name": "lld",
+    "model_name": "LLD",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "link_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "action",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "fon",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "distance",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "scope",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "fe",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "ne",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "link_category",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "link_status",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "comments",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "dismanting_link_id",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "band",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "t_band_cs",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "ne_ant_size",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "fe_ant_size",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "sd_ne",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "sd_fe",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "odu_type",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "updated_sb",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "region",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "losr_approval",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "initial_lb",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "flb",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.BOQ.LLD"
+  },
+  {
+    "table_name": "projects",
+    "model_name": "Project",
+    "columns": [
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": "Primary key - Combined Project ID and Purchase Order identifier"
+      },
+      {
+        "name": "pid",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": "Primary key - Combined Project ID and Purchase Order identifier"
+      },
+      {
+        "name": "po",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": "Primary key - Combined Project ID and Purchase Order identifier"
+      },
+      {
+        "name": "project_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": "Human-readable project name/description"
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "Project Model - Represents a telecommunications infrastructure project. This model stores basic project information including project identifiers, purchase order details, and project names. It serves as the primary reference for organizing all BOQ-related data within the system. Attributes: pid_po (str): Primary key - Combined Project ID and Purchase Order identifier Format: Usually combines PID and PO with a separator Max length: 200 characters Example: \"PRJ001_PO123\" pid (str): Project ID - Unique identifier for the project Max length: 100 characters Example: \"PRJ001\" po (str): Purchase Order number - Financial tracking identifier Max length: 100 characters Example: \"PO123\" project_name (str): Human-readable project name/description Max length: 200 characters Example: \"Metro Network Expansion Phase 1\" Indexes: - Primary key index on pid_po - Index on pid for fast project lookups - Index on po for purchase order tracking - Index on project_name for search functionality Relationships: This model is referenced by various other models including: - Inventory items - BOQ levels and structures - LLD (Low Level Design) items - Dismantling records Usage Example: project = Project( pid_po=\"PRJ001_PO123\", pid=\"PRJ001\", po=\"PO123\", project_name=\"Metro Network Expansion Phase 1\" )",
+    "module_path": "Models.BOQ.Project"
+  },
+  {
+    "table_name": "sites",
+    "model_name": "Site",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "site_id",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "site_name",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.BOQ.Site"
+  },
+  {
+    "table_name": "monthly_distributions",
+    "model_name": "MonthlyDistribution",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "package_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "rop_packages.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "year",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "month",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "quantity",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "0",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "package",
+        "target_model": "RopPackage",
+        "join_condition": "MonthlyDistribution.package_id == RopPackage.id",
+        "back_populates": "monthly_distributions",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.LE.MonthlyDistribution"
+  },
+  {
+    "table_name": "rop_lvl1",
+    "model_name": "ROPLvl1",
+    "columns": [
+      {
+        "name": "id",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "rop_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "project_name",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "region",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "total_quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "consumption",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "price",
+        "type": "FLOAT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "start_date",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "end_date",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "product_number",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "lvl2_items",
+        "target_model": "ROPLvl2",
+        "join_condition": "ROPLvl1.id == ROPLvl2.lvl1_id",
+        "back_populates": "lvl1",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('merge,save-update')"
+      },
+      {
+        "name": "packages",
+        "target_model": "RopPackage",
+        "join_condition": "ROPLvl1.id == RopPackage.lvl1_id AND ROPLvl1.id == RopPackage.package_id",
+        "back_populates": "lvl1_items",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.LE.ROPLvl1"
+  },
+  {
+    "table_name": "rop_lvl2",
+    "model_name": "ROPLvl2",
+    "columns": [
+      {
+        "name": "id",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "rop_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "lvl1_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "rop_lvl1.id",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "lvl1_item_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "region",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "total_quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "product_number",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "price",
+        "type": "FLOAT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "start_date",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "end_date",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "lvl1",
+        "target_model": "ROPLvl1",
+        "join_condition": "ROPLvl2.lvl1_id == ROPLvl1.id",
+        "back_populates": "lvl2_items",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      },
+      {
+        "name": "distributions",
+        "target_model": "ROPLvl2Distribution",
+        "join_condition": "ROPLvl2.id == ROPLvl2Distribution.lvl2_id",
+        "back_populates": "rop_lvl2",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.LE.ROPLvl2"
+  },
+  {
+    "table_name": "rop_lvl2_distribution",
+    "model_name": "ROPLvl2Distribution",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "lvl2_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "rop_lvl2.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "year",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "month",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "allocated_quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "rop_lvl2",
+        "target_model": "ROPLvl2",
+        "join_condition": "ROPLvl2Distribution.lvl2_id == ROPLvl2.id",
+        "back_populates": "distributions",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.LE.ROPLvl2"
+  },
+  {
+    "table_name": "rop_packages",
+    "model_name": "RopPackage",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "rop_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "package_name",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "start_date",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "end_date",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "price",
+        "type": "FLOAT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "lead_time",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "currency",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "lvl1_items",
+        "target_model": "ROPLvl1",
+        "join_condition": "RopPackage.id == ROPLvl1.package_id AND RopPackage.id == ROPLvl1.lvl1_id",
+        "back_populates": "packages",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('merge,save-update')"
+      },
+      {
+        "name": "monthly_distributions",
+        "target_model": "MonthlyDistribution",
+        "join_condition": "RopPackage.id == MonthlyDistribution.package_id",
+        "back_populates": "package",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')"
+      }
+    ],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.LE.RopPackages"
+  },
+  {
+    "table_name": "rop_projects",
+    "model_name": "ROPProject",
+    "columns": [
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "pid",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "po",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "wbs",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "country",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "currency",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "Euros",
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "product_number",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.LE.ROPProject"
+  },
+  {
+    "table_name": "ran_antenna_serials",
+    "model_name": "RANAntennaSerials",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "mrbts",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "antenna_model",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "serial_number",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "ran_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.RAN.RANAntennaSerials"
+  },
+  {
+    "table_name": "ran_inventory",
+    "model_name": "RANInventory",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "mrbts",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "site_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "identification_code",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "user_label",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "serial_number",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "duplicate",
+        "type": "BOOLEAN",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "False",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "duplicate_remarks",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "ran_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "SQLAlchemy model for RAN Inventory records.",
+    "module_path": "Models.RAN.RANInventory"
+  },
+  {
+    "table_name": "items_for_ranlvl3",
+    "model_name": "ItemsForRANLvl3",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "ranlvl3_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": "ranlvl3.id",
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "item_details",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "vendor_part_number",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "service_type",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "[]",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "category",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "uom",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "price",
+        "type": "FLOAT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "upl_line",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "ranlvl3",
+        "target_model": "RANLvl3",
+        "join_condition": "ItemsForRANLvl3.ranlvl3_id == RANLvl3.id",
+        "back_populates": "items",
+        "relationship_type": "many-to-one",
+        "cascade": "CascadeOptions('merge,save-update')"
+      }
+    ],
+    "enums": {
+      "TypeofService": [
+        "Software",
+        "Hardware",
+        "Service"
+      ]
+    },
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.RAN.RANLvl3"
+  },
+  {
+    "table_name": "ranlvl3",
+    "model_name": "RANLvl3",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_id",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "ran_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "key",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "service_type",
+        "type": "VARCHAR",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": "[]",
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "uom",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "total_quantity",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "total_price",
+        "type": "FLOAT",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "po_line",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "category",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "upl_line",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "ran_category",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      }
+    ],
+    "relationships": [
+      {
+        "name": "items",
+        "target_model": "ItemsForRANLvl3",
+        "join_condition": "RANLvl3.id == ItemsForRANLvl3.ranlvl3_id",
+        "back_populates": "ranlvl3",
+        "relationship_type": "one-to-many",
+        "cascade": "CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')"
+      }
+    ],
+    "enums": {
+      "TypeofService": [
+        "Software",
+        "Hardware",
+        "Service"
+      ]
+    },
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.RAN.RANLvl3"
+  },
+  {
+    "table_name": "ran_projects",
+    "model_name": "RanProject",
+    "columns": [
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "pid",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "po",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {
+      "TypeofService": [
+        "Software",
+        "Hardware",
+        "Service"
+      ]
+    },
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.RAN.RANLvl3"
+  },
+  {
+    "table_name": "ran_projects",
+    "model_name": "RanProject",
+    "columns": [
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "pid",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "po",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "project_name",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.RAN.RANProject"
+  },
+  {
+    "table_name": "ran_lld",
+    "model_name": "RAN_LLD",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "site_id",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      },
+      {
+        "name": "new_antennas",
+        "type": "VARCHAR",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "total_antennas",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "technical_boq",
+        "type": "VARCHAR(255)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "key",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": null,
+        "default": null,
+        "unique": false,
+        "indexed": false,
+        "description": null
+      },
+      {
+        "name": "pid_po",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "foreign_key": "ran_projects.pid_po",
+        "default": null,
+        "unique": false,
+        "indexed": true,
+        "description": null
+      }
+    ],
+    "relationships": [],
+    "enums": {},
+    "docstring": "The base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.",
+    "module_path": "Models.RAN.RAN_LLD"
+  }
+]

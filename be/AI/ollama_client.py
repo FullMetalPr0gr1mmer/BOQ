@@ -48,7 +48,7 @@ class OllamaClient:
 
         self.host = host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
         self.model = model or self.get_default_model()
-        self.client = ollama.Client(host=self.host)
+        self.client = ollama.Client(host=self.host, timeout=300.0)  # 5 minutes for large Text2SQL prompts with full schema
 
         logger.info(f"Initialized OllamaClient with model: {self.model}, host: {self.host}")
 

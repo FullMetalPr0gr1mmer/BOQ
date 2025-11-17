@@ -1,0 +1,106 @@
+[
+  {
+    "content": "BUSINESS RULE: <business term or calculated field>\n\nDEFINITION:\n<clear explanation>\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\n<which tables are needed>",
+    "metadata": {
+      "type": "business_rule",
+      "term": "<business term or calculated field>",
+      "tables": [
+        "<which tables are needed>"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Active User\n\nDEFINITION:\nA user who has logged in within the last 30 days and has status = 'active'\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\nusers",
+    "metadata": {
+      "type": "business_rule",
+      "term": "Active User",
+      "tables": [
+        "users"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Total Revenue\n\nDEFINITION:\nSum of (price * quantity) for all completed orders\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\norders, order_items",
+    "metadata": {
+      "type": "business_rule",
+      "term": "Total Revenue",
+      "tables": [
+        "orders",
+        "order_items"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Project Completion Rate\n\nDEFINITION:\nPercentage of completed line items compared to total line items in a project\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\nlvl3",
+    "metadata": {
+      "type": "business_rule",
+      "term": "Project Completion Rate",
+      "tables": [
+        "lvl3"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Project Total Cost\n\nDEFINITION:\nSum of (total_price) for all level 3 items in a project\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\nlvl3",
+    "metadata": {
+      "type": "business_rule",
+      "term": "Project Total Cost",
+      "tables": [
+        "lvl3"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Active Project\n\nDEFINITION:\nA project that has level 1, level 3, or inventory items associated with it\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\nprojects, lvl1, lvl3, inventory",
+    "metadata": {
+      "type": "business_rule",
+      "term": "Active Project",
+      "tables": [
+        "projects",
+        "lvl1",
+        "lvl3",
+        "inventory"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: User Project Count\n\nDEFINITION:\nNumber of unique projects a user has access to across all project types (BOQ, RAN, ROP)\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\nuser_project_access",
+    "metadata": {
+      "type": "business_rule",
+      "term": "User Project Count",
+      "tables": [
+        "user_project_access"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Hardware Items\n\nDEFINITION:\nItems where service_type contains '2' (Hardware)\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\nlvl3",
+    "metadata": {
+      "type": "business_rule",
+      "term": "Hardware Items",
+      "tables": [
+        "lvl3"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Software Items\n\nDEFINITION:\nItems where service_type contains '1' (Software)\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\nlvl3",
+    "metadata": {
+      "type": "business_rule",
+      "term": "Software Items",
+      "tables": [
+        "lvl3"
+      ]
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Service Items\n\nDEFINITION:\nItems where service_type contains '3' (Service)\n\nSQL EXAMPLE:\nNot provided\n\nTABLES INVOLVED:\nlvl3",
+    "metadata": {
+      "type": "business_rule",
+      "term": "Service Items",
+      "tables": [
+        "lvl3"
+      ]
+    }
+  }
+]

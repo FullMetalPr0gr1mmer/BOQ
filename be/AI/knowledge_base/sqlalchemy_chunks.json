@@ -1,0 +1,713 @@
+[
+  {
+    "content": "TABLE: audit_logs\nMODEL: AuditLog\nMODULE: Models.Admin.AuditLog\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - user_id: INTEGER [FK -> users.id, NOT NULL]\n  - action: VARCHAR(100) [NOT NULL]\n  - resource_type: VARCHAR(50) [NOT NULL]\n  - resource_id: VARCHAR(200)\n  - resource_name: VARCHAR(500)\n  - details: TEXT\n  - ip_address: VARCHAR(45)\n  - user_agent: VARCHAR(500)\n  - timestamp: DATETIME [NOT NULL]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "audit_logs",
+      "model_name": "AuditLog"
+    }
+  },
+  {
+    "content": "TABLE: audit_logs\n\nCOLUMN DETAILS:\n\nCOLUMN: audit_logs.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: audit_logs.user_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References users.id\n\nCOLUMN: audit_logs.action\n  Type: VARCHAR(100)\n  Nullable: False\n\nCOLUMN: audit_logs.resource_type\n  Type: VARCHAR(50)\n  Nullable: False\n\nCOLUMN: audit_logs.resource_id\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: audit_logs.resource_name\n  Type: VARCHAR(500)\n  Nullable: True\n\nCOLUMN: audit_logs.details\n  Type: TEXT\n  Nullable: True\n\nCOLUMN: audit_logs.ip_address\n  Type: VARCHAR(45)\n  Nullable: True\n\nCOLUMN: audit_logs.user_agent\n  Type: VARCHAR(500)\n  Nullable: True\n\nCOLUMN: audit_logs.timestamp\n  Type: DATETIME\n  Nullable: False\n  Default: <function datetime.utcnow at 0x000001E629524900>",
+    "metadata": {
+      "type": "columns",
+      "table_name": "audit_logs"
+    }
+  },
+  {
+    "content": "TABLE: audit_logs\nMODEL: AuditLog\n\nRELATIONSHIP: user\nTYPE: many-to-one\nTARGET MODEL: User\n\nJOIN CONDITION:\nAuditLog.user_id == User.id\n\nBACK POPULATES: audit_logs\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM audit_logs\nJOIN users ON AuditLog.user_id == User.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "audit_logs",
+      "target_model": "User",
+      "relationship_name": "user"
+    }
+  },
+  {
+    "content": "TABLE: audit_logs\nMODEL: AuditLog\nMODULE: Models.Admin.User\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - user_id: INTEGER [FK -> users.id, NOT NULL]\n  - action: VARCHAR(100) [NOT NULL]\n  - resource_type: VARCHAR(50) [NOT NULL]\n  - resource_id: VARCHAR(200)\n  - resource_name: VARCHAR(500)\n  - details: TEXT\n  - ip_address: VARCHAR(45)\n  - user_agent: VARCHAR(500)\n  - timestamp: DATETIME [NOT NULL]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "audit_logs",
+      "model_name": "AuditLog"
+    }
+  },
+  {
+    "content": "TABLE: audit_logs\n\nCOLUMN DETAILS:\n\nCOLUMN: audit_logs.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: audit_logs.user_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References users.id\n\nCOLUMN: audit_logs.action\n  Type: VARCHAR(100)\n  Nullable: False\n\nCOLUMN: audit_logs.resource_type\n  Type: VARCHAR(50)\n  Nullable: False\n\nCOLUMN: audit_logs.resource_id\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: audit_logs.resource_name\n  Type: VARCHAR(500)\n  Nullable: True\n\nCOLUMN: audit_logs.details\n  Type: TEXT\n  Nullable: True\n\nCOLUMN: audit_logs.ip_address\n  Type: VARCHAR(45)\n  Nullable: True\n\nCOLUMN: audit_logs.user_agent\n  Type: VARCHAR(500)\n  Nullable: True\n\nCOLUMN: audit_logs.timestamp\n  Type: DATETIME\n  Nullable: False\n  Default: <function datetime.utcnow at 0x000001E629524900>",
+    "metadata": {
+      "type": "columns",
+      "table_name": "audit_logs"
+    }
+  },
+  {
+    "content": "TABLE: audit_logs\nMODEL: AuditLog\n\nRELATIONSHIP: user\nTYPE: many-to-one\nTARGET MODEL: User\n\nJOIN CONDITION:\nAuditLog.user_id == User.id\n\nBACK POPULATES: audit_logs\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM audit_logs\nJOIN users ON AuditLog.user_id == User.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "audit_logs",
+      "target_model": "User",
+      "relationship_name": "user"
+    }
+  },
+  {
+    "content": "TABLE: roles\nMODEL: Role\nMODULE: Models.Admin.User\n\nDESCRIPTION:\nRole Model - Defines user roles and permissions. This model stores role definitions that determine what actions users can perform within the system. Attributes: id (int): Primary key, auto-incrementing name (str): Unique role name (e.g., 'admin', 'user', 'viewer') Max length: 100 characters Relationships: users: One-to-many relationship with User model A role can be assigned to multiple users Common Roles: - admin: Full system access and administration - user: Standard user with project access - viewer: Read-only access to assigned projects Usage Example: admin_role = Role(name=\"admin\") user_role = Role(name=\"user\")\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - name: VARCHAR(100) [UNIQUE]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "roles",
+      "model_name": "Role"
+    }
+  },
+  {
+    "content": "TABLE: roles\n\nCOLUMN DETAILS:\n\nCOLUMN: roles.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n  Description: Primary key, auto-incrementing\n\nCOLUMN: roles.name\n  Type: VARCHAR(100)\n  Nullable: True\n  Unique: Yes\n  Indexed: Yes\n  Description: Unique role name (e.g., 'admin', 'user', 'viewer')",
+    "metadata": {
+      "type": "columns",
+      "table_name": "roles"
+    }
+  },
+  {
+    "content": "TABLE: roles\nMODEL: Role\n\nRELATIONSHIP: users\nTYPE: one-to-many\nTARGET MODEL: User\n\nJOIN CONDITION:\nRole.id == User.role_id\n\nBACK POPULATES: role\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM roles\nJOIN users ON Role.id == User.role_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "roles",
+      "target_model": "User",
+      "relationship_name": "users"
+    }
+  },
+  {
+    "content": "TABLE: users\nMODEL: User\nMODULE: Models.Admin.User\n\nDESCRIPTION:\nUser Model - Represents system users with authentication and authorization. This model stores user account information, authentication credentials, and links to roles for permission management. Attributes: id (int): Primary key, auto-incrementing username (str): Unique username for login Max length: 100 characters email (str): Unique email address Max length: 100 characters hashed_password (str): Bcrypt hashed password (never store plain text) registered_at (datetime): Account creation timestamp role_id (int): Foreign key linking to Role model Relationships: role: Many-to-one relationship with Role model Each user has exactly one role audit_logs: One-to-many relationship with AuditLog model Tracks user actions for audit purposes Security Features: - Passwords are stored as bcrypt hashes - Unique constraints on username and email - Role-based access control - Audit trail for user actions Usage Example: user = User( username=\"john_doe\", email=\"john@company.com\", hashed_password=bcrypt_hash, role_id=user_role.id )\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - username: VARCHAR(100) [UNIQUE]\n  - email: VARCHAR(100) [UNIQUE]\n  - hashed_password: VARCHAR\n  - registered_at: DATETIME\n  - role_id: INTEGER [FK -> roles.id]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "users",
+      "model_name": "User"
+    }
+  },
+  {
+    "content": "TABLE: users\n\nCOLUMN DETAILS:\n\nCOLUMN: users.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n  Description: Primary key, auto-incrementing\n\nCOLUMN: users.username\n  Type: VARCHAR(100)\n  Nullable: True\n  Unique: Yes\n  Indexed: Yes\n  Description: Unique username for login\n\nCOLUMN: users.email\n  Type: VARCHAR(100)\n  Nullable: True\n  Unique: Yes\n  Indexed: Yes\n  Description: Unique email address\n\nCOLUMN: users.hashed_password\n  Type: VARCHAR\n  Nullable: True\n  Description: Bcrypt hashed password (never store plain text)\n\nCOLUMN: users.registered_at\n  Type: DATETIME\n  Nullable: True\n  Default: 2025-11-07 01:25:44.430917\n  Description: Account creation timestamp\n\nCOLUMN: users.role_id\n  Type: INTEGER\n  Nullable: True\n  Foreign Key: References roles.id\n  Description: Foreign key linking to Role model",
+    "metadata": {
+      "type": "columns",
+      "table_name": "users"
+    }
+  },
+  {
+    "content": "TABLE: users\nMODEL: User\n\nRELATIONSHIP: role\nTYPE: many-to-one\nTARGET MODEL: Role\n\nJOIN CONDITION:\nUser.role_id == Role.id\n\nBACK POPULATES: users\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM users\nJOIN roles ON User.role_id == Role.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "users",
+      "target_model": "Role",
+      "relationship_name": "role"
+    }
+  },
+  {
+    "content": "TABLE: users\nMODEL: User\n\nRELATIONSHIP: audit_logs\nTYPE: one-to-many\nTARGET MODEL: AuditLog\n\nJOIN CONDITION:\nUser.id == AuditLog.user_id\n\nBACK POPULATES: user\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM users\nJOIN auditlogs ON User.id == AuditLog.user_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "users",
+      "target_model": "AuditLog",
+      "relationship_name": "audit_logs"
+    }
+  },
+  {
+    "content": "TABLE: user_project_access\nMODEL: UserProjectAccess\nMODULE: Models.Admin.User\n\nDESCRIPTION:\nUser Project Access Model - Manages project-specific user permissions. This model provides fine-grained access control by defining which projects a user can access and what level of permissions they have for each project. Attributes: id (int): Primary key, auto-incrementing user_id (int): Foreign key to User model project_id (str): Foreign key to BOQ projects table (optional) permission_level (str): Level of access (view, edit, admin) Default: \"view\" Ranproject_id (str): Foreign key to RAN projects table (optional) Ropproject_id (str): Foreign key to ROP projects table (optional) Permission Levels: - view: Read-only access to project data - edit: Can modify project data - admin: Full control over project (edit, delete, manage users) Project Types: - BOQ Projects: Standard Bill of Quantities projects - RAN Projects: Radio Access Network projects - ROP Projects: Resource Optimization Planning projects Business Logic: - A user can have access to multiple projects - Different permission levels for different projects - Supports all three project types in the system - Nullable project IDs allow for flexible access patterns Usage Example: access = UserProjectAccess( user_id=user.id, project_id=\"PRJ001_PO123\", permission_level=\"edit\" )\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - user_id: INTEGER [FK -> users.id, NOT NULL]\n  - project_id: VARCHAR(200) [FK -> projects.pid_po]\n  - Ranproject_id: VARCHAR(200) [FK -> ran_projects.pid_po]\n  - Ropproject_id: VARCHAR(200) [FK -> rop_projects.pid_po]\n  - permission_level: VARCHAR(50) [NOT NULL]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "user_project_access",
+      "model_name": "UserProjectAccess"
+    }
+  },
+  {
+    "content": "TABLE: user_project_access\n\nCOLUMN DETAILS:\n\nCOLUMN: user_project_access.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n  Description: Primary key, auto-incrementing\n\nCOLUMN: user_project_access.user_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References users.id\n  Description: Foreign key to User model\n\nCOLUMN: user_project_access.project_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References projects.pid_po\n  Description: Foreign key to BOQ projects table (optional)\n\nCOLUMN: user_project_access.Ranproject_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References ran_projects.pid_po\n  Description: Foreign key to RAN projects table (optional)\n\nCOLUMN: user_project_access.Ropproject_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References rop_projects.pid_po\n  Description: Foreign key to ROP projects table (optional)\n\nCOLUMN: user_project_access.permission_level\n  Type: VARCHAR(50)\n  Nullable: False\n  Default: view\n  Description: Level of access (view, edit, admin)",
+    "metadata": {
+      "type": "columns",
+      "table_name": "user_project_access"
+    }
+  },
+  {
+    "content": "TABLE: ai_actions\nMODEL: AIAction\nMODULE: Models.AI.Document\n\nDESCRIPTION:\nAudit log for AI-performed actions Tracks what the AI did for compliance and debugging\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - user_id: INTEGER [FK -> users.id, NOT NULL]\n  - conversation_id: VARCHAR(100) [NOT NULL]\n  - action_type: VARCHAR(100) [NOT NULL]\n  - action_params: JSON [NOT NULL]\n  - action_result: JSON\n  - status: VARCHAR(20)\n  - error_message: TEXT\n  - timestamp: DATETIME\n  - execution_time_ms: INTEGER",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ai_actions",
+      "model_name": "AIAction"
+    }
+  },
+  {
+    "content": "TABLE: ai_actions\n\nCOLUMN DETAILS:\n\nCOLUMN: ai_actions.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: ai_actions.user_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References users.id\n\nCOLUMN: ai_actions.conversation_id\n  Type: VARCHAR(100)\n  Nullable: False\n\nCOLUMN: ai_actions.action_type\n  Type: VARCHAR(100)\n  Nullable: False\n\nCOLUMN: ai_actions.action_params\n  Type: JSON\n  Nullable: False\n\nCOLUMN: ai_actions.action_result\n  Type: JSON\n  Nullable: True\n\nCOLUMN: ai_actions.status\n  Type: VARCHAR(20)\n  Nullable: True\n  Default: success\n\nCOLUMN: ai_actions.error_message\n  Type: TEXT\n  Nullable: True\n\nCOLUMN: ai_actions.timestamp\n  Type: DATETIME\n  Nullable: True\n  Indexed: Yes\n  Default: <function datetime.utcnow at 0x000001E629586160>\n\nCOLUMN: ai_actions.execution_time_ms\n  Type: INTEGER\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ai_actions"
+    }
+  },
+  {
+    "content": "TABLE: ai_actions\nMODEL: AIAction\n\nRELATIONSHIP: user\nTYPE: many-to-one\nTARGET MODEL: User\n\nJOIN CONDITION:\nAIAction.user_id == User.id\n\nBACK POPULATES: None\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM ai_actions\nJOIN users ON AIAction.user_id == User.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "ai_actions",
+      "target_model": "User",
+      "relationship_name": "user"
+    }
+  },
+  {
+    "content": "TABLE: chat_history\nMODEL: ChatHistory\nMODULE: Models.AI.Document\n\nDESCRIPTION:\nStores conversation history for context-aware AI responses\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - user_id: INTEGER [FK -> users.id, NOT NULL]\n  - conversation_id: VARCHAR(100) [NOT NULL]\n  - role: VARCHAR(20) [NOT NULL]\n  - content: TEXT [NOT NULL]\n  - project_type: VARCHAR(20)\n  - project_id: INTEGER\n  - timestamp: DATETIME\n  - tokens_used: INTEGER\n  - function_calls: JSON",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "chat_history",
+      "model_name": "ChatHistory"
+    }
+  },
+  {
+    "content": "TABLE: chat_history\n\nCOLUMN DETAILS:\n\nCOLUMN: chat_history.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: chat_history.user_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References users.id\n\nCOLUMN: chat_history.conversation_id\n  Type: VARCHAR(100)\n  Nullable: False\n  Indexed: Yes\n\nCOLUMN: chat_history.role\n  Type: VARCHAR(20)\n  Nullable: False\n\nCOLUMN: chat_history.content\n  Type: TEXT\n  Nullable: False\n\nCOLUMN: chat_history.project_type\n  Type: VARCHAR(20)\n  Nullable: True\n\nCOLUMN: chat_history.project_id\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: chat_history.timestamp\n  Type: DATETIME\n  Nullable: True\n  Indexed: Yes\n  Default: <function datetime.utcnow at 0x000001E629584CC0>\n\nCOLUMN: chat_history.tokens_used\n  Type: INTEGER\n  Nullable: True\n  Default: 0\n\nCOLUMN: chat_history.function_calls\n  Type: JSON\n  Nullable: True\n  Default: <function list at 0x000001E629584D60>",
+    "metadata": {
+      "type": "columns",
+      "table_name": "chat_history"
+    }
+  },
+  {
+    "content": "TABLE: chat_history\nMODEL: ChatHistory\n\nRELATIONSHIP: user\nTYPE: many-to-one\nTARGET MODEL: User\n\nJOIN CONDITION:\nChatHistory.user_id == User.id\n\nBACK POPULATES: None\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM chat_history\nJOIN users ON ChatHistory.user_id == User.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "chat_history",
+      "target_model": "User",
+      "relationship_name": "user"
+    }
+  },
+  {
+    "content": "TABLE: documents\nMODEL: Document\nMODULE: Models.AI.Document\n\nDESCRIPTION:\nStores metadata for uploaded documents (PDFs, DOCX, etc.) Linked to projects for context-aware retrieval\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - project_type: VARCHAR(20)\n  - project_id: INTEGER\n  - filename: VARCHAR(255) [NOT NULL]\n  - file_path: VARCHAR(500) [NOT NULL]\n  - file_type: VARCHAR(50) [NOT NULL]\n  - file_size: INTEGER\n  - upload_date: DATETIME\n  - uploaded_by: INTEGER [FK -> users.id]\n  - tags: JSON\n  - summary: TEXT\n  - document_type: VARCHAR(100)\n  - extracted_entities: JSON\n  - processing_status: VARCHAR(20)\n  - processing_error: TEXT",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "documents",
+      "model_name": "Document"
+    }
+  },
+  {
+    "content": "TABLE: documents\n\nCOLUMN DETAILS:\n\nCOLUMN: documents.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: documents.project_type\n  Type: VARCHAR(20)\n  Nullable: True\n\nCOLUMN: documents.project_id\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: documents.filename\n  Type: VARCHAR(255)\n  Nullable: False\n\nCOLUMN: documents.file_path\n  Type: VARCHAR(500)\n  Nullable: False\n\nCOLUMN: documents.file_type\n  Type: VARCHAR(50)\n  Nullable: False\n\nCOLUMN: documents.file_size\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: documents.upload_date\n  Type: DATETIME\n  Nullable: True\n  Default: <function datetime.utcnow at 0x000001E62955E2A0>\n\nCOLUMN: documents.uploaded_by\n  Type: INTEGER\n  Nullable: True\n  Foreign Key: References users.id\n\nCOLUMN: documents.tags\n  Type: JSON\n  Nullable: True\n  Default: <function list at 0x000001E62955E480>\n\nCOLUMN: documents.summary\n  Type: TEXT\n  Nullable: True\n\nCOLUMN: documents.document_type\n  Type: VARCHAR(100)\n  Nullable: True\n\nCOLUMN: documents.extracted_entities\n  Type: JSON\n  Nullable: True\n  Default: <function dict at 0x000001E62955E520>\n\nCOLUMN: documents.processing_status\n  Type: VARCHAR(20)\n  Nullable: True\n  Default: pending\n\nCOLUMN: documents.processing_error\n  Type: TEXT\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "documents"
+    }
+  },
+  {
+    "content": "TABLE: documents\nMODEL: Document\n\nRELATIONSHIP: chunks\nTYPE: one-to-many\nTARGET MODEL: DocumentChunk\n\nJOIN CONDITION:\nDocument.id == DocumentChunk.document_id\n\nBACK POPULATES: document\nCASCADE: CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM documents\nJOIN documentchunks ON Document.id == DocumentChunk.document_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "documents",
+      "target_model": "DocumentChunk",
+      "relationship_name": "chunks"
+    }
+  },
+  {
+    "content": "TABLE: documents\nMODEL: Document\n\nRELATIONSHIP: uploader\nTYPE: many-to-one\nTARGET MODEL: User\n\nJOIN CONDITION:\nDocument.uploaded_by == User.id\n\nBACK POPULATES: None\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM documents\nJOIN users ON Document.uploaded_by == User.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "documents",
+      "target_model": "User",
+      "relationship_name": "uploader"
+    }
+  },
+  {
+    "content": "TABLE: document_chunks\nMODEL: DocumentChunk\nMODULE: Models.AI.Document\n\nDESCRIPTION:\nText chunks from documents for vector search Each chunk is embedded and stored in Qdrant\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - document_id: INTEGER [FK -> documents.id, NOT NULL]\n  - chunk_text: TEXT [NOT NULL]\n  - chunk_index: INTEGER [NOT NULL]\n  - vector_id: VARCHAR(100) [UNIQUE, NOT NULL]\n  - page_number: INTEGER\n  - section_title: VARCHAR(255)\n  - chunk_metadata: JSON",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "document_chunks",
+      "model_name": "DocumentChunk"
+    }
+  },
+  {
+    "content": "TABLE: document_chunks\n\nCOLUMN DETAILS:\n\nCOLUMN: document_chunks.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: document_chunks.document_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References documents.id\n\nCOLUMN: document_chunks.chunk_text\n  Type: TEXT\n  Nullable: False\n\nCOLUMN: document_chunks.chunk_index\n  Type: INTEGER\n  Nullable: False\n\nCOLUMN: document_chunks.vector_id\n  Type: VARCHAR(100)\n  Nullable: False\n  Unique: Yes\n\nCOLUMN: document_chunks.page_number\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: document_chunks.section_title\n  Type: VARCHAR(255)\n  Nullable: True\n\nCOLUMN: document_chunks.chunk_metadata\n  Type: JSON\n  Nullable: True\n  Default: <function dict at 0x000001E62955FC40>",
+    "metadata": {
+      "type": "columns",
+      "table_name": "document_chunks"
+    }
+  },
+  {
+    "content": "TABLE: document_chunks\nMODEL: DocumentChunk\n\nRELATIONSHIP: document\nTYPE: many-to-one\nTARGET MODEL: Document\n\nJOIN CONDITION:\nDocumentChunk.document_id == Document.id\n\nBACK POPULATES: chunks\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM document_chunks\nJOIN documents ON DocumentChunk.document_id == Document.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "document_chunks",
+      "target_model": "Document",
+      "relationship_name": "document"
+    }
+  },
+  {
+    "content": "TABLE: boq_reference\nMODEL: BOQReference\nMODULE: Models.BOQ.BOQReference\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: VARCHAR(200) [PRIMARY KEY, NOT NULL]\n  - linkid: VARCHAR(200) [NOT NULL]\n  - interface_name: VARCHAR(200)\n  - site_ip_a: VARCHAR(100)\n  - site_ip_b: VARCHAR(100)\n  - created_at: DATETIME [NOT NULL]\n  - pid_po: VARCHAR(200) [FK -> projects.pid_po]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "boq_reference",
+      "model_name": "BOQReference"
+    }
+  },
+  {
+    "content": "TABLE: boq_reference\n\nCOLUMN DETAILS:\n\nCOLUMN: boq_reference.id\n  Type: VARCHAR(200)\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n  Default: <function BOQReference.<lambda> at 0x000001E629587420>\n\nCOLUMN: boq_reference.linkid\n  Type: VARCHAR(200)\n  Nullable: False\n  Indexed: Yes\n\nCOLUMN: boq_reference.interface_name\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: boq_reference.site_ip_a\n  Type: VARCHAR(100)\n  Nullable: True\n\nCOLUMN: boq_reference.site_ip_b\n  Type: VARCHAR(100)\n  Nullable: True\n\nCOLUMN: boq_reference.created_at\n  Type: DATETIME\n  Nullable: False\n\nCOLUMN: boq_reference.pid_po\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References projects.pid_po",
+    "metadata": {
+      "type": "columns",
+      "table_name": "boq_reference"
+    }
+  },
+  {
+    "content": "TABLE: dismantling\nMODEL: Dismantling\nMODULE: Models.BOQ.Dismantling\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - nokia_link_id: VARCHAR(200) [NOT NULL]\n  - nec_dismantling_link_id: VARCHAR(200) [NOT NULL]\n  - no_of_dismantling: INTEGER [NOT NULL]\n  - comments: TEXT\n  - pid_po: VARCHAR(200) [FK -> projects.pid_po]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "dismantling",
+      "model_name": "Dismantling"
+    }
+  },
+  {
+    "content": "TABLE: dismantling\n\nCOLUMN DETAILS:\n\nCOLUMN: dismantling.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: dismantling.nokia_link_id\n  Type: VARCHAR(200)\n  Nullable: False\n  Indexed: Yes\n\nCOLUMN: dismantling.nec_dismantling_link_id\n  Type: VARCHAR(200)\n  Nullable: False\n  Indexed: Yes\n\nCOLUMN: dismantling.no_of_dismantling\n  Type: INTEGER\n  Nullable: False\n\nCOLUMN: dismantling.comments\n  Type: TEXT\n  Nullable: True\n\nCOLUMN: dismantling.pid_po\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References projects.pid_po\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "dismantling"
+    }
+  },
+  {
+    "content": "TABLE: inventory\nMODEL: Inventory\nMODULE: Models.BOQ.Inventory\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - site_id: VARCHAR(100)\n  - site_name: VARCHAR(100)\n  - slot_id: INTEGER\n  - port_id: INTEGER\n  - status: VARCHAR(100)\n  - company_id: VARCHAR(100)\n  - mnemonic: VARCHAR(100)\n  - clei_code: VARCHAR(100)\n  - part_no: VARCHAR(100)\n  - software_no: VARCHAR(100)\n  - factory_id: VARCHAR(100)\n  - serial_no: VARCHAR(100)\n  - date_id: VARCHAR(100)\n  - manufactured_date: VARCHAR(100)\n  - customer_field: VARCHAR(100)\n  - license_points_consumed: VARCHAR(100)\n  - alarm_status: VARCHAR(100)\n  - Aggregated_alarm_status: VARCHAR(100)\n  - pid_po: VARCHAR(200) [FK -> projects.pid_po]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "inventory",
+      "model_name": "Inventory"
+    }
+  },
+  {
+    "content": "TABLE: inventory\n\nCOLUMN DETAILS:\n\nCOLUMN: inventory.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: inventory.site_id\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.site_name\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.slot_id\n  Type: INTEGER\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.port_id\n  Type: INTEGER\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.status\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.company_id\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.mnemonic\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.clei_code\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.part_no\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.software_no\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.factory_id\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.serial_no\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.date_id\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.manufactured_date\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.customer_field\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.license_points_consumed\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.alarm_status\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.Aggregated_alarm_status\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: inventory.pid_po\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References projects.pid_po\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "inventory"
+    }
+  },
+  {
+    "content": "TABLE: items_for_lvl3\nMODEL: ItemsForLvl3\nMODULE: Models.BOQ.Levels\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - lvl3_id: INTEGER [FK -> lvl3.id, NOT NULL]\n  - item_name: VARCHAR(200)\n  - item_details: VARCHAR(200)\n  - vendor_part_number: VARCHAR(200)\n  - service_type: TEXT\n  - category: VARCHAR(200)\n  - uom: INTEGER\n  - upl_line: VARCHAR(200)\n  - quantity: INTEGER\n  - price: FLOAT",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "items_for_lvl3",
+      "model_name": "ItemsForLvl3"
+    }
+  },
+  {
+    "content": "TABLE: items_for_lvl3\n\nCOLUMN DETAILS:\n\nCOLUMN: items_for_lvl3.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: items_for_lvl3.lvl3_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References lvl3.id\n\nCOLUMN: items_for_lvl3.item_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: items_for_lvl3.item_details\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: items_for_lvl3.vendor_part_number\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: items_for_lvl3.service_type\n  Type: TEXT\n  Nullable: True\n  Default: []\n\nCOLUMN: items_for_lvl3.category\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: items_for_lvl3.uom\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: items_for_lvl3.upl_line\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: items_for_lvl3.quantity\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: items_for_lvl3.price\n  Type: FLOAT\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "items_for_lvl3"
+    }
+  },
+  {
+    "content": "TABLE: items_for_lvl3\nMODEL: ItemsForLvl3\n\nRELATIONSHIP: lvl3\nTYPE: many-to-one\nTARGET MODEL: Lvl3\n\nJOIN CONDITION:\nItemsForLvl3.lvl3_id == Lvl3.id\n\nBACK POPULATES: items\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM items_for_lvl3\nJOIN lvl3s ON ItemsForLvl3.lvl3_id == Lvl3.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "items_for_lvl3",
+      "target_model": "Lvl3",
+      "relationship_name": "lvl3"
+    }
+  },
+  {
+    "content": "TABLE: items_for_lvl3\nENUM: TypeofService\n\nALLOWED VALUES:\nSoftware, Hardware, Service\n\nBUSINESS RULE:\nThe TypeofService field can only contain one of these values: Software, Hardware, Service\n\nEXAMPLE SQL:\nWHERE typeofservice IN ('Software', 'Hardware', 'Service')",
+    "metadata": {
+      "type": "enum",
+      "table_name": "items_for_lvl3",
+      "enum_name": "TypeofService"
+    }
+  },
+  {
+    "content": "TABLE: lvl1\nMODEL: Lvl1\nMODULE: Models.BOQ.Levels\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - project_id: VARCHAR(200) [FK -> projects.pid_po]\n  - project_name: VARCHAR(200)\n  - item_name: VARCHAR(200)\n  - region: VARCHAR(200)\n  - service_type: TEXT\n  - quantity: INTEGER\n  - price: FLOAT",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "lvl1",
+      "model_name": "Lvl1"
+    }
+  },
+  {
+    "content": "TABLE: lvl1\n\nCOLUMN DETAILS:\n\nCOLUMN: lvl1.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: lvl1.project_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References projects.pid_po\n  Indexed: Yes\n\nCOLUMN: lvl1.project_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lvl1.item_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lvl1.region\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lvl1.service_type\n  Type: TEXT\n  Nullable: True\n\nCOLUMN: lvl1.quantity\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: lvl1.price\n  Type: FLOAT\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "lvl1"
+    }
+  },
+  {
+    "content": "TABLE: lvl1\nENUM: TypeofService\n\nALLOWED VALUES:\nSoftware, Hardware, Service\n\nBUSINESS RULE:\nThe TypeofService field can only contain one of these values: Software, Hardware, Service\n\nEXAMPLE SQL:\nWHERE typeofservice IN ('Software', 'Hardware', 'Service')",
+    "metadata": {
+      "type": "enum",
+      "table_name": "lvl1",
+      "enum_name": "TypeofService"
+    }
+  },
+  {
+    "content": "TABLE: lvl3\nMODEL: Lvl3\nMODULE: Models.BOQ.Levels\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - project_id: VARCHAR(200) [FK -> projects.pid_po]\n  - project_name: VARCHAR(200)\n  - item_name: VARCHAR(200)\n  - service_type: VARCHAR\n  - uom: VARCHAR(200)\n  - upl_line: VARCHAR(200)\n  - total_quantity: INTEGER\n  - total_price: FLOAT",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "lvl3",
+      "model_name": "Lvl3"
+    }
+  },
+  {
+    "content": "TABLE: lvl3\n\nCOLUMN DETAILS:\n\nCOLUMN: lvl3.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: lvl3.project_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References projects.pid_po\n  Indexed: Yes\n\nCOLUMN: lvl3.project_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lvl3.item_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lvl3.service_type\n  Type: VARCHAR\n  Nullable: True\n  Default: []\n\nCOLUMN: lvl3.uom\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lvl3.upl_line\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: lvl3.total_quantity\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: lvl3.total_price\n  Type: FLOAT\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "lvl3"
+    }
+  },
+  {
+    "content": "TABLE: lvl3\nMODEL: Lvl3\n\nRELATIONSHIP: items\nTYPE: one-to-many\nTARGET MODEL: ItemsForLvl3\n\nJOIN CONDITION:\nLvl3.id == ItemsForLvl3.lvl3_id\n\nBACK POPULATES: lvl3\nCASCADE: CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM lvl3\nJOIN itemsforlvl3s ON Lvl3.id == ItemsForLvl3.lvl3_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "lvl3",
+      "target_model": "ItemsForLvl3",
+      "relationship_name": "items"
+    }
+  },
+  {
+    "content": "TABLE: lvl3\nENUM: TypeofService\n\nALLOWED VALUES:\nSoftware, Hardware, Service\n\nBUSINESS RULE:\nThe TypeofService field can only contain one of these values: Software, Hardware, Service\n\nEXAMPLE SQL:\nWHERE typeofservice IN ('Software', 'Hardware', 'Service')",
+    "metadata": {
+      "type": "enum",
+      "table_name": "lvl3",
+      "enum_name": "TypeofService"
+    }
+  },
+  {
+    "content": "TABLE: lld\nMODEL: LLD\nMODULE: Models.BOQ.LLD\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - link_id: VARCHAR(200)\n  - action: VARCHAR(100)\n  - fon: VARCHAR(100)\n  - item_name: VARCHAR(200)\n  - distance: VARCHAR(100)\n  - scope: VARCHAR(100)\n  - fe: VARCHAR(100)\n  - ne: VARCHAR(100)\n  - link_category: VARCHAR(100)\n  - link_status: VARCHAR(100)\n  - comments: VARCHAR(100)\n  - dismanting_link_id: VARCHAR(100)\n  - band: VARCHAR(100)\n  - t_band_cs: VARCHAR(100)\n  - ne_ant_size: VARCHAR(100)\n  - fe_ant_size: VARCHAR(100)\n  - sd_ne: VARCHAR(100)\n  - sd_fe: VARCHAR(100)\n  - odu_type: VARCHAR(100)\n  - updated_sb: VARCHAR(100)\n  - region: VARCHAR(100)\n  - losr_approval: VARCHAR(100)\n  - initial_lb: VARCHAR(100)\n  - flb: VARCHAR(100)\n  - pid_po: VARCHAR(200) [FK -> projects.pid_po]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "lld",
+      "model_name": "LLD"
+    }
+  },
+  {
+    "content": "TABLE: lld\n\nCOLUMN DETAILS:\n\nCOLUMN: lld.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: lld.link_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.action\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.fon\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.item_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.distance\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.scope\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.fe\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.ne\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.link_category\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.link_status\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.comments\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.dismanting_link_id\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.band\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.t_band_cs\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.ne_ant_size\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.fe_ant_size\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.sd_ne\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.sd_fe\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.odu_type\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.updated_sb\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.region\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.losr_approval\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.initial_lb\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.flb\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: lld.pid_po\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References projects.pid_po\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "lld"
+    }
+  },
+  {
+    "content": "TABLE: projects\nMODEL: Project\nMODULE: Models.BOQ.Project\n\nDESCRIPTION:\nProject Model - Represents a telecommunications infrastructure project. This model stores basic project information including project identifiers, purchase order details, and project names. It serves as the primary reference for organizing all BOQ-related data within the system. Attributes: pid_po (str): Primary key - Combined Project ID and Purchase Order identifier Format: Usually combines PID and PO with a separator Max length: 200 characters Example: \"PRJ001_PO123\" pid (str): Project ID - Unique identifier for the project Max length: 100 characters Example: \"PRJ001\" po (str): Purchase Order number - Financial tracking identifier Max length: 100 characters Example: \"PO123\" project_name (str): Human-readable project name/description Max length: 200 characters Example: \"Metro Network Expansion Phase 1\" Indexes: - Primary key index on pid_po - Index on pid for fast project lookups - Index on po for purchase order tracking - Index on project_name for search functionality Relationships: This model is referenced by various other models including: - Inventory items - BOQ levels and structures - LLD (Low Level Design) items - Dismantling records Usage Example: project = Project( pid_po=\"PRJ001_PO123\", pid=\"PRJ001\", po=\"PO123\", project_name=\"Metro Network Expansion Phase 1\" )\n\nCOLUMNS:\n  - pid_po: VARCHAR(200) [PRIMARY KEY, NOT NULL]\n  - pid: VARCHAR(100)\n  - po: VARCHAR(100)\n  - project_name: VARCHAR(200)",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "projects",
+      "model_name": "Project"
+    }
+  },
+  {
+    "content": "TABLE: projects\n\nCOLUMN DETAILS:\n\nCOLUMN: projects.pid_po\n  Type: VARCHAR(200)\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n  Description: Primary key - Combined Project ID and Purchase Order identifier\n\nCOLUMN: projects.pid\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n  Description: Primary key - Combined Project ID and Purchase Order identifier\n\nCOLUMN: projects.po\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n  Description: Primary key - Combined Project ID and Purchase Order identifier\n\nCOLUMN: projects.project_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n  Description: Human-readable project name/description",
+    "metadata": {
+      "type": "columns",
+      "table_name": "projects"
+    }
+  },
+  {
+    "content": "TABLE: sites\nMODEL: Site\nMODULE: Models.BOQ.Site\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - site_id: VARCHAR(100)\n  - site_name: VARCHAR(100)\n  - project_id: VARCHAR(200) [FK -> projects.pid_po]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "sites",
+      "model_name": "Site"
+    }
+  },
+  {
+    "content": "TABLE: sites\n\nCOLUMN DETAILS:\n\nCOLUMN: sites.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: sites.site_id\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: sites.site_name\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: sites.project_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References projects.pid_po\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "sites"
+    }
+  },
+  {
+    "content": "TABLE: monthly_distributions\nMODEL: MonthlyDistribution\nMODULE: Models.LE.MonthlyDistribution\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - package_id: INTEGER [FK -> rop_packages.id, NOT NULL]\n  - year: INTEGER [NOT NULL]\n  - month: INTEGER [NOT NULL]\n  - quantity: INTEGER [NOT NULL]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "monthly_distributions",
+      "model_name": "MonthlyDistribution"
+    }
+  },
+  {
+    "content": "TABLE: monthly_distributions\n\nCOLUMN DETAILS:\n\nCOLUMN: monthly_distributions.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: monthly_distributions.package_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References rop_packages.id\n\nCOLUMN: monthly_distributions.year\n  Type: INTEGER\n  Nullable: False\n\nCOLUMN: monthly_distributions.month\n  Type: INTEGER\n  Nullable: False\n\nCOLUMN: monthly_distributions.quantity\n  Type: INTEGER\n  Nullable: False\n  Default: 0",
+    "metadata": {
+      "type": "columns",
+      "table_name": "monthly_distributions"
+    }
+  },
+  {
+    "content": "TABLE: monthly_distributions\nMODEL: MonthlyDistribution\n\nRELATIONSHIP: package\nTYPE: many-to-one\nTARGET MODEL: RopPackage\n\nJOIN CONDITION:\nMonthlyDistribution.package_id == RopPackage.id\n\nBACK POPULATES: monthly_distributions\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM monthly_distributions\nJOIN roppackages ON MonthlyDistribution.package_id == RopPackage.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "monthly_distributions",
+      "target_model": "RopPackage",
+      "relationship_name": "package"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl1\nMODEL: ROPLvl1\nMODULE: Models.LE.ROPLvl1\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: VARCHAR(200) [PRIMARY KEY, NOT NULL]\n  - project_id: VARCHAR(200) [FK -> rop_projects.pid_po, NOT NULL]\n  - project_name: VARCHAR(100) [NOT NULL]\n  - item_name: VARCHAR(100) [NOT NULL]\n  - region: VARCHAR(100)\n  - total_quantity: INTEGER\n  - consumption: INTEGER\n  - price: FLOAT\n  - start_date: DATE\n  - end_date: DATE\n  - product_number: VARCHAR(100)",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "rop_lvl1",
+      "model_name": "ROPLvl1"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl1\n\nCOLUMN DETAILS:\n\nCOLUMN: rop_lvl1.id\n  Type: VARCHAR(200)\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: rop_lvl1.project_id\n  Type: VARCHAR(200)\n  Nullable: False\n  Foreign Key: References rop_projects.pid_po\n\nCOLUMN: rop_lvl1.project_name\n  Type: VARCHAR(100)\n  Nullable: False\n\nCOLUMN: rop_lvl1.item_name\n  Type: VARCHAR(100)\n  Nullable: False\n\nCOLUMN: rop_lvl1.region\n  Type: VARCHAR(100)\n  Nullable: True\n\nCOLUMN: rop_lvl1.total_quantity\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: rop_lvl1.consumption\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: rop_lvl1.price\n  Type: FLOAT\n  Nullable: True\n\nCOLUMN: rop_lvl1.start_date\n  Type: DATE\n  Nullable: True\n\nCOLUMN: rop_lvl1.end_date\n  Type: DATE\n  Nullable: True\n\nCOLUMN: rop_lvl1.product_number\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "rop_lvl1"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl1\nMODEL: ROPLvl1\n\nRELATIONSHIP: lvl2_items\nTYPE: one-to-many\nTARGET MODEL: ROPLvl2\n\nJOIN CONDITION:\nROPLvl1.id == ROPLvl2.lvl1_id\n\nBACK POPULATES: lvl1\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM rop_lvl1\nJOIN roplvl2s ON ROPLvl1.id == ROPLvl2.lvl1_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "rop_lvl1",
+      "target_model": "ROPLvl2",
+      "relationship_name": "lvl2_items"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl1\nMODEL: ROPLvl1\n\nRELATIONSHIP: packages\nTYPE: one-to-many\nTARGET MODEL: RopPackage\n\nJOIN CONDITION:\nROPLvl1.id == RopPackage.lvl1_id AND ROPLvl1.id == RopPackage.package_id\n\nBACK POPULATES: lvl1_items\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM rop_lvl1\nJOIN roppackages ON ROPLvl1.id == RopPackage.lvl1_id AND ROPLvl1.id == RopPackage.package_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "rop_lvl1",
+      "target_model": "RopPackage",
+      "relationship_name": "packages"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl2\nMODEL: ROPLvl2\nMODULE: Models.LE.ROPLvl2\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: VARCHAR(200) [PRIMARY KEY, NOT NULL]\n  - project_id: VARCHAR(200) [FK -> rop_projects.pid_po]\n  - lvl1_id: VARCHAR(200) [FK -> rop_lvl1.id]\n  - lvl1_item_name: VARCHAR(200)\n  - item_name: VARCHAR(200)\n  - region: VARCHAR(100)\n  - total_quantity: INTEGER\n  - product_number: VARCHAR(100)\n  - price: FLOAT\n  - start_date: DATE\n  - end_date: DATE",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "rop_lvl2",
+      "model_name": "ROPLvl2"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl2\n\nCOLUMN DETAILS:\n\nCOLUMN: rop_lvl2.id\n  Type: VARCHAR(200)\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: rop_lvl2.project_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References rop_projects.pid_po\n  Indexed: Yes\n\nCOLUMN: rop_lvl2.lvl1_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References rop_lvl1.id\n  Indexed: Yes\n\nCOLUMN: rop_lvl2.lvl1_item_name\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: rop_lvl2.item_name\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: rop_lvl2.region\n  Type: VARCHAR(100)\n  Nullable: True\n\nCOLUMN: rop_lvl2.total_quantity\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: rop_lvl2.product_number\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: rop_lvl2.price\n  Type: FLOAT\n  Nullable: True\n\nCOLUMN: rop_lvl2.start_date\n  Type: DATE\n  Nullable: True\n\nCOLUMN: rop_lvl2.end_date\n  Type: DATE\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "rop_lvl2"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl2\nMODEL: ROPLvl2\n\nRELATIONSHIP: lvl1\nTYPE: many-to-one\nTARGET MODEL: ROPLvl1\n\nJOIN CONDITION:\nROPLvl2.lvl1_id == ROPLvl1.id\n\nBACK POPULATES: lvl2_items\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM rop_lvl2\nJOIN roplvl1s ON ROPLvl2.lvl1_id == ROPLvl1.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "rop_lvl2",
+      "target_model": "ROPLvl1",
+      "relationship_name": "lvl1"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl2\nMODEL: ROPLvl2\n\nRELATIONSHIP: distributions\nTYPE: one-to-many\nTARGET MODEL: ROPLvl2Distribution\n\nJOIN CONDITION:\nROPLvl2.id == ROPLvl2Distribution.lvl2_id\n\nBACK POPULATES: rop_lvl2\nCASCADE: CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM rop_lvl2\nJOIN roplvl2distributions ON ROPLvl2.id == ROPLvl2Distribution.lvl2_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "rop_lvl2",
+      "target_model": "ROPLvl2Distribution",
+      "relationship_name": "distributions"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl2_distribution\nMODEL: ROPLvl2Distribution\nMODULE: Models.LE.ROPLvl2\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - lvl2_id: VARCHAR(200) [FK -> rop_lvl2.id]\n  - year: INTEGER\n  - month: INTEGER\n  - allocated_quantity: INTEGER",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "rop_lvl2_distribution",
+      "model_name": "ROPLvl2Distribution"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl2_distribution\n\nCOLUMN DETAILS:\n\nCOLUMN: rop_lvl2_distribution.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: rop_lvl2_distribution.lvl2_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References rop_lvl2.id\n\nCOLUMN: rop_lvl2_distribution.year\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: rop_lvl2_distribution.month\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: rop_lvl2_distribution.allocated_quantity\n  Type: INTEGER\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "rop_lvl2_distribution"
+    }
+  },
+  {
+    "content": "TABLE: rop_lvl2_distribution\nMODEL: ROPLvl2Distribution\n\nRELATIONSHIP: rop_lvl2\nTYPE: many-to-one\nTARGET MODEL: ROPLvl2\n\nJOIN CONDITION:\nROPLvl2Distribution.lvl2_id == ROPLvl2.id\n\nBACK POPULATES: distributions\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM rop_lvl2_distribution\nJOIN roplvl2s ON ROPLvl2Distribution.lvl2_id == ROPLvl2.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "rop_lvl2_distribution",
+      "target_model": "ROPLvl2",
+      "relationship_name": "rop_lvl2"
+    }
+  },
+  {
+    "content": "TABLE: rop_packages\nMODEL: RopPackage\nMODULE: Models.LE.RopPackages\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - project_id: VARCHAR(200) [FK -> rop_projects.pid_po, NOT NULL]\n  - package_name: VARCHAR(200) [NOT NULL]\n  - start_date: DATE\n  - end_date: DATE\n  - quantity: INTEGER\n  - price: FLOAT\n  - lead_time: INTEGER\n  - currency: VARCHAR(20)",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "rop_packages",
+      "model_name": "RopPackage"
+    }
+  },
+  {
+    "content": "TABLE: rop_packages\n\nCOLUMN DETAILS:\n\nCOLUMN: rop_packages.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: rop_packages.project_id\n  Type: VARCHAR(200)\n  Nullable: False\n  Foreign Key: References rop_projects.pid_po\n\nCOLUMN: rop_packages.package_name\n  Type: VARCHAR(200)\n  Nullable: False\n\nCOLUMN: rop_packages.start_date\n  Type: DATE\n  Nullable: True\n\nCOLUMN: rop_packages.end_date\n  Type: DATE\n  Nullable: True\n\nCOLUMN: rop_packages.quantity\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: rop_packages.price\n  Type: FLOAT\n  Nullable: True\n\nCOLUMN: rop_packages.lead_time\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: rop_packages.currency\n  Type: VARCHAR(20)\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "rop_packages"
+    }
+  },
+  {
+    "content": "TABLE: rop_packages\nMODEL: RopPackage\n\nRELATIONSHIP: lvl1_items\nTYPE: one-to-many\nTARGET MODEL: ROPLvl1\n\nJOIN CONDITION:\nRopPackage.id == ROPLvl1.package_id AND RopPackage.id == ROPLvl1.lvl1_id\n\nBACK POPULATES: packages\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM rop_packages\nJOIN roplvl1s ON RopPackage.id == ROPLvl1.package_id AND RopPackage.id == ROPLvl1.lvl1_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "rop_packages",
+      "target_model": "ROPLvl1",
+      "relationship_name": "lvl1_items"
+    }
+  },
+  {
+    "content": "TABLE: rop_packages\nMODEL: RopPackage\n\nRELATIONSHIP: monthly_distributions\nTYPE: one-to-many\nTARGET MODEL: MonthlyDistribution\n\nJOIN CONDITION:\nRopPackage.id == MonthlyDistribution.package_id\n\nBACK POPULATES: package\nCASCADE: CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM rop_packages\nJOIN monthlydistributions ON RopPackage.id == MonthlyDistribution.package_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "rop_packages",
+      "target_model": "MonthlyDistribution",
+      "relationship_name": "monthly_distributions"
+    }
+  },
+  {
+    "content": "TABLE: rop_projects\nMODEL: ROPProject\nMODULE: Models.LE.ROPProject\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - pid_po: VARCHAR(200) [PRIMARY KEY, NOT NULL]\n  - pid: VARCHAR(100)\n  - po: VARCHAR(100)\n  - project_name: VARCHAR(200)\n  - wbs: VARCHAR(200)\n  - country: VARCHAR(200)\n  - currency: VARCHAR(200)\n  - product_number: VARCHAR(100)",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "rop_projects",
+      "model_name": "ROPProject"
+    }
+  },
+  {
+    "content": "TABLE: rop_projects\n\nCOLUMN DETAILS:\n\nCOLUMN: rop_projects.pid_po\n  Type: VARCHAR(200)\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: rop_projects.pid\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: rop_projects.po\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: rop_projects.project_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: rop_projects.wbs\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: rop_projects.country\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: rop_projects.currency\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n  Default: Euros\n\nCOLUMN: rop_projects.product_number\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "rop_projects"
+    }
+  },
+  {
+    "content": "TABLE: ran_antenna_serials\nMODEL: RANAntennaSerials\nMODULE: Models.RAN.RANAntennaSerials\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - mrbts: VARCHAR(200)\n  - antenna_model: VARCHAR(200)\n  - serial_number: VARCHAR(200)\n  - project_id: VARCHAR(200) [FK -> ran_projects.pid_po]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_antenna_serials",
+      "model_name": "RANAntennaSerials"
+    }
+  },
+  {
+    "content": "TABLE: ran_antenna_serials\n\nCOLUMN DETAILS:\n\nCOLUMN: ran_antenna_serials.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: ran_antenna_serials.mrbts\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: ran_antenna_serials.antenna_model\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: ran_antenna_serials.serial_number\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: ran_antenna_serials.project_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References ran_projects.pid_po\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ran_antenna_serials"
+    }
+  },
+  {
+    "content": "TABLE: ran_inventory\nMODEL: RANInventory\nMODULE: Models.RAN.RANInventory\n\nDESCRIPTION:\nSQLAlchemy model for RAN Inventory records.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - mrbts: VARCHAR(200)\n  - site_id: VARCHAR(200)\n  - identification_code: VARCHAR(200)\n  - user_label: VARCHAR(200)\n  - serial_number: VARCHAR(200)\n  - duplicate: BOOLEAN\n  - duplicate_remarks: VARCHAR(200)\n  - pid_po: VARCHAR(200) [FK -> ran_projects.pid_po]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_inventory",
+      "model_name": "RANInventory"
+    }
+  },
+  {
+    "content": "TABLE: ran_inventory\n\nCOLUMN DETAILS:\n\nCOLUMN: ran_inventory.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: ran_inventory.mrbts\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ran_inventory.site_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ran_inventory.identification_code\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ran_inventory.user_label\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: ran_inventory.serial_number\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ran_inventory.duplicate\n  Type: BOOLEAN\n  Nullable: True\n  Default: False\n\nCOLUMN: ran_inventory.duplicate_remarks\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: ran_inventory.pid_po\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References ran_projects.pid_po\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ran_inventory"
+    }
+  },
+  {
+    "content": "TABLE: items_for_ranlvl3\nMODEL: ItemsForRANLvl3\nMODULE: Models.RAN.RANLvl3\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - ranlvl3_id: INTEGER [FK -> ranlvl3.id, NOT NULL]\n  - item_name: VARCHAR(200)\n  - item_details: VARCHAR(200)\n  - vendor_part_number: VARCHAR(200)\n  - service_type: TEXT\n  - category: VARCHAR(200)\n  - uom: INTEGER\n  - quantity: INTEGER\n  - price: FLOAT\n  - upl_line: VARCHAR(100)",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "items_for_ranlvl3",
+      "model_name": "ItemsForRANLvl3"
+    }
+  },
+  {
+    "content": "TABLE: items_for_ranlvl3\n\nCOLUMN DETAILS:\n\nCOLUMN: items_for_ranlvl3.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: items_for_ranlvl3.ranlvl3_id\n  Type: INTEGER\n  Nullable: False\n  Foreign Key: References ranlvl3.id\n\nCOLUMN: items_for_ranlvl3.item_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: items_for_ranlvl3.item_details\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: items_for_ranlvl3.vendor_part_number\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: items_for_ranlvl3.service_type\n  Type: TEXT\n  Nullable: True\n  Default: []\n\nCOLUMN: items_for_ranlvl3.category\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: items_for_ranlvl3.uom\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: items_for_ranlvl3.quantity\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: items_for_ranlvl3.price\n  Type: FLOAT\n  Nullable: True\n\nCOLUMN: items_for_ranlvl3.upl_line\n  Type: VARCHAR(100)\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "items_for_ranlvl3"
+    }
+  },
+  {
+    "content": "TABLE: items_for_ranlvl3\nMODEL: ItemsForRANLvl3\n\nRELATIONSHIP: ranlvl3\nTYPE: many-to-one\nTARGET MODEL: RANLvl3\n\nJOIN CONDITION:\nItemsForRANLvl3.ranlvl3_id == RANLvl3.id\n\nBACK POPULATES: items\nCASCADE: CascadeOptions('merge,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM items_for_ranlvl3\nJOIN ranlvl3s ON ItemsForRANLvl3.ranlvl3_id == RANLvl3.id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "items_for_ranlvl3",
+      "target_model": "RANLvl3",
+      "relationship_name": "ranlvl3"
+    }
+  },
+  {
+    "content": "TABLE: items_for_ranlvl3\nENUM: TypeofService\n\nALLOWED VALUES:\nSoftware, Hardware, Service\n\nBUSINESS RULE:\nThe TypeofService field can only contain one of these values: Software, Hardware, Service\n\nEXAMPLE SQL:\nWHERE typeofservice IN ('Software', 'Hardware', 'Service')",
+    "metadata": {
+      "type": "enum",
+      "table_name": "items_for_ranlvl3",
+      "enum_name": "TypeofService"
+    }
+  },
+  {
+    "content": "TABLE: ranlvl3\nMODEL: RANLvl3\nMODULE: Models.RAN.RANLvl3\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - project_id: VARCHAR(200) [FK -> ran_projects.pid_po]\n  - item_name: VARCHAR(200)\n  - key: VARCHAR(200)\n  - service_type: VARCHAR\n  - uom: VARCHAR(200)\n  - total_quantity: INTEGER\n  - total_price: FLOAT\n  - po_line: VARCHAR(100)\n  - category: VARCHAR(200)\n  - upl_line: VARCHAR(100)\n  - ran_category: VARCHAR(100)",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ranlvl3",
+      "model_name": "RANLvl3"
+    }
+  },
+  {
+    "content": "TABLE: ranlvl3\n\nCOLUMN DETAILS:\n\nCOLUMN: ranlvl3.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: ranlvl3.project_id\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References ran_projects.pid_po\n  Indexed: Yes\n\nCOLUMN: ranlvl3.item_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ranlvl3.key\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: ranlvl3.service_type\n  Type: VARCHAR\n  Nullable: True\n  Default: []\n\nCOLUMN: ranlvl3.uom\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ranlvl3.total_quantity\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: ranlvl3.total_price\n  Type: FLOAT\n  Nullable: True\n\nCOLUMN: ranlvl3.po_line\n  Type: VARCHAR(100)\n  Nullable: True\n\nCOLUMN: ranlvl3.category\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: ranlvl3.upl_line\n  Type: VARCHAR(100)\n  Nullable: True\n\nCOLUMN: ranlvl3.ran_category\n  Type: VARCHAR(100)\n  Nullable: True",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ranlvl3"
+    }
+  },
+  {
+    "content": "TABLE: ranlvl3\nMODEL: RANLvl3\n\nRELATIONSHIP: items\nTYPE: one-to-many\nTARGET MODEL: ItemsForRANLvl3\n\nJOIN CONDITION:\nRANLvl3.id == ItemsForRANLvl3.ranlvl3_id\n\nBACK POPULATES: ranlvl3\nCASCADE: CascadeOptions('delete,delete-orphan,expunge,merge,refresh-expire,save-update')\n\nUSAGE EXAMPLE:\nSELECT * FROM ranlvl3\nJOIN itemsforranlvl3s ON RANLvl3.id == ItemsForRANLvl3.ranlvl3_id",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "ranlvl3",
+      "target_model": "ItemsForRANLvl3",
+      "relationship_name": "items"
+    }
+  },
+  {
+    "content": "TABLE: ranlvl3\nENUM: TypeofService\n\nALLOWED VALUES:\nSoftware, Hardware, Service\n\nBUSINESS RULE:\nThe TypeofService field can only contain one of these values: Software, Hardware, Service\n\nEXAMPLE SQL:\nWHERE typeofservice IN ('Software', 'Hardware', 'Service')",
+    "metadata": {
+      "type": "enum",
+      "table_name": "ranlvl3",
+      "enum_name": "TypeofService"
+    }
+  },
+  {
+    "content": "TABLE: ran_projects\nMODEL: RanProject\nMODULE: Models.RAN.RANLvl3\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - pid_po: VARCHAR(200) [PRIMARY KEY, NOT NULL]\n  - pid: VARCHAR(100)\n  - po: VARCHAR(100)\n  - project_name: VARCHAR(200)",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_projects",
+      "model_name": "RanProject"
+    }
+  },
+  {
+    "content": "TABLE: ran_projects\n\nCOLUMN DETAILS:\n\nCOLUMN: ran_projects.pid_po\n  Type: VARCHAR(200)\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: ran_projects.pid\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ran_projects.po\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ran_projects.project_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ran_projects"
+    }
+  },
+  {
+    "content": "TABLE: ran_projects\nENUM: TypeofService\n\nALLOWED VALUES:\nSoftware, Hardware, Service\n\nBUSINESS RULE:\nThe TypeofService field can only contain one of these values: Software, Hardware, Service\n\nEXAMPLE SQL:\nWHERE typeofservice IN ('Software', 'Hardware', 'Service')",
+    "metadata": {
+      "type": "enum",
+      "table_name": "ran_projects",
+      "enum_name": "TypeofService"
+    }
+  },
+  {
+    "content": "TABLE: ran_projects\nMODEL: RanProject\nMODULE: Models.RAN.RANProject\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - pid_po: VARCHAR(200) [PRIMARY KEY, NOT NULL]\n  - pid: VARCHAR(100)\n  - po: VARCHAR(100)\n  - project_name: VARCHAR(200)",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_projects",
+      "model_name": "RanProject"
+    }
+  },
+  {
+    "content": "TABLE: ran_projects\n\nCOLUMN DETAILS:\n\nCOLUMN: ran_projects.pid_po\n  Type: VARCHAR(200)\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: ran_projects.pid\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ran_projects.po\n  Type: VARCHAR(100)\n  Nullable: True\n  Indexed: Yes\n\nCOLUMN: ran_projects.project_name\n  Type: VARCHAR(200)\n  Nullable: True\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ran_projects"
+    }
+  },
+  {
+    "content": "TABLE: ran_lld\nMODEL: RAN_LLD\nMODULE: Models.RAN.RAN_LLD\n\nDESCRIPTION:\nThe base class of the class hierarchy. When called, it accepts no arguments and returns a new featureless instance that has no instance attributes and cannot be given any.\n\nCOLUMNS:\n  - id: INTEGER [PRIMARY KEY, NOT NULL]\n  - site_id: VARCHAR(100) [NOT NULL]\n  - new_antennas: VARCHAR\n  - total_antennas: INTEGER\n  - technical_boq: VARCHAR(255)\n  - key: VARCHAR(200)\n  - pid_po: VARCHAR(200) [FK -> ran_projects.pid_po]",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_lld",
+      "model_name": "RAN_LLD"
+    }
+  },
+  {
+    "content": "TABLE: ran_lld\n\nCOLUMN DETAILS:\n\nCOLUMN: ran_lld.id\n  Type: INTEGER\n  Nullable: False\n  Primary Key: Yes\n  Indexed: Yes\n\nCOLUMN: ran_lld.site_id\n  Type: VARCHAR(100)\n  Nullable: False\n  Indexed: Yes\n\nCOLUMN: ran_lld.new_antennas\n  Type: VARCHAR\n  Nullable: True\n\nCOLUMN: ran_lld.total_antennas\n  Type: INTEGER\n  Nullable: True\n\nCOLUMN: ran_lld.technical_boq\n  Type: VARCHAR(255)\n  Nullable: True\n\nCOLUMN: ran_lld.key\n  Type: VARCHAR(200)\n  Nullable: True\n\nCOLUMN: ran_lld.pid_po\n  Type: VARCHAR(200)\n  Nullable: True\n  Foreign Key: References ran_projects.pid_po\n  Indexed: Yes",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ran_lld"
+    }
+  }
+]

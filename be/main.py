@@ -28,6 +28,10 @@ Last Modified: [Date]
 import os
 import logging
 
+# CRITICAL: Disable proxy for localhost connections FIRST
+os.environ['NO_PROXY'] = 'localhost,127.0.0.1'
+os.environ['no_proxy'] = 'localhost,127.0.0.1'
+
 # CRITICAL: Force offline mode for HuggingFace before ANY imports
 # This prevents connection errors when WiFi changes or is unavailable
 os.environ['HF_HUB_OFFLINE'] = '1'

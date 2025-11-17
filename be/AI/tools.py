@@ -3,7 +3,8 @@ Function tools for AI agent to interact with BOQ application
 """
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 import logging
 
 # Import models
@@ -706,6 +707,30 @@ class BOQTools:
         return sql
 
     @staticmethod
+    def _convert_to_json_serializable(value: Any) -> Any:
+        """
+        Convert non-JSON-serializable types to JSON-serializable types.
+
+        Handles:
+        - date/datetime objects → ISO format strings
+        - Decimal → float
+        - bytes → string
+
+        Args:
+            value: Value to convert
+
+        Returns:
+            JSON-serializable value
+        """
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        elif isinstance(value, Decimal):
+            return float(value)
+        elif isinstance(value, bytes):
+            return value.decode('utf-8', errors='replace')
+        return value
+
+    @staticmethod
     def query_database(db: Session, user_id: int, **kwargs) -> Dict[str, Any]:
         """
         Execute a read-only SQL query on the database
@@ -771,10 +796,13 @@ class BOQTools:
             rows = result.fetchall()
             columns = result.keys()
 
-            # Convert to list of dicts
+            # Convert to list of dicts with JSON-serializable values
             data = []
             for row in rows:
-                data.append(dict(zip(columns, row)))
+                row_dict = {}
+                for col, value in zip(columns, row):
+                    row_dict[col] = BOQTools._convert_to_json_serializable(value)
+                data.append(row_dict)
 
             logger.info(f"User {user_id} executed query: {description} - returned {len(data)} rows")
 

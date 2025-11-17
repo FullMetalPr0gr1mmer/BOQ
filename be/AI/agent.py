@@ -12,6 +12,7 @@ import logging
 from AI.ollama_client import get_ollama_client
 from AI.tools import BOQTools
 from AI.rag_engine import get_rag_engine
+from AI.query_router import route_query
 from Models.AI import ChatHistory, AIAction
 from Models.Admin.User import User
 
@@ -45,62 +46,18 @@ Current capabilities:
 CRITICAL DATABASE QUERY RULES:
 1. ALWAYS use 'get_database_schema' function BEFORE writing ANY SQL query
 2. NEVER assume column names - always verify with schema first
-3. Common tables and their purposes:
+3. Common table naming patterns:
    - BOQ projects: 'projects' table (NOT 'boq_projects')
    - RAN projects: 'ran_projects' table
-   - ROP projects: 'rop_projects' table
-   - Level 3 items: 'lvl3' (for BOQ) and 'ranlvl3' (for RAN)
-   - Inventory: 'inventory' (BOQ) and 'ran_inventory' (RAN)
-
-IMPORTANT: Table structure notes:
-- The 'lvl3' and 'ranlvl3' tables DO NOT have a 'project_type' column
-- The 'lvl3' table has 'project_id' linking to 'projects.pid_po'
-- The 'ranlvl3' table has 'project_id' linking to 'ran_projects.pid_po'
-- When querying documents table, use: filename, summary, tags, file_type, processing_status, uploaded_at
-  (DO NOT use 'description' column as it does not exist!)
-
-DATABASE TABLE REFERENCE MAP - Use this to find the right table for user questions:
-
-BOQ (Bill of Quantities) Domain:
-- projects: BOQ project master data (columns: pid, po, pid_po, project_name)
-- lvl1: Level 1 BOQ items
-- lvl3: Level 3 BOQ items (columns: id, project_id, item_name, key, service_type, uom, total_quantity, total_price, po_line, category, upl_line)
-- items_for_lvl3: Sub-items for Level 3
-- inventory: BOQ equipment inventory (columns: site_name, slot_id, port_id, status, serial_no, part_no, pid_po)
-- lld: BOQ low-level design
-- sites: Site information
-- boq_reference: BOQ reference data
-- dismantling: Dismantling information
-
-RAN (Radio Access Network) Domain:
-- ran_projects: RAN project master data (columns: pid, po, pid_po, project_name)
-- ranlvl3: RAN Level 3 items (columns: id, project_id, item_name, key, service_type, uom, total_quantity, total_price, po_line, category, upl_line, ran_category)
-- items_for_ranlvl3: Sub-items for RAN Level 3
-- ran_inventory: RAN equipment inventory (columns: site, slot, port, status, serial_number, part_number)
-- ran_antenna_serials: RAN antenna serial numbers (columns: id, mrbts, antenna_model, serial_number, project_id)
-- ran_lld: RAN low-level design
-
-ROP/LE/LE-Automation (Resource Optimization Planning / Latest Estimate) Domain:
-NOTE: Users may refer to this as "ROP", "LE", "LE-Automation", or "le automation" - all mean the same thing!
-- rop_projects: ROP/LE project master data (columns: pid, po, project_name)
-- rop_lvl1, rop_lvl2: ROP/LE levels 1 and 2
-- rop_lvl2_distribution: Distribution data for ROP/LE level 2
-- rop_packages, rop_package_lvl1: Package information for ROP/LE
-- monthly_distributions: Monthly distribution planning for ROP/LE
-
-AI & System Tables:
-- documents: Uploaded documents (columns: filename, summary, tags, file_type, processing_status, upload_date)
-- document_chunks: Document text chunks for RAG
-- chat_history: Chat conversation history
-- users, roles: User management
-- audit_logs: System audit trail
+   - ROP/LE projects: 'rop_projects' table (users may say "LE", "LE-Automation", or "le automation")
+4. Use 'get_database_schema' without parameters to list all available tables
+5. Use 'get_database_schema' with table_name to get specific table columns
 
 QUERY STRATEGY:
-1. Identify the domain from the question (BOQ/RAN/ROP-LE)
-2. Match the topic to the correct table using this map
-3. ALWAYS call get_database_schema to verify columns before querying
-4. Use the SQL Server query templates below
-5. Write the SQL query with verified column names
+1. If unsure about table names, call get_database_schema() first to list all tables
+2. Call get_database_schema(table_name="...") to verify columns before querying
+3. Use the SQL Server query templates below
+4. Write the SQL query with verified column names
 
 SQL SERVER QUERY TEMPLATES (This is SQL Server, NOT MySQL/PostgreSQL):
 
@@ -186,6 +143,127 @@ If you're not sure about something, ask for clarification rather than guessing."
 
         # Save user message
         self._save_message(db, user_id, conversation_id, "user", message, project_context)
+
+        # STEP 1: Intelligent Query Routing (prevents hallucinations)
+        # Detect direct database queries and route to Text-to-SQL FIRST
+        # This prevents conversational LLM from generating fake context before having data
+        if chat_context == 'chat':  # Only route in chat tab (not documents tab)
+            router_result = route_query(message, user_id=str(user_id))
+
+            if router_result['type'] == 'database':
+                logger.info(f"[QUERY ROUTER] Detected DATABASE query, routing to Text-to-SQL")
+
+                # Execute SQL directly (bypass conversational LLM)
+                sql = router_result['sql']
+                confidence = router_result['confidence']
+                execution_ready = router_result['execution_ready']
+
+                if execution_ready:
+                    # Execute the SQL query using query_database tool
+                    try:
+                        result = self.tools.query_database(
+                            db=db,
+                            user_id=user_id,
+                            sql_query=sql,
+                            description="Text-to-SQL query"
+                        )
+
+                        if result['success']:
+                            # Format data summary
+                            row_count = result.get('row_count', 0)
+                            truncated = result.get('truncated', False)
+                            columns = result.get('columns', [])
+                            data = result.get('data', [])
+
+                            # Build context for LLM with actual data
+                            data_context = f"""I executed this SQL query:
+```sql
+{sql}
+```
+
+Results: {row_count} rows returned{' (showing first 100)' if truncated else ''}
+
+Columns: {', '.join(columns)}
+
+Sample data (first 3 rows):
+{json.dumps(data[:3], indent=2)}
+"""
+
+                            # Ask LLM to provide a natural language summary of the results
+                            followup_messages = [
+                                {
+                                    "role": "user",
+                                    "content": f"Original question: {message}"
+                                },
+                                {
+                                    "role": "assistant",
+                                    "content": data_context
+                                },
+                                {
+                                    "role": "user",
+                                    "content": "Please explain what data was found in a friendly, natural way. Include key information from the results (like column names, counts, sample values) to help the user understand what they got. Be specific and helpful."
+                                }
+                            ]
+
+                            friendly_response = self.ollama_client.chat(
+                                followup_messages,
+                                system_prompt=system_prompt,
+                                temperature=0.7
+                            )
+
+                            # Combine SQL + friendly explanation
+                            response_text = f"{friendly_response}\n\n---\n\n**Executed SQL:**\n```sql\n{sql}\n```\n\nQuery returned {row_count} rows{' (showing first 100)' if truncated else ''}"
+
+                            # Save assistant response
+                            self._save_message(
+                                db, user_id, conversation_id, "assistant",
+                                response_text, project_context,
+                                function_calls=[{
+                                    "name": "query_database",
+                                    "arguments": {"sql_query": sql},
+                                    "result": result
+                                }]
+                            )
+
+                            return {
+                                "response": response_text,
+                                "conversation_id": conversation_id,
+                                "actions_taken": ["query_database"],
+                                "data": result,
+                                "sources": None
+                            }
+                        else:
+                            error_msg = f"SQL execution failed: {result.get('error')}"
+                            self._save_message(db, user_id, conversation_id, "assistant", error_msg, project_context)
+                            return {
+                                "response": error_msg,
+                                "conversation_id": conversation_id,
+                                "actions_taken": [],
+                                "data": None,
+                                "sources": None
+                            }
+                    except Exception as e:
+                        error_msg = f"Error executing SQL: {str(e)}"
+                        logger.error(error_msg)
+                        self._save_message(db, user_id, conversation_id, "assistant", error_msg, project_context)
+                        return {
+                            "response": error_msg,
+                            "conversation_id": conversation_id,
+                            "actions_taken": [],
+                            "data": None,
+                            "sources": None
+                        }
+                else:
+                    # SQL has errors
+                    error_msg = f"Generated SQL has validation errors: {router_result.get('errors')}\n\n```sql\n{sql}\n```"
+                    self._save_message(db, user_id, conversation_id, "assistant", error_msg, project_context)
+                    return {
+                        "response": error_msg,
+                        "conversation_id": conversation_id,
+                        "actions_taken": [],
+                        "data": None,
+                        "sources": None
+                    }
 
         # RAG decision based on chat_context:
         # - 'documents' tab: ALWAYS use RAG (user wants document Q&A)

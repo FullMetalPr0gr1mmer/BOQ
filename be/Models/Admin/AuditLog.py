@@ -12,7 +12,7 @@ class AuditLog(Base):
     # This is the foreign key column to the users table
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
 
-    action = Column(String(100), nullable=False)
+    action = Column(String(100), nullable=False) 
     resource_type = Column(String(50), nullable=False)
     resource_id = Column(String(200), nullable=True)
     resource_name = Column(String(500), nullable=True)

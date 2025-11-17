@@ -1,0 +1,126 @@
+"""
+Business Logic Glossary
+========================
+
+This file contains business rules and definitions that are NOT captured in code.
+Use this to document:
+1. Calculated fields (e.g., "Revenue = SUM(order_items.price * order_items.quantity)")
+2. Business term definitions (e.g., "Active user = user with login in last 30 days")
+3. Complex logic (e.g., "Pro plan = plan_type = 'premium' AND status = 'active'")
+4. Domain-specific rules
+
+Add entries in this format:
+---
+TERM: <business term or calculated field>
+DEFINITION: <clear explanation>
+SQL EXAMPLE: <how to express this in SQL>
+TABLES INVOLVED: <which tables are needed>
+---
+
+EXAMPLES:
+=========
+
+---
+TERM: Active User
+DEFINITION: A user who has logged in within the last 30 days and has status = 'active'
+SQL EXAMPLE:
+  SELECT * FROM users
+  WHERE status = 'active'
+  AND last_login >= DATEADD(day, -30, GETDATE())
+TABLES INVOLVED: users
+---
+
+---
+TERM: Total Revenue
+DEFINITION: Sum of (price * quantity) for all completed orders
+SQL EXAMPLE:
+  SELECT SUM(price * quantity) as total_revenue
+  FROM order_items
+  JOIN orders ON orders.id = order_items.order_id
+  WHERE orders.status = 'completed'
+TABLES INVOLVED: orders, order_items
+---
+
+---
+TERM: Project Completion Rate
+DEFINITION: Percentage of completed line items compared to total line items in a project
+SQL EXAMPLE:
+  SELECT
+    project_id,
+    (COUNT(CASE WHEN status = 'completed' THEN 1 END) * 100.0 / COUNT(*)) as completion_rate
+  FROM lvl3
+  GROUP BY project_id
+TABLES INVOLVED: lvl3
+---
+
+
+ADD YOUR BUSINESS RULES BELOW:
+================================
+
+---
+TERM: Project Total Cost
+DEFINITION: Sum of (total_price) for all level 3 items in a project
+SQL EXAMPLE:
+  SELECT project_id, SUM(total_price) as project_total_cost
+  FROM lvl3
+  GROUP BY project_id
+TABLES INVOLVED: lvl3
+---
+
+---
+TERM: Active Project
+DEFINITION: A project that has level 1, level 3, or inventory items associated with it
+SQL EXAMPLE:
+  SELECT DISTINCT p.pid_po, p.project_name
+  FROM projects p
+  WHERE EXISTS (SELECT 1 FROM lvl1 WHERE project_id = p.pid_po)
+     OR EXISTS (SELECT 1 FROM lvl3 WHERE project_id = p.pid_po)
+     OR EXISTS (SELECT 1 FROM inventory WHERE project_id = p.pid_po)
+TABLES INVOLVED: projects, lvl1, lvl3, inventory
+---
+
+---
+TERM: User Project Count
+DEFINITION: Number of unique projects a user has access to across all project types (BOQ, RAN, ROP)
+SQL EXAMPLE:
+  SELECT
+    user_id,
+    COUNT(DISTINCT project_id) +
+    COUNT(DISTINCT Ranproject_id) +
+    COUNT(DISTINCT Ropproject_id) as total_projects
+  FROM user_project_access
+  GROUP BY user_id
+TABLES INVOLVED: user_project_access
+---
+
+---
+TERM: Hardware Items
+DEFINITION: Items where service_type contains '2' (Hardware)
+SQL EXAMPLE:
+  SELECT * FROM lvl3
+  WHERE service_type LIKE '%2%'
+TABLES INVOLVED: lvl3
+NOTE: service_type is stored as JSON array string, e.g., '["1", "2"]'
+---
+
+---
+TERM: Software Items
+DEFINITION: Items where service_type contains '1' (Software)
+SQL EXAMPLE:
+  SELECT * FROM lvl3
+  WHERE service_type LIKE '%1%'
+TABLES INVOLVED: lvl3
+NOTE: service_type is stored as JSON array string
+---
+
+---
+TERM: Service Items
+DEFINITION: Items where service_type contains '3' (Service)
+SQL EXAMPLE:
+  SELECT * FROM lvl3
+  WHERE service_type LIKE '%3%'
+TABLES INVOLVED: lvl3
+NOTE: service_type is stored as JSON array string
+---
+
+"""
