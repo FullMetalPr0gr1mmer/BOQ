@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { apiCall, setTransient } from "../api.js";
 import "../css/Inventory.css";
+import '../css/shared/DownloadButton.css';
 import StatsCarousel from '../Components/shared/StatsCarousel';
 import FilterBar from '../Components/shared/FilterBar';
 import DataTable from '../Components/shared/DataTable';
 import HelpModal, { HelpList, HelpText, CodeBlock } from '../Components/shared/HelpModal';
 import TitleWithInfo from '../Components/shared/InfoButton';
 import Pagination from '../Components/shared/Pagination';
+import DeleteConfirmationModal from '../Components/shared/DeleteConfirmationModal';
+import { downloadRANLLDUploadTemplate } from '../utils/csvTemplateDownloader';
 
 // Helper functions to parse and stringify CSV data
 const parseCSV = (csvString) => {
@@ -42,6 +45,8 @@ export default function RANLLD() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
@@ -245,6 +250,50 @@ export default function RANLLD() {
     } catch (err) {
       setTransient(setError, err.message);
     }
+  };
+
+  const handleDeleteAllSites = () => {
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project first.');
+      return;
+    }
+    setShowDeleteAllModal(true);
+  };
+
+  const confirmDeleteAllSites = async () => {
+    if (!selectedProject) return;
+
+    setDeleteAllLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await apiCall(`/ran-sites/delete-all-sites/${selectedProject}`, {
+        method: 'DELETE'
+      });
+
+      const message = `Successfully deleted ${result.deleted_sites} RAN site(s).`;
+      setTransient(setSuccess, message);
+      setShowDeleteAllModal(false);
+      setSelectedProject('');
+      fetchSites(1, '', rowsPerPage, '');
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to delete RAN sites');
+      setShowDeleteAllModal(false);
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const cancelDeleteAllSites = () => {
+    if (!deleteAllLoading) {
+      setShowDeleteAllModal(false);
+    }
+  };
+
+  const getSelectedProjectName = () => {
+    const project = projects.find(p => p.pid_po === selectedProject);
+    return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
   };
 
   const openCreateModal = () => {
@@ -456,6 +505,7 @@ export default function RANLLD() {
           items={[
             { label: '+ New Site', text: 'Opens a form to create a new RAN site record. You must select a project first.' },
             { label: '📤 Upload CSV', text: 'Allows you to bulk upload RAN site records from a CSV file. Select a project before uploading.' },
+            { label: '🗑️ Delete All RAN Sites', text: 'Deletes ALL RAN sites for the selected project. Requires confirmation and cannot be undone.' },
             { label: 'Search', text: 'Filter sites by Site ID or BoQ in real-time.' },
             { label: 'Project Dropdown', text: 'Filter all site records and statistics by the selected project.' },
             { label: 'Clear Search', text: 'Resets the search filter and shows all sites for the selected project.' },
@@ -495,6 +545,15 @@ export default function RANLLD() {
               'site_id', 'new_antennas', 'total_antennas', 'technical_boq', 'key'
             ]}
           />
+          <div style={{ margin: '1rem 0' }}>
+            <button
+              className="btn-download-template"
+              onClick={downloadRANLLDUploadTemplate}
+              type="button"
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
           <HelpText isNote>
             <strong>Note:</strong> Make sure to select a project before uploading. The CSV data will be associated
             with the selected project automatically. The "total_antennas" field should be a number.
@@ -582,6 +641,15 @@ export default function RANLLD() {
               onChange={handleUpload}
             />
           </label>
+          <button
+            className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
+            onClick={handleDeleteAllSites}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Delete all RAN sites for this project"}
+          >
+            <span className="btn-icon">🗑️</span>
+            Delete All RAN Sites
+          </button>
         </div>
       </div>
 
@@ -906,6 +974,22 @@ export default function RANLLD() {
           </div>
         </div>
       )}
+
+      {/* Delete All Sites Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteAllModal}
+        onConfirm={confirmDeleteAllSites}
+        onCancel={cancelDeleteAllSites}
+        title="Delete All RAN Sites for Project"
+        itemName={selectedProject ? getSelectedProjectName() : ''}
+        warningText="Are you sure you want to delete ALL RAN sites for project"
+        additionalInfo="This will permanently delete all related data from the following tables:"
+        affectedItems={[
+          'RAN Sites - All RAN site records for this project'
+        ]}
+        confirmButtonText="Delete All RAN Sites"
+        loading={deleteAllLoading}
+      />
 
       {/* Help/Info Modal */}
       <HelpModal

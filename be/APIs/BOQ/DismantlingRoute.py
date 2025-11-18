@@ -324,3 +324,49 @@ async def upload_csv(
         user_agent=request.headers.get("User-Agent")
     )
     return {"inserted": inserted_count, "message": f"Successfully uploaded {inserted_count} dismantling records for project {pid_po}"}
+
+@DismantlingRouter.delete("/delete-all-dismantling/{project_id}")
+async def delete_all_dismantling_for_project(
+        project_id: str,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes all dismantling records for a project.
+    Users need 'all' permission on the project to delete all dismantling records.
+
+    Returns:
+    - deleted_dismantling: Number of dismantling records deleted
+    - affected_tables: List of tables that had data deleted
+    """
+    # Check project access
+    project = get_project_for_boq(project_id, db)
+    if not project or not check_project_access(current_user, project, db, "all"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete dismantling records for this project."
+        )
+
+    try:
+        # Get count of dismantling records for this project
+        dismantling_count = db.query(Dismantling).filter(Dismantling.pid_po == project_id).count()
+
+        if dismantling_count == 0:
+            raise HTTPException(status_code=404, detail="No dismantling records found for this project")
+
+        # Delete all dismantling records for this project
+        dismantling_deleted = db.query(Dismantling).filter(Dismantling.pid_po == project_id).delete(synchronize_session=False)
+
+        db.commit()
+
+        return {
+            "message": "All dismantling records deleted successfully",
+            "deleted_dismantling": dismantling_deleted,
+            "affected_tables": ["dismantling"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete dismantling records: {str(e)}")

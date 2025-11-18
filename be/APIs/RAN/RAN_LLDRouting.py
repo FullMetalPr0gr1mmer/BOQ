@@ -564,3 +564,49 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=boq_{site.site_id}.csv"}
     )
+
+
+@ran_lld_router.delete("/delete-all-sites/{pid_po}")
+def delete_all_ran_sites_for_project(
+        pid_po: str,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes all RAN LLD sites for a project.
+    Users need 'all' permission on the project to delete all sites.
+
+    Returns:
+    - deleted_sites: Number of RAN sites deleted
+    - affected_tables: List of tables that had data deleted
+    """
+    # Check user has 'all' permission
+    if not check_ranlld_project_access(current_user, pid_po, db, "all"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete RAN sites for this project."
+        )
+
+    try:
+        # Get count of sites for this project
+        sites_count = db.query(RAN_LLD).filter(RAN_LLD.pid_po == pid_po).count()
+
+        if sites_count == 0:
+            raise HTTPException(status_code=404, detail="No RAN sites found for this project")
+
+        # Delete all RAN sites for this project
+        sites_deleted = db.query(RAN_LLD).filter(RAN_LLD.pid_po == pid_po).delete(synchronize_session=False)
+
+        db.commit()
+
+        return {
+            "message": "All RAN sites deleted successfully",
+            "deleted_sites": sites_deleted,
+            "affected_tables": ["ran_lld"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete RAN sites: {str(e)}")

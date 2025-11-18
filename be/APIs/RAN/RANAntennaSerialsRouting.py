@@ -392,3 +392,49 @@ def upload_antenna_serials_csv(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing CSV file: {str(e)}"
         )
+
+
+@RANAntennaSerialsRouter.delete("/delete-all-antenna-serials/{project_id}")
+def delete_all_ran_antenna_serials_for_project(
+        project_id: str,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes all RAN Antenna Serial records for a project.
+    Users need 'all' permission on the project to delete all antenna serials.
+
+    Returns:
+    - deleted_antenna_serials: Number of RAN antenna serial records deleted
+    - affected_tables: List of tables that had data deleted
+    """
+    # Check user has 'all' permission
+    if not check_antenna_serials_project_access(current_user, project_id, db, "all"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete RAN antenna serials for this project."
+        )
+
+    try:
+        # Get count of antenna serials for this project
+        antenna_serials_count = db.query(RANAntennaSerials).filter(RANAntennaSerials.project_id == project_id).count()
+
+        if antenna_serials_count == 0:
+            raise HTTPException(status_code=404, detail="No RAN antenna serials found for this project")
+
+        # Delete all RAN antenna serials for this project
+        antenna_serials_deleted = db.query(RANAntennaSerials).filter(RANAntennaSerials.project_id == project_id).delete(synchronize_session=False)
+
+        db.commit()
+
+        return {
+            "message": "All RAN antenna serials deleted successfully",
+            "deleted_antenna_serials": antenna_serials_deleted,
+            "affected_tables": ["ran_antenna_serials"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete RAN antenna serials: {str(e)}")

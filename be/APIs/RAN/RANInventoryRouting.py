@@ -402,3 +402,49 @@ def upload_ran_inventory_csv(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing CSV file: {str(e)}"
         )
+
+
+@RANInventoryRouter.delete("/delete-all-inventory/{pid_po}")
+def delete_all_ran_inventory_for_project(
+        pid_po: str,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes all RAN Inventory records for a project.
+    Users need 'all' permission on the project to delete all inventory.
+
+    Returns:
+    - deleted_inventory: Number of RAN inventory records deleted
+    - affected_tables: List of tables that had data deleted
+    """
+    # Check user has 'all' permission
+    if not check_raninventory_project_access(current_user, pid_po, db, "all"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete RAN inventory for this project."
+        )
+
+    try:
+        # Get count of inventory for this project
+        inventory_count = db.query(RANInventory).filter(RANInventory.pid_po == pid_po).count()
+
+        if inventory_count == 0:
+            raise HTTPException(status_code=404, detail="No RAN inventory found for this project")
+
+        # Delete all RAN inventory for this project
+        inventory_deleted = db.query(RANInventory).filter(RANInventory.pid_po == pid_po).delete(synchronize_session=False)
+
+        db.commit()
+
+        return {
+            "message": "All RAN inventory deleted successfully",
+            "deleted_inventory": inventory_deleted,
+            "affected_tables": ["ran_inventory"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete RAN inventory: {str(e)}")

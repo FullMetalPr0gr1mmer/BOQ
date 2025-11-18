@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/Site.css';
+import '../css/shared/DownloadButton.css';
 import StatsCarousel from './shared/StatsCarousel';
 import FilterBar from './shared/FilterBar';
 import DataTable from './shared/DataTable';
 import HelpModal, { HelpList, HelpText, CodeBlock } from './shared/HelpModal';
 import TitleWithInfo from './shared/InfoButton';
 import Pagination from './shared/Pagination';
+import DeleteConfirmationModal from './shared/DeleteConfirmationModal';
+import { downloadSiteUploadTemplate } from '../utils/csvTemplateDownloader';
 
 export default function Site() {
   const [rows, setRows] = useState([]);
@@ -25,6 +28,8 @@ export default function Site() {
   const [selectedProject, setSelectedProject] = useState('');
   const [stats, setStats] = useState({ total_sites: 0, total_projects: 0 });
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const fetchAbort = useRef(null);
 
   const initialForm = {
@@ -211,6 +216,46 @@ export default function Site() {
     }
   };
 
+  const handleDeleteAllSites = () => {
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project first.');
+      return;
+    }
+    setShowDeleteAllModal(true);
+  };
+
+  const confirmDeleteAllSites = async () => {
+    if (!selectedProject) return;
+
+    setDeleteAllLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await apiCall(`/delete-all-sites/${selectedProject}`, {
+        method: 'DELETE'
+      });
+
+      const message = `Successfully deleted ${result.deleted_sites} site(s) and ${result.deleted_inventory} inventory record(s).`;
+      setTransient(setSuccess, message);
+      setShowDeleteAllModal(false);
+      setSelectedProject('');
+      fetchSites(1, '', rowsPerPage, '');
+      fetchStats();
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to delete sites');
+      setShowDeleteAllModal(false);
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const cancelDeleteAllSites = () => {
+    if (!deleteAllLoading) {
+      setShowDeleteAllModal(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / rowsPerPage);
 
   const handleRowsPerPageChange = (e) => {
@@ -218,6 +263,11 @@ export default function Site() {
     setRowsPerPage(newLimit);
     setCurrentPage(1);
     fetchSites(1, searchTerm, newLimit);
+  };
+
+  const getSelectedProjectName = () => {
+    const project = projects.find(p => p.pid_po === selectedProject);
+    return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
   };
 
   // Define stat cards for the carousel
@@ -290,6 +340,7 @@ export default function Site() {
           items={[
             { label: '+ New Site', text: 'Opens a form to create a new site. You must select a project first.' },
             { label: '📤 Upload CSV', text: 'Allows you to bulk upload sites from a CSV file. Select a project before uploading.' },
+            { label: '🗑️ Delete All Sites', text: 'Deletes ALL sites for the selected project and all related data (inventory, links). Requires confirmation and cannot be undone.' },
             { label: 'Search', text: 'Filter sites by Site ID or Site Name in real-time.' },
             { label: 'Project Dropdown', text: 'Filter all sites by the selected project.' },
             { label: 'Clear Search', text: 'Resets the search filter and shows all sites.' },
@@ -328,6 +379,15 @@ export default function Site() {
           <HelpText>
             Example: <code>JIZ0243-JIZ0169, eth0, 10.0.0.1, 10.0.0.2</code>
           </HelpText>
+          <div style={{ margin: '1rem 0' }}>
+            <button
+              className="btn-download-template"
+              onClick={downloadSiteUploadTemplate}
+              type="button"
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
           <HelpText isNote>
             <strong>Note:</strong> Make sure to select a project before uploading. The system will automatically
             parse the LinkID to extract site names and create sites accordingly.
@@ -383,6 +443,15 @@ export default function Site() {
               onChange={handleUpload}
             />
           </label>
+          <button
+            className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
+            onClick={handleDeleteAllSites}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Delete all sites for this project"}
+          >
+            <span className="btn-icon">🗑️</span>
+            Delete All Sites
+          </button>
         </div>
       </div>
 
@@ -517,6 +586,24 @@ export default function Site() {
         title="Site Management - User Guide"
         sections={helpSections}
         closeButtonText="Got it!"
+      />
+
+      {/* Delete All Sites Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteAllModal}
+        onConfirm={confirmDeleteAllSites}
+        onCancel={cancelDeleteAllSites}
+        title="Delete All Sites for Project"
+        itemName={selectedProject ? getSelectedProjectName() : ''}
+        warningText="Are you sure you want to delete ALL sites for project"
+        additionalInfo="This will permanently delete all related data from the following tables:"
+        affectedItems={[
+          'Sites - All sites associated with this project',
+          'Inventory - All inventory records for these sites',
+          'Link Data - Any link configurations referencing these sites (if applicable)'
+        ]}
+        confirmButtonText="Delete All Sites"
+        loading={deleteAllLoading}
       />
     </div>
   );

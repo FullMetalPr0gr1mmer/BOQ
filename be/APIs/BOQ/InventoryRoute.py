@@ -992,3 +992,154 @@ async def upload_inventory_csv(
         raise HTTPException(status_code=500, detail=f"An error occurred during CSV processing: {e}")
 
     return {"inserted_count": inserted_count}
+
+
+@inventoryRoute.delete("/delete-all-sites/{project_id}")
+async def delete_all_sites_for_project(
+        project_id: str,
+        request: Request,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes all sites related to a project and cascade deletes related data.
+    Users need 'all' permission on the project to delete all sites.
+
+    This will also delete data from the following tables:
+    - Sites (all sites for the project)
+    - Inventory (all inventory items associated with those sites)
+
+    Returns:
+    - deleted_sites: Number of sites deleted
+    - deleted_inventory: Number of inventory records deleted
+    - affected_tables: List of tables that had data deleted
+    """
+    # Get the project
+    project = db.query(Project).filter(Project.pid_po == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check project access - need 'all' permission for deletion
+    if not check_project_access(current_user, project, db, "all"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete sites for this project. Contact the Senior Admin."
+        )
+
+    try:
+        # Get count of sites for this project (for reporting)
+        sites_count = db.query(Site).filter(Site.project_id == project_id).count()
+
+        if sites_count == 0:
+            raise HTTPException(status_code=404, detail="No sites found for this project")
+
+        # Delete related inventory records by project_id
+        # This avoids SQL Server's ~2100 parameter limit when using IN clause
+        inventory_deleted = db.query(Inventory).filter(
+            Inventory.pid_po == project_id
+        ).delete(synchronize_session=False)
+
+        # Delete all sites for this project
+        sites_deleted = db.query(Site).filter(Site.project_id == project_id).delete(synchronize_session=False)
+
+        db.commit()
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="delete_all_sites",
+            resource_type="project_sites",
+            resource_id=project_id,
+            resource_name=project.project_name,
+            details=json.dumps({
+                "project_id": project_id,
+                "sites_deleted": sites_deleted,
+                "inventory_deleted": inventory_deleted
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
+        return {
+            "message": "All sites and related data deleted successfully",
+            "deleted_sites": sites_deleted,
+            "deleted_inventory": inventory_deleted,
+            "affected_tables": ["sites", "inventory"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting sites: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete sites: {str(e)}")
+
+
+@inventoryRoute.delete("/delete-all-inventory/{project_id}")
+async def delete_all_inventory_for_project(
+        project_id: str,
+        request: Request,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes all inventory records for a project.
+    Users need 'all' permission on the project to delete all inventory.
+
+    Returns:
+    - deleted_inventory: Number of inventory records deleted
+    - affected_tables: List of tables that had data deleted
+    """
+    # Get the project
+    project = db.query(Project).filter(Project.pid_po == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check project access - need 'all' permission for deletion
+    if not check_project_access(current_user, project, db, "all"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete inventory for this project. Contact the Senior Admin."
+        )
+
+    try:
+        # Get count of inventory for this project (for reporting)
+        inventory_count = db.query(Inventory).filter(Inventory.pid_po == project_id).count()
+
+        if inventory_count == 0:
+            raise HTTPException(status_code=404, detail="No inventory found for this project")
+
+        # Delete all inventory for this project
+        inventory_deleted = db.query(Inventory).filter(Inventory.pid_po == project_id).delete(synchronize_session=False)
+
+        db.commit()
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="delete_all_inventory",
+            resource_type="project_inventory",
+            resource_id=project_id,
+            resource_name=project.project_name,
+            details=json.dumps({
+                "project_id": project_id,
+                "inventory_deleted": inventory_deleted
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
+        return {
+            "message": "All inventory deleted successfully",
+            "deleted_inventory": inventory_deleted,
+            "affected_tables": ["inventory"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting inventory: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete inventory: {str(e)}")

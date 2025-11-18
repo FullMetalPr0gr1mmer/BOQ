@@ -52,7 +52,7 @@
 }
 
 /* Buttons */
-.btn-primary, .btn-secondary {
+.btn-primary, .btn-secondary, .btn-danger {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -88,7 +88,18 @@
   box-shadow: 0 4px 12px rgba(91, 206, 250, 0.3);
 }
 
-.btn-primary.disabled, .btn-secondary.disabled {
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover:not(.disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-primary.disabled, .btn-secondary.disabled, .btn-danger.disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -96,6 +107,8 @@
 .btn-icon {
   font-size: 1.1rem;
 }
+
+/* Download Template Button - Imported from shared/DownloadButton.css */
 
 /* Filters Section */
 .site-filters {

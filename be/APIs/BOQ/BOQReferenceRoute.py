@@ -153,6 +153,7 @@ def list_references(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=500),
         search: Optional[str] = Query(None, description="Filter by linkid/interface/site IP (case-insensitive)"),
+        project_id: Optional[str] = Query(None, description="Filter by specific project ID"),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -164,7 +165,17 @@ def list_references(
     # 2. Base query filtered by user's projects
     q = db.query(BOQReference).filter(BOQReference.pid_po.in_(accessible_project_ids))
 
-    # 3. Apply search filter
+    # 3. Apply project filter if specified
+    if project_id:
+        # Verify user has access to this specific project
+        if project_id not in accessible_project_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this project."
+            )
+        q = q.filter(BOQReference.pid_po == project_id)
+
+    # 4. Apply search filter
     if search:
         s = f"%{search.strip().lower()}%"
         q = q.filter(or_(
@@ -610,3 +621,53 @@ def generate_boq(
         "site_a_total_matches": len(outdoor_inv_a) + len(indoor_inv_a),
         "site_b_total_matches": len(outdoor_inv_b) + len(indoor_inv_b)
     }
+
+@BOQRouter.delete("/delete-all-references/{project_id}")
+def delete_all_references_for_project(
+        project_id: str,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes all BOQ references for a project.
+    Users need 'all' permission on the project to delete all references.
+
+    Returns:
+    - deleted_references: Number of BOQ references deleted
+    - affected_tables: List of tables that had data deleted
+    """
+    # Check if project exists and user has access
+    project = get_project_for_boq(project_id, db)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check user has 'all' permission
+    if not check_project_access(current_user, project, db, "all"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete BOQ references for this project. Contact the Senior Admin."
+        )
+
+    try:
+        # Get count of references for this project
+        references_count = db.query(BOQReference).filter(BOQReference.pid_po == project_id).count()
+
+        if references_count == 0:
+            raise HTTPException(status_code=404, detail="No BOQ references found for this project")
+
+        # Delete all BOQ references for this project
+        references_deleted = db.query(BOQReference).filter(BOQReference.pid_po == project_id).delete(synchronize_session=False)
+
+        db.commit()
+
+        return {
+            "message": "All BOQ references deleted successfully",
+            "deleted_references": references_deleted,
+            "affected_tables": ["boq_references"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete BOQ references: {str(e)}")

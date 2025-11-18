@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/RanAntennaSerials.css'; // Using the new unified CSS
+import '../css/shared/DownloadButton.css';
 import StatsCarousel from '../Components/shared/StatsCarousel';
 import FilterBar from '../Components/shared/FilterBar';
 import DataTable from '../Components/shared/DataTable';
@@ -8,6 +9,8 @@ import ModalForm from '../Components/shared/ModalForm';
 import HelpModal, { HelpList, HelpText } from '../Components/shared/HelpModal';
 import TitleWithInfo from '../Components/shared/InfoButton';
 import Pagination from '../Components/shared/Pagination';
+import DeleteConfirmationModal from '../Components/shared/DeleteConfirmationModal';
+import { downloadRANAntennaSerialsUploadTemplate } from '../utils/csvTemplateDownloader';
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100, 200];
 
@@ -29,6 +32,8 @@ export default function RANAntennaSerials() {
   const [selectedProject, setSelectedProject] = useState('');
   const [stats, setStats] = useState({ total_antennas: 0, unique_mrbts: 0 });
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const fetchAbort = useRef(null);
 
   const initialForm = {
@@ -203,6 +208,51 @@ export default function RANAntennaSerials() {
     }
   };
 
+  const handleDeleteAllAntennaSerials = () => {
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project first.');
+      return;
+    }
+    setShowDeleteAllModal(true);
+  };
+
+  const confirmDeleteAllAntennaSerials = async () => {
+    if (!selectedProject) return;
+
+    setDeleteAllLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await apiCall(`/ran-antenna-serials/delete-all-antenna-serials/${selectedProject}`, {
+        method: 'DELETE'
+      });
+
+      const message = `Successfully deleted ${result.deleted_antenna_serials} antenna serial(s).`;
+      setTransient(setSuccess, message);
+      setShowDeleteAllModal(false);
+      setSelectedProject('');
+      fetchAntennaSerials(1, '', rowsPerPage, '');
+      fetchStats('');
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to delete antenna serials');
+      setShowDeleteAllModal(false);
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const cancelDeleteAllAntennaSerials = () => {
+    if (!deleteAllLoading) {
+      setShowDeleteAllModal(false);
+    }
+  };
+
+  const getSelectedProjectName = () => {
+    const project = projects.find(p => p.pid_po === selectedProject);
+    return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
+  };
+
   const handleRowsPerPageChange = (e) => {
     const newLimit = parseInt(e.target.value);
     setRowsPerPage(newLimit);
@@ -246,11 +296,23 @@ export default function RANAntennaSerials() {
         <HelpList items={[
             { label: '+ New Record', text: 'Create a new antenna serial record for the selected project.' },
             { label: '📤 Upload CSV', text: 'Bulk upload records from a CSV file.' },
+            { label: '🗑️ Delete All Antenna Serials', text: 'Deletes ALL antenna serial records for the selected project. Requires confirmation and cannot be undone.' },
             { label: 'Project Dropdown', text: 'Filter records and stats by the selected project.' },
         ]} />
     )},
     { icon: '📁', title: 'CSV Upload Guidelines', content: (
-        <HelpText isNote>Your CSV file needs the headers: <code>mrbts</code>, <code>antenna_model</code>, and <code>serial_number</code>. All records will be assigned to the currently selected project.</HelpText>
+        <>
+          <HelpText isNote>Your CSV file needs the headers: <code>mrbts</code>, <code>antenna_model</code>, and <code>serial_number</code>. All records will be assigned to the currently selected project.</HelpText>
+          <div style={{ margin: '1rem 0' }}>
+            <button
+              className="btn-download-template"
+              onClick={downloadRANAntennaSerialsUploadTemplate}
+              type="button"
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
+        </>
     )}
   ];
 
@@ -271,6 +333,15 @@ export default function RANAntennaSerials() {
             <span className="btn-icon">📤</span> Upload CSV
             <input type="file" accept=".csv" style={{ display: "none" }} disabled={uploading || !selectedProject} onChange={handleUpload} />
           </label>
+          <button
+            className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
+            onClick={handleDeleteAllAntennaSerials}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Delete all antenna serials for this project"}
+          >
+            <span className="btn-icon">🗑️</span>
+            Delete All Antenna Serials
+          </button>
         </div>
       </div>
 
@@ -334,6 +405,22 @@ export default function RANAntennaSerials() {
           <input type="text" name="serial_number" value={formData.serial_number} onChange={handleChange} required />
         </div>
       </ModalForm>
+
+      {/* Delete All Antenna Serials Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteAllModal}
+        onConfirm={confirmDeleteAllAntennaSerials}
+        onCancel={cancelDeleteAllAntennaSerials}
+        title="Delete All Antenna Serials for Project"
+        itemName={selectedProject ? getSelectedProjectName() : ''}
+        warningText="Are you sure you want to delete ALL antenna serial records for project"
+        additionalInfo="This will permanently delete all related data from the following tables:"
+        affectedItems={[
+          'RAN Antenna Serials - All antenna serial records for this project'
+        ]}
+        confirmButtonText="Delete All Antenna Serials"
+        loading={deleteAllLoading}
+      />
 
       <HelpModal
         show={showHelpModal}

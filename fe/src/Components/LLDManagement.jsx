@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import '../css/LLDManagement.css';
+import '../css/shared/DownloadButton.css';
 import { apiCall, setTransient } from '../api.js';
 import TitleWithInfo from './shared/InfoButton.jsx';
 import FilterBar from './shared/FilterBar.jsx';
@@ -7,6 +8,8 @@ import StatsCarousel from './shared/StatsCarousel.jsx';
 import DataTable from './shared/DataTable.jsx';
 import Pagination from './shared/Pagination.jsx';
 import HelpModal, { HelpList, HelpText } from './shared/HelpModal.jsx';
+import DeleteConfirmationModal from './shared/DeleteConfirmationModal';
+import { downloadLLDUploadTemplate } from '../utils/csvTemplateDownloader';
 
 const ROWS_PER_PAGE = 50;
 
@@ -26,6 +29,8 @@ export default function LLDManagement() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
   const fetchAbort = useRef(null);
 
@@ -80,6 +85,7 @@ export default function LLDManagement() {
               'Use the search bar to find specific Link IDs',
               'Select a project from the dropdown to filter records',
               'Click "+ Add LLD" to create a new record',
+              'Click "🗑️ Delete All LLD Records" to delete ALL records for the selected project (requires confirmation)',
               'Use the edit icon (✏️) to view and edit existing records',
               'Click the delete icon (🗑️) to remove records (requires confirmation)',
             ]}
@@ -111,6 +117,15 @@ export default function LLDManagement() {
               'Note: "configuration" maps to Item Name, "link catergory" (sic) is the expected spelling',
             ]}
           />
+          <div style={{ margin: '1rem 0' }}>
+            <button
+              className="btn-download-template"
+              onClick={downloadLLDUploadTemplate}
+              type="button"
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
         </>
       ),
     },
@@ -281,6 +296,50 @@ export default function LLDManagement() {
     }
   };
 
+  const handleDeleteAllLLD = () => {
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project first.');
+      return;
+    }
+    setShowDeleteAllModal(true);
+  };
+
+  const confirmDeleteAllLLD = async () => {
+    if (!selectedProject) return;
+
+    setDeleteAllLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await apiCall(`/lld/delete-all-lld/${selectedProject}`, {
+        method: 'DELETE'
+      });
+
+      const message = `Successfully deleted ${result.deleted_lld} LLD record(s).`;
+      setTransient(setSuccess, message);
+      setShowDeleteAllModal(false);
+      setSelectedProject('');
+      fetchLLD(1, '');
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to delete LLD records');
+      setShowDeleteAllModal(false);
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const cancelDeleteAllLLD = () => {
+    if (!deleteAllLoading) {
+      setShowDeleteAllModal(false);
+    }
+  };
+
+  const getSelectedProjectName = () => {
+    const project = projects.find(p => p.pid_po === selectedProject);
+    return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
+  };
+
   // Delete row
   const handleDelete = async (link_id) => {
     if (!window.confirm(`Delete LLD row ${link_id}?`)) return;
@@ -435,6 +494,15 @@ export default function LLDManagement() {
               onChange={handleUpload}
             />
           </label>
+          <button
+            className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
+            onClick={handleDeleteAllLLD}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Delete all LLD records for this project"}
+          >
+            <span className="btn-icon">🗑️</span>
+            Delete All LLD Records
+          </button>
           {/* <button className="btn-secondary" onClick={downloadCSV} disabled={!rows.length}>
             📥 Download CSV
           </button> */}
@@ -804,6 +872,22 @@ export default function LLDManagement() {
         title="LLD Management User Guide"
         sections={helpSections}
         closeButtonText="Got it!"
+      />
+
+      {/* Delete All LLD Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteAllModal}
+        onConfirm={confirmDeleteAllLLD}
+        onCancel={cancelDeleteAllLLD}
+        title="Delete All LLD Records for Project"
+        itemName={selectedProject ? getSelectedProjectName() : ''}
+        warningText="Are you sure you want to delete ALL LLD records for project"
+        additionalInfo="This will permanently delete all related data from the following tables:"
+        affectedItems={[
+          'LLD Records - All LLD records for this project'
+        ]}
+        confirmButtonText="Delete All LLD Records"
+        loading={deleteAllLoading}
       />
     </div>
   );

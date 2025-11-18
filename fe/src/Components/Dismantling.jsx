@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/Dismantling2.css'; // Using the new unified CSS
+import '../css/shared/DownloadButton.css';
 import StatsCarousel from './shared/StatsCarousel';
 import FilterBar from './shared/FilterBar';
 import DataTable from './shared/DataTable';
@@ -8,6 +9,8 @@ import ModalForm from './shared/ModalForm';
 import HelpModal, { HelpList, HelpText, CodeBlock } from './shared/HelpModal';
 import TitleWithInfo from './shared/InfoButton';
 import Pagination from './shared/Pagination';
+import DeleteConfirmationModal from './shared/DeleteConfirmationModal';
+import { downloadDismantlingUploadTemplate } from '../utils/csvTemplateDownloader';
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100, 200];
 
@@ -29,6 +32,8 @@ export default function Dismantling() {
   const [selectedProject, setSelectedProject] = useState('');
   const [stats, setStats] = useState({ total_records: 0 });
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const fetchAbort = useRef(null);
 
   const initialForm = {
@@ -210,6 +215,51 @@ export default function Dismantling() {
     }
   };
 
+  const handleDeleteAllDismantling = () => {
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project first.');
+      return;
+    }
+    setShowDeleteAllModal(true);
+  };
+
+  const confirmDeleteAllDismantling = async () => {
+    if (!selectedProject) return;
+
+    setDeleteAllLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await apiCall(`/dismantling/delete-all-dismantling/${selectedProject}`, {
+        method: 'DELETE'
+      });
+
+      const message = `Successfully deleted ${result.deleted_dismantling} dismantling record(s).`;
+      setTransient(setSuccess, message);
+      setShowDeleteAllModal(false);
+      setSelectedProject('');
+      fetchDismantling(1, '', rowsPerPage, '');
+      fetchStats('');
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to delete dismantling records');
+      setShowDeleteAllModal(false);
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const cancelDeleteAllDismantling = () => {
+    if (!deleteAllLoading) {
+      setShowDeleteAllModal(false);
+    }
+  };
+
+  const getSelectedProjectName = () => {
+    const project = projects.find(p => p.pid_po === selectedProject);
+    return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
+  };
+
   const handleRowsPerPageChange = (e) => {
     const newLimit = parseInt(e.target.value);
     setRowsPerPage(newLimit);
@@ -254,6 +304,7 @@ export default function Dismantling() {
         <HelpList items={[
             { label: '+ New Record', text: 'Opens a form to create a new dismantling record for the selected project.' },
             { label: '📤 Upload CSV', text: 'Allows bulk uploading of records from a CSV file.' },
+            { label: '🗑️ Delete All Dismantling Records', text: 'Deletes ALL dismantling records for the selected project. Requires confirmation and cannot be undone.' },
             { label: 'Project Dropdown', text: 'Filters all records and statistics by the selected project.' },
         ]} />
       )
@@ -268,6 +319,15 @@ export default function Dismantling() {
             'The header row should be the first row in the file',
             'Data rows should follow the header row',
           ]} />
+          <div style={{ margin: '1rem 0' }}>
+            <button
+              className="btn-download-template"
+              onClick={downloadDismantlingUploadTemplate}
+              type="button"
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
           <HelpText isNote style={{ marginTop: '1rem' }}><strong>Important:</strong> Ensure a project is selected before uploading, as all records in the file will be assigned to that project.</HelpText>
         </>
       )
@@ -291,6 +351,15 @@ export default function Dismantling() {
             <span className="btn-icon">📤</span> Upload CSV
             <input type="file" accept=".csv" style={{ display: "none" }} disabled={uploading || !selectedProject} onChange={handleUpload} />
           </label>
+          <button
+            className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
+            onClick={handleDeleteAllDismantling}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Delete all dismantling records for this project"}
+          >
+            <span className="btn-icon">🗑️</span>
+            Delete All Dismantling Records
+          </button>
         </div>
       </div>
 
@@ -363,6 +432,22 @@ export default function Dismantling() {
         onClose={() => setShowHelpModal(false)}
         title="Dismantling Records - User Guide"
         sections={helpSections}
+      />
+
+      {/* Delete All Dismantling Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteAllModal}
+        onConfirm={confirmDeleteAllDismantling}
+        onCancel={cancelDeleteAllDismantling}
+        title="Delete All Dismantling Records for Project"
+        itemName={selectedProject ? getSelectedProjectName() : ''}
+        warningText="Are you sure you want to delete ALL dismantling records for project"
+        additionalInfo="This will permanently delete all related data from the following tables:"
+        affectedItems={[
+          'Dismantling Records - All dismantling records for this project'
+        ]}
+        confirmButtonText="Delete All Dismantling Records"
+        loading={deleteAllLoading}
       />
     </div>
   );

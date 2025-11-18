@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/Inventory.css';
+import '../css/shared/DownloadButton.css';
 import StatsCarousel from './shared/StatsCarousel';
 import FilterBar from './shared/FilterBar';
 import DataTable from './shared/DataTable';
 import HelpModal, { HelpList, HelpText, CodeBlock } from './shared/HelpModal';
 import TitleWithInfo from './shared/InfoButton';
 import Pagination from './shared/Pagination';
+import DeleteConfirmationModal from './shared/DeleteConfirmationModal';
+import { downloadBOQReferenceUploadTemplate } from '../utils/csvTemplateDownloader';
 
 const ROWS_PER_PAGE = 100;
 
@@ -51,6 +54,8 @@ export default function BOQGeneration() {
   const [submitting, setSubmitting] = useState(false);
   const [editableCsvData, setEditableCsvData] = useState([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
   // --- Project state ---
   const [projects, setProjects] = useState([]);
@@ -168,6 +173,50 @@ export default function BOQGeneration() {
       setUploading(false);
       e.target.value = '';
     }
+  };
+
+  const handleDeleteAllReferences = () => {
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project first.');
+      return;
+    }
+    setShowDeleteAllModal(true);
+  };
+
+  const confirmDeleteAllReferences = async () => {
+    if (!selectedProject) return;
+
+    setDeleteAllLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await apiCall(`/boq/delete-all-references/${selectedProject}`, {
+        method: 'DELETE'
+      });
+
+      const message = `Successfully deleted ${result.deleted_references} BOQ reference(s).`;
+      setTransient(setSuccess, message);
+      setShowDeleteAllModal(false);
+      setSelectedProject('');
+      fetchReferences(1, '', selectedProject);
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to delete references');
+      setShowDeleteAllModal(false);
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const cancelDeleteAllReferences = () => {
+    if (!deleteAllLoading) {
+      setShowDeleteAllModal(false);
+    }
+  };
+
+  const getSelectedProjectName = () => {
+    const project = projects.find(p => p.pid_po === selectedProject);
+    return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
   };
 
   // --- Generate BOQ ---
@@ -414,6 +463,7 @@ export default function BOQGeneration() {
           items={[
             { label: '+ New Reference', text: 'Opens a form to create a new BOQ reference. You must select a project first.' },
             { label: '📤 Upload Reference', text: 'Allows you to bulk upload BOQ references from a CSV file. Select a project before uploading.' },
+            { label: '🗑️ Delete All BOQ References', text: 'Deletes ALL BOQ references for the selected project. Requires confirmation and cannot be undone.' },
             { label: 'Search', text: 'Filter references by linkid, interface name, or site IP in real-time.' },
             { label: 'Project Dropdown', text: 'Filter all BOQ references by the selected project.' },
             { label: 'Clear Search', text: 'Resets the search filter and shows all references for the selected project.' },
@@ -450,6 +500,15 @@ export default function BOQGeneration() {
               'linkid', 'InterfaceName', 'SiteIPA', 'SiteIPB'
             ]}
           />
+          <div style={{ margin: '1rem 0' }}>
+            <button
+              className="btn-download-template"
+              onClick={downloadBOQReferenceUploadTemplate}
+              type="button"
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
           <HelpText isNote>
             <strong>Note:</strong> Make sure to select a project before uploading. The CSV data will be associated
             with the selected project automatically.
@@ -521,6 +580,15 @@ export default function BOQGeneration() {
               onChange={handleUpload}
             />
           </label>
+          <button
+            className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
+            onClick={handleDeleteAllReferences}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Delete all BOQ references for this project"}
+          >
+            <span className="btn-icon">🗑️</span>
+            Delete All BOQ References
+          </button>
         </div>
       </div>
 
@@ -752,6 +820,22 @@ export default function BOQGeneration() {
         title="BOQ Generation - User Guide"
         sections={helpSections}
         closeButtonText="Got it!"
+      />
+
+      {/* Delete All BOQ References Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteAllModal}
+        onConfirm={confirmDeleteAllReferences}
+        onCancel={cancelDeleteAllReferences}
+        title="Delete All BOQ References for Project"
+        itemName={selectedProject ? getSelectedProjectName() : ''}
+        warningText="Are you sure you want to delete ALL BOQ references for project"
+        additionalInfo="This will permanently delete all related data from the following tables:"
+        affectedItems={[
+          'BOQ References - All BOQ references for this project'
+        ]}
+        confirmButtonText="Delete All BOQ References"
+        loading={deleteAllLoading}
       />
     </div>
   );

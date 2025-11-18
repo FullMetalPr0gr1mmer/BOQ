@@ -247,8 +247,60 @@ def upload_csv(
         db.bulk_save_objects(to_insert)
         db.commit()
         inserted = len(to_insert)
+
+        return {"rows_inserted": inserted}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to process CSV: {e}")
 
-    return {"rows_inserted": inserted}
+
+
+@lld_router.delete("/delete-all-lld/{project_id}")
+async def delete_all_lld_for_project(
+        project_id: str,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes all LLD records for a project.
+    Users need 'all' permission on the project to delete all LLD records.
+
+    Returns:
+    - deleted_lld: Number of LLD records deleted
+    - affected_tables: List of tables that had data deleted
+    """
+    # Check if project exists
+    project = db.query(Project).filter(Project.pid_po == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check project access - need 'all' permission
+    if not check_project_access(current_user, project, db, "all"):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to delete LLD records for this project."
+        )
+
+    try:
+        # Get count of LLD records for this project
+        lld_count = db.query(LLD).filter(LLD.pid_po == project_id).count()
+
+        if lld_count == 0:
+            raise HTTPException(status_code=404, detail="No LLD records found for this project")
+
+        # Delete all LLD records for this project
+        lld_deleted = db.query(LLD).filter(LLD.pid_po == project_id).delete(synchronize_session=False)
+
+        db.commit()
+
+        return {
+            "message": "All LLD records deleted successfully",
+            "deleted_lld": lld_deleted,
+            "affected_tables": ["lld"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete LLD records: {str(e)}")

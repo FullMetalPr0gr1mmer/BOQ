@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/Inventory.css';
+import '../css/shared/DownloadButton.css';
 import StatsCarousel from './shared/StatsCarousel';
 import FilterBar from './shared/FilterBar';
 import DataTable from './shared/DataTable';
@@ -8,6 +9,8 @@ import ModalForm, { FormSection, FormField } from './shared/ModalForm';
 import HelpModal, { HelpList, HelpText, CodeBlock } from './shared/HelpModal';
 import TitleWithInfo from './shared/InfoButton';
 import Pagination from './shared/Pagination';
+import DeleteConfirmationModal from './shared/DeleteConfirmationModal';
+import { downloadInventoryUploadTemplate } from '../utils/csvTemplateDownloader';
 
 export default function Inventory() {
   const [rows, setRows] = useState([]);
@@ -26,6 +29,8 @@ export default function Inventory() {
   const [selectedProject, setSelectedProject] = useState('');
   const [stats, setStats] = useState({ total_items: 0, unique_sites: 0 });
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const fetchAbort = useRef(null);
 
   const initialForm = {
@@ -217,6 +222,51 @@ export default function Inventory() {
     }
   };
 
+  const handleDeleteAllInventory = () => {
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project first.');
+      return;
+    }
+    setShowDeleteAllModal(true);
+  };
+
+  const confirmDeleteAllInventory = async () => {
+    if (!selectedProject) return;
+
+    setDeleteAllLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await apiCall(`/delete-all-inventory/${selectedProject}`, {
+        method: 'DELETE'
+      });
+
+      const message = `Successfully deleted ${result.deleted_inventory} inventory record(s).`;
+      setTransient(setSuccess, message);
+      setShowDeleteAllModal(false);
+      setSelectedProject('');
+      fetchInventory(1, '', rowsPerPage, '');
+      fetchStats();
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to delete inventory');
+      setShowDeleteAllModal(false);
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const cancelDeleteAllInventory = () => {
+    if (!deleteAllLoading) {
+      setShowDeleteAllModal(false);
+    }
+  };
+
+  const getSelectedProjectName = () => {
+    const project = projects.find(p => p.pid_po === selectedProject);
+    return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
+  };
+
   const totalPages = Math.ceil(total / rowsPerPage);
 
   const handleRowsPerPageChange = (e) => {
@@ -311,6 +361,7 @@ export default function Inventory() {
           items={[
             { label: '+ New Item', text: 'Opens a form to create a new inventory item. You must select a project first.' },
             { label: '📤 Upload CSV', text: 'Allows you to bulk upload inventory items from a CSV file. Select a project before uploading.' },
+            { label: '🗑️ Delete All Inventory', text: 'Deletes ALL inventory for the selected project. Requires confirmation and cannot be undone.' },
             { label: 'Search', text: 'Filter inventory items by Site ID in real-time.' },
             { label: 'Project Dropdown', text: 'Filter all inventory items and statistics by the selected project.' },
             { label: 'Clear Search', text: 'Resets the search filter and shows all items for the selected project.' },
@@ -352,6 +403,15 @@ export default function Inventory() {
               'license_points_consumed', 'alarm_status', 'Aggregated_alarm_status'
             ]}
           />
+          <div style={{ margin: '1rem 0' }}>
+            <button
+              className="btn-download-template"
+              onClick={downloadInventoryUploadTemplate}
+              type="button"
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
           <HelpText isNote>
             <strong>Note:</strong> Make sure to select a project before uploading. The CSV data will be associated
             with the selected project automatically.
@@ -407,6 +467,15 @@ export default function Inventory() {
               onChange={handleUpload}
             />
           </label>
+          <button
+            className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
+            onClick={handleDeleteAllInventory}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Delete all inventory for this project"}
+          >
+            <span className="btn-icon">🗑️</span>
+            Delete All Inventory
+          </button>
         </div>
       </div>
 
@@ -722,6 +791,22 @@ export default function Inventory() {
         title="Inventory Management - User Guide"
         sections={helpSections}
         closeButtonText="Got it!"
+      />
+
+      {/* Delete All Inventory Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteAllModal}
+        onConfirm={confirmDeleteAllInventory}
+        onCancel={cancelDeleteAllInventory}
+        title="Delete All Inventory for Project"
+        itemName={selectedProject ? getSelectedProjectName() : ''}
+        warningText="Are you sure you want to delete ALL inventory for project"
+        additionalInfo="This will permanently delete all related data from the following tables:"
+        affectedItems={[
+          'Inventory - All inventory items for this project'
+        ]}
+        confirmButtonText="Delete All Inventory"
+        loading={deleteAllLoading}
       />
     </div>
   );

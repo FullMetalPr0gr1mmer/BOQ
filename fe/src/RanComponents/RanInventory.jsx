@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { apiCall, setTransient } from "../api.js";
 import "../css/Inventory.css";
+import '../css/shared/DownloadButton.css';
 import StatsCarousel from '../Components/shared/StatsCarousel';
 import FilterBar from '../Components/shared/FilterBar';
 import DataTable from '../Components/shared/DataTable';
 import HelpModal, { HelpList, HelpText, CodeBlock } from '../Components/shared/HelpModal';
 import TitleWithInfo from '../Components/shared/InfoButton';
 import Pagination from '../Components/shared/Pagination';
+import DeleteConfirmationModal from '../Components/shared/DeleteConfirmationModal';
+import { downloadRANInventoryUploadTemplate } from '../utils/csvTemplateDownloader';
 
 export default function RANInventory() {
   const [rows, setRows] = useState([]);
@@ -19,6 +22,8 @@ export default function RANInventory() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRow, setEditingRow] = useState(null);
@@ -179,6 +184,51 @@ export default function RANInventory() {
     } catch (err) {
       setTransient(setError, err.message);
     }
+  };
+
+  const handleDeleteAllInventory = () => {
+    if (!selectedProject) {
+      setTransient(setError, 'Please select a project first.');
+      return;
+    }
+    setShowDeleteAllModal(true);
+  };
+
+  const confirmDeleteAllInventory = async () => {
+    if (!selectedProject) return;
+
+    setDeleteAllLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await apiCall(`/raninventory/delete-all-inventory/${selectedProject}`, {
+        method: 'DELETE'
+      });
+
+      const message = `Successfully deleted ${result.deleted_inventory} RAN inventory item(s).`;
+      setTransient(setSuccess, message);
+      setShowDeleteAllModal(false);
+      setSelectedProject('');
+      fetchInventory(1, '', rowsPerPage, '');
+      fetchStats('');
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to delete RAN inventory');
+      setShowDeleteAllModal(false);
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  };
+
+  const cancelDeleteAllInventory = () => {
+    if (!deleteAllLoading) {
+      setShowDeleteAllModal(false);
+    }
+  };
+
+  const getSelectedProjectName = () => {
+    const project = projects.find(p => p.pid_po === selectedProject);
+    return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
   };
 
   const openEditModal = (row) => {
@@ -375,6 +425,7 @@ export default function RANInventory() {
           items={[
             { label: '+ New Record', text: 'Opens a form to create a new RAN inventory item. You must select a project first.' },
             { label: '📤 Upload CSV', text: 'Allows you to bulk upload RAN inventory items from a CSV file. Select a project before uploading.' },
+            { label: '🗑️ Delete All RAN Inventory', text: 'Deletes ALL RAN inventory items for the selected project. Requires confirmation and cannot be undone.' },
             { label: 'Search', text: 'Filter inventory items by Site ID, MRBTS, or Serial Number in real-time.' },
             { label: 'Project Dropdown', text: 'Filter all inventory items and statistics by the selected project.' },
             { label: 'Clear Search', text: 'Resets the search filter and shows all items for the selected project.' },
@@ -414,6 +465,15 @@ export default function RANInventory() {
               'duplicate', 'duplicate_remarks'
             ]}
           />
+          <div style={{ margin: '1rem 0' }}>
+            <button
+              className="btn-download-template"
+              onClick={downloadRANInventoryUploadTemplate}
+              type="button"
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
           <HelpText isNote>
             <strong>Note:</strong> Make sure to select a project before uploading. The CSV data will be associated
             with the selected project automatically. The "duplicate" field should be "true" or "false".
@@ -481,6 +541,15 @@ export default function RANInventory() {
               onChange={handleUpload}
             />
           </label>
+          <button
+            className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
+            onClick={handleDeleteAllInventory}
+            disabled={!selectedProject}
+            title={!selectedProject ? "Select a project first" : "Delete all RAN inventory for this project"}
+          >
+            <span className="btn-icon">🗑️</span>
+            Delete All RAN Inventory
+          </button>
         </div>
       </div>
 
@@ -773,6 +842,22 @@ export default function RANInventory() {
           </div>
         </div>
       )}
+
+      {/* Delete All Inventory Confirmation Modal */}
+      <DeleteConfirmationModal
+        show={showDeleteAllModal}
+        onConfirm={confirmDeleteAllInventory}
+        onCancel={cancelDeleteAllInventory}
+        title="Delete All RAN Inventory for Project"
+        itemName={selectedProject ? getSelectedProjectName() : ''}
+        warningText="Are you sure you want to delete ALL RAN inventory items for project"
+        additionalInfo="This will permanently delete all related data from the following tables:"
+        affectedItems={[
+          'RAN Inventory - All RAN inventory records for this project'
+        ]}
+        confirmButtonText="Delete All RAN Inventory"
+        loading={deleteAllLoading}
+      />
 
       {/* Help/Info Modal */}
       <HelpModal
