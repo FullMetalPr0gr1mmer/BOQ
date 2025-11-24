@@ -3,7 +3,8 @@ import '../css/header.css';
 
 const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Generation', 'LLD', 'Dismantling', 'LogOut'];
 const leAutomationTabs = ['ROP Project', 'ROP Package', 'LogOut'];
-const ranBoqTabs = ['Ran Projects', 'RAN BOQ Generation', 'Ran Level3', 'Ran Inventory', 'Ran Antenna Serials', 'LogOut']
+const ranBoqTabs = ['Ran Projects', 'RAN BOQ Generation', 'Ran Level3', 'Ran Inventory', 'Ran Antenna Serials', 'LogOut'];
+const du5gTabs = ['DU Projects', 'DU BOQ Generation', 'DU BOQ Items', 'DU Customer PO', 'LogOut'];
 export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,8 +15,10 @@ export default function Header({ onLogout, activeSection, user }) {
   }
 
   let tabs = activeSection === 'le-automation' ? leAutomationTabs : boqTabs;
-  if (activeSection==='ran-boq'){
-    tabs =ranBoqTabs
+  if (activeSection === 'ran-boq') {
+    tabs = ranBoqTabs;
+  } else if (activeSection === 'du-5g') {
+    tabs = du5gTabs;
   }
   // Hide Level1 tab
   tabs = tabs.filter(tab => tab !== 'Level1');

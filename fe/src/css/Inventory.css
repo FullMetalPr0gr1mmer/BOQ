@@ -1211,3 +1211,95 @@
   color: #374151;
   font-weight: 500;
 }
+
+/* Category Summary Section for OD BOQ Items */
+.category-summary-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.category-summary-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #124191;
+}
+
+.category-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.category-summary-card {
+  padding: 1rem;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%);
+  border-radius: 8px;
+  border-left: 4px solid #124191;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.category-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(18, 65, 145, 0.15);
+}
+
+.category-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.category-total {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #124191;
+  line-height: 1.2;
+}
+
+.category-columns {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+/* Large Modal Styles */
+.large-modal {
+  max-width: 900px !important;
+  width: 95% !important;
+  max-height: 90vh !important;
+}
+
+.large-modal .modal-body {
+  max-height: calc(90vh - 140px);
+  overflow-y: auto;
+}
+
+/* Full Width Form Field */
+.form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-field textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-field textarea:focus {
+  outline: none;
+  border-color: #124191;
+  box-shadow: 0 0 0 3px rgba(18, 65, 145, 0.1);
+}

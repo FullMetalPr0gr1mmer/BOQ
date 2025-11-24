@@ -54,11 +54,17 @@ export default function DataTable({
           ) : (
             data.map((row, rowIdx) => (
               <tr key={rowIdx}>
-                {columns.map((col, colIdx) => (
-                  <td key={colIdx}>
-                    {col.render ? col.render(row) : row[col.key]}
-                  </td>
-                ))}
+                {columns.map((col, colIdx) => {
+                  const cellValue = row[col.key];
+                  const displayValue = col.render ? col.render(row) : cellValue;
+                  // Use raw value for title (tooltip), fallback to empty string
+                  const titleValue = cellValue != null ? String(cellValue) : '';
+                  return (
+                    <td key={colIdx} title={titleValue}>
+                      {displayValue}
+                    </td>
+                  );
+                })}
                 {hasActions && (
                   <td>
                     <div className="action-buttons">

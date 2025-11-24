@@ -1,0 +1,41 @@
+from sqlalchemy import Column, Integer, String, ForeignKey
+
+from Database.session import Base
+
+
+class _5G_Rollout_Sheet(Base):
+    __tablename__ = 'du_rollout_sheet'
+    id = Column(Integer , primary_key=True,index=True)
+    site_id = Column(String(100), index=True)
+    scope= Column(String(100), index=True, nullable=True)
+    year_target_scope = Column(String(100), index=True, nullable=True)
+    partner = Column(String(100), index=True, nullable=True)
+    partner_requester_name = Column(String(100), index=True, nullable=True)
+    date_of_partner_request = Column(String(100), index=True, nullable=True)
+    survey_partner = Column(String(100), index=True, nullable=True)
+    implementation_partner = Column(String(100), index=True, nullable=True)
+    ant_swap = Column(String(100), index=True, nullable=True)
+    additional_cost = Column(String(100), index=True, nullable=True)
+    wr_transportation = Column(String(100), index=True, nullable=True)
+    crane = Column(String(100), index=True, nullable=True)
+    ac_armod_cable_new_sran = Column(String(100), index=True, nullable=True)
+    military_factor = Column(String(100), index=True, nullable=True)
+    cicpa_factor = Column(String(100), index=True, nullable=True)
+    nokia_rollout_requester = Column(String(100), index=True, nullable=True)
+    services_validation_by_rollout = Column(String(100), index=True, nullable=True)
+    date_of_validation_by_rollout = Column(String(100), index=True, nullable=True)
+    request_status = Column(String(100), index=True, nullable=True)
+    du_po_number = Column(String(100), index=True, nullable=True)
+    integration_status = Column(String(100), index=True, nullable=True)
+    integration_date = Column(String(100), index=True, nullable=True)
+    du_po_convention_name = Column(String(100), index=True, nullable=True)
+    po_year_issuance = Column(String(100), index=True, nullable=True)
+    smp_number = Column(String(100), index=True, nullable=True)
+    wo_number = Column(String(100), index=True, nullable=True)
+    sps_category = Column(String(100), index=True, nullable=True)
+    submission_date = Column(String(100), index=True, nullable=True)
+    po_status = Column(String(100), index=True, nullable=True)
+    pac_received = Column(String(100), index=True, nullable=True)
+    date_of_pac = Column(String(100), index=True, nullable=True)
+    hardware_remark = Column(String(100), index=True, nullable=True)
+    project_id = Column(String(200), ForeignKey("du_project.pid_po"), index=True)

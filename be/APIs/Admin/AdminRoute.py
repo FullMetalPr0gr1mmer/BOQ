@@ -10,6 +10,9 @@ from Models.Admin.User import User, UserProjectAccess, Role
 from Models.BOQ.Project import Project
 from Models.LE.ROPProject import ROPProject
 from Models.RAN.RANProject import RanProject
+import importlib
+du_project_module = importlib.import_module("Models.DU.DU_Project")
+DUProject = du_project_module.DUProject
 from Schemas.Admin.AccessSchema import (
     UserProjectAccessCreate,
     UserProjectAccessResponse,
@@ -178,6 +181,39 @@ async def grant_project_access(
             Ropproject_id=access_data.project_id,
             Ranproject_id=None
         )
+    elif access_data.section == 4:
+        du_project = db.query(DUProject).filter(DUProject.pid_po == access_data.project_id).first()
+        if not du_project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="DU Project not found"
+            )
+        valid_permissions = ["view", "edit", "all"]
+        if access_data.permission_level not in valid_permissions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid permission level. Must be one of: {', '.join(valid_permissions)}"
+            )
+
+        # Check if the user already has access
+        existing_access = db.query(UserProjectAccess).filter(
+            UserProjectAccess.user_id == access_data.user_id,
+            UserProjectAccess.DUproject_id == access_data.project_id
+        ).first()
+
+        if existing_access:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User already has access to this project. Use update endpoint to modify permissions."
+            )
+        new_access = UserProjectAccess(
+            user_id=access_data.user_id,
+            project_id=None,
+            permission_level=access_data.permission_level,
+            Ranproject_id=None,
+            Ropproject_id=None,
+            DUproject_id=access_data.project_id
+        )
 
     if not target_user:
         raise HTTPException(
@@ -257,6 +293,10 @@ async def update_project_access(
         rop_project = db.query(ROPProject).filter(ROPProject.pid_po == access_record.Ropproject_id).first()
     finally:
         pass
+    try:
+        du_project = db.query(DUProject).filter(DUProject.pid_po == access_record.DUproject_id).first()
+    finally:
+        pass
 
     old_permission = access_record.permission_level
     access_record.permission_level = update_data.permission_level
@@ -272,7 +312,7 @@ async def update_project_access(
             action="update_access",
             resource_type="project_access",
             resource_id=access_record.project_id,
-            resource_name=project.project_name if project else ran_project.project_name if ran_project else rop_project.project_name if rop_project else "Unknown",
+            resource_name=project.project_name if project else ran_project.project_name if ran_project else rop_project.project_name if rop_project else du_project.project_name if du_project else "Unknown",
             details=json.dumps({
                 "target_user": user.username if user else "Unknown",
                 "old_permission": old_permission,
@@ -315,6 +355,7 @@ async def revoke_project_access(
     project = db.query(Project).filter(Project.pid_po == access_record.project_id).first()
     ran_project = db.query(RanProject).filter(RanProject.pid_po == access_record.Ranproject_id).first()
     rop_project = db.query(ROPProject).filter(ROPProject.pid_po == access_record.Ropproject_id).first()
+    du_project = db.query(DUProject).filter(DUProject.pid_po == access_record.DUproject_id).first()
 
     # Store data before deletion
     deleted_project_id = access_record.project_id
@@ -331,7 +372,7 @@ async def revoke_project_access(
             action="revoke_access",
             resource_type="project_access",
             resource_id=deleted_project_id,
-            resource_name=project.project_name if project else ran_project.project_name if ran_project else rop_project.project_name if rop_project else "Unknown",
+            resource_name=project.project_name if project else ran_project.project_name if ran_project else rop_project.project_name if rop_project else du_project.project_name if du_project else "Unknown",
             details=json.dumps({
                 "target_user": user.username if user else "Unknown",
                 "permission_level": deleted_permission
@@ -379,6 +420,7 @@ async def get_all_users_with_projects(
             project = db.query(Project).filter(Project.pid_po == access.project_id).first()
             ran_project= db.query(RanProject).filter(RanProject.pid_po == access.Ranproject_id).first()
             rop_project= db.query(ROPProject).filter(ROPProject.pid_po == access.Ropproject_id).first()
+            du_project = db.query(DUProject).filter(DUProject.pid_po == access.DUproject_id).first()
 
             if project:
                 projects.append({
@@ -398,6 +440,13 @@ async def get_all_users_with_projects(
                 projects.append({
                     "project_id": rop_project.pid_po,
                     "project_name": rop_project.project_name,
+                    "permission_level": access.permission_level,
+                    "access_id": access.id
+                })
+            if du_project:
+                projects.append({
+                    "project_id": du_project.pid_po,
+                    "project_name": du_project.project_name,
                     "permission_level": access.permission_level,
                     "access_id": access.id
                 })
@@ -442,8 +491,9 @@ async def get_user_projects(
     projects = []
     for access in user_accesses:
         project = db.query(Project).filter(Project.pid_po == access.project_id).first()
-        ran_project = db.query(RanProject).filter(RanProject.pid_po == access_record.Ranproject_id).first()
-        rop_project = db.query(ROPProject).filter(ROPProject.pid_po == access_record.Ropproject_id).first()
+        ran_project = db.query(RanProject).filter(RanProject.pid_po == access.Ranproject_id).first()
+        rop_project = db.query(ROPProject).filter(ROPProject.pid_po == access.Ropproject_id).first()
+        du_project = db.query(DUProject).filter(DUProject.pid_po == access.DUproject_id).first()
 
         if project:
             projects.append({
@@ -459,10 +509,17 @@ async def get_user_projects(
                 "permission_level": access.permission_level,
                 "access_id": access.id
             })
-        if ran_project:
+        if rop_project:
             projects.append({
                 "project_id": rop_project.pid_po,
                 "project_name": rop_project.project_name,
+                "permission_level": access.permission_level,
+                "access_id": access.id
+            })
+        if du_project:
+            projects.append({
+                "project_id": du_project.pid_po,
+                "project_name": du_project.project_name,
                 "permission_level": access.permission_level,
                 "access_id": access.id
             })

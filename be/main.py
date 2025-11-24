@@ -84,8 +84,23 @@ from APIs.RAN.RANAntennaSerialsRouting import RANAntennaSerialsRouter
 # AI API imports
 from APIs.AI import chat_router, document_router
 
+# DU (Digital Transformation) API imports
+import importlib
+rollout_route_module = importlib.import_module("APIs.DU.5G_Rollout_Sheet_Route")
+rolloutSheetRoute = rollout_route_module.rolloutSheetRoute
+du_project_route_module = importlib.import_module("APIs.DU.DU_ProjectRoute")
+DUProjectRoute = du_project_route_module.DUProjectRoute
+from APIs.DU.OD_BOQ_ItemRoute import odBOQItemRoute
+from APIs.DU.CustomerPORoute import customerPORoute
+
 # Import AI models so SQLAlchemy recognizes them
 from Models.AI import Document, DocumentChunk, ChatHistory, AIAction
+
+# Import DU models so SQLAlchemy recognizes them
+du_project_model = importlib.import_module("Models.DU.DU_Project")
+rollout_sheet_model = importlib.import_module("Models.DU.5G_Rollout_Sheet")
+from Models.DU.OD_BOQ_Item import ODBOQItem
+from Models.DU.CustomerPO import CustomerPO
 
 # # PMA (Project Management Assistant) API import
 # from RAG.PMA import pma
@@ -145,6 +160,12 @@ app.include_router(RopPackageRouter)    # ROP package management
 # AI Assistant
 app.include_router(chat_router)         # AI chat and conversation
 app.include_router(document_router)     # AI document management and RAG
+
+# DU (Digital Transformation) Management
+app.include_router(DUProjectRoute)      # DU Project management
+app.include_router(rolloutSheetRoute)   # 5G Rollout Sheet management
+app.include_router(odBOQItemRoute)      # OD BOQ Items management
+app.include_router(customerPORoute)     # Customer PO management
 
 # app.include_router(pma)    # Project Management Assistant (PMA) routes
 

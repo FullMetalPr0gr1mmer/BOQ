@@ -63,6 +63,17 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                 { label: 'BOQ Generation', path: '/ran-boq-generation', icon: <FaFile /> },
                 { label: 'Antenna Serials', path: '/ran-antenna-serials', icon: <FaAnchor /> }
             ]
+        },
+        {
+            key: 'du-5g',
+            title: 'DU BOQ',
+            icon: <FaMobileAlt />,
+            items: [
+                { label: 'Projects', path: '/du-projects', icon: <FaProjectDiagram /> },
+                { label: 'BOQ Generation', path: '/du-rollout-sheet', icon: <FaFile /> },
+                { label: 'OD BOQ Items', path: '/du-boq-items', icon: <FaCubes /> },
+                { label: 'Customer PO', path: '/du-customer-po', icon: <FaClipboardList /> }
+            ]
         }
     ];
 

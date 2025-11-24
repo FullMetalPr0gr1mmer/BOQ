@@ -162,6 +162,7 @@ class UserProjectAccess(Base):
     project_id = Column(String(200), ForeignKey('projects.pid_po'), nullable=True)        # BOQ projects
     Ranproject_id = Column(String(200), ForeignKey('ran_projects.pid_po'), nullable=True) # RAN projects
     Ropproject_id = Column(String(200), ForeignKey('rop_projects.pid_po'), nullable=True) # ROP projects
+    DUproject_id = Column(String(200), ForeignKey('du_project.pid_po'), nullable=True)    # DU projects
 
     # Permission level for the project access
     permission_level = Column(String(50), nullable=False, default="view")

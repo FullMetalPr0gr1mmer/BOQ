@@ -772,6 +772,9 @@ const SeniorAdminDashboard = () => {
                         } else if (section === '3') {
                           const leProjects = await apiService.apiCall('/rop-projects/');
                           setSectionProjects(Array.isArray(leProjects) ? leProjects : []);
+                        } else if (section === '4') {
+                          const duProjects = await apiService.apiCall('/du-projects/?limit=1000');
+                          setSectionProjects(Array.isArray(duProjects?.records) ? duProjects.records : []);
                         } else {
                           setSectionProjects([]);
                         }
@@ -783,6 +786,7 @@ const SeniorAdminDashboard = () => {
                       <option value="1">MW BOQ</option>
                       <option value="2">RAN BOQ</option>
                       <option value="3">LE-Automation</option>
+                      <option value="4">DU BOQ</option>
                     </select>
                   </div>
 

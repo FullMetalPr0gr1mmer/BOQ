@@ -24,6 +24,10 @@ import RANLvl3 from './RanComponents/RanLvl3';
 import RANInventory from './RanComponents/RanInventory';
 import RANAntennaSerials from './RanComponents/RANAntennaSerials';
 import RanProjects from './RanComponents/RanProjects';
+import DUProjects from './DUComponents/DUProjects';
+import RolloutSheet from './DUComponents/RolloutSheet';
+import ODBOQItems from './DUComponents/ODBOQItems';
+import CustomerPO from './DUComponents/CustomerPO';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { setGlobalToast } from './api';
 
@@ -33,6 +37,8 @@ const getSectionFromPath = (pathname) => {
     return 'le-automation';
   } else if (pathname.startsWith('/ran-') || pathname.startsWith('/ran_')) {
     return 'ran-boq';
+  } else if (pathname.startsWith('/du-')) {
+    return 'du-5g';
   }
   return 'boq';
 };
@@ -118,6 +124,11 @@ function AppContent() {
               <Route path="/ran-inventory" element={<RANInventory />} />
               <Route path="/ran-antenna-serials" element={<RANAntennaSerials />} />
               <Route path="/ran-projects" element={<RanProjects />} />
+              <Route path="/du-projects" element={<DUProjects />} />
+              <Route path="/du-rollout-sheet" element={<RolloutSheet />} />
+              <Route path="/du-boq-generation" element={<RolloutSheet />} />
+              <Route path="/du-boq-items" element={<ODBOQItems />} />
+              <Route path="/du-customer-po" element={<CustomerPO />} />
               <Route path="*" element={<Home setActiveSection={setActiveSection} user={auth.user}/>} />
             </Routes>
           </div>
@@ -133,7 +144,7 @@ function AppContent() {
             onSelect={(section) => {
               if (section === 'logout') {
                 logout();
-              } else if (section === 'boq' || section === 'le-automation' || section === 'ran-boq') {
+              } else if (section === 'boq' || section === 'le-automation' || section === 'ran-boq' || section === 'du-5g') {
                 setActiveSection(section);
               }
               setSidebarOpen(false);
