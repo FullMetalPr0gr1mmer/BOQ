@@ -25,12 +25,12 @@ export default function Home({ setActiveSection, user }) {
               <p>Explore and manage Latest Estimation automation projects. ⚙️</p>
             </div>
             <div className="home-card card-link" onClick={() => setShowRevenueCards(true)}>
-              <h2>Zain Revenue Sheet Automation</h2>
-              <p>Automate and manage Zain revenue sheet BOQ processes. 📈</p>
+              <h2>Zain BOQ Automation</h2>
+              <p>Automate and manage Zain BOQ processes. 📈</p>
             </div>
             <div className="home-card card-link" onClick={() => handleCardClick('/du-rollout-sheet', 'du-5g')}>
-              <h2>DU Revenue Sheet Automation</h2>
-              <p>Automate and manage DU revenue sheet BOQ processes. 📱</p>
+              <h2>DU BOQ Automation</h2>
+              <p>Automate and manage DU BOQ processes. 📱</p>
             </div>
             {user?.role === 'senior_admin' && (
               <div className="home-card card-link" onClick={() => navigate('/logs')}>

@@ -25,6 +25,10 @@ import importlib
 rollout_model = importlib.import_module("Models.DU.5G_Rollout_Sheet")
 _5G_Rollout_Sheet = rollout_model._5G_Rollout_Sheet
 
+# Import DU Project model
+du_project_model = importlib.import_module("Models.DU.DU_Project")
+DUProject = du_project_model.DUProject
+
 # Import schemas using importlib since filename starts with number
 rollout_schema = importlib.import_module("Schemas.DU.5G_Rollout_Sheet_Schema")
 Create5GRolloutSheet = rollout_schema.Create5GRolloutSheet
@@ -834,10 +838,30 @@ def generate_boq_for_rollout_entry(
             'Price': safe_value(po_info.get('price'))
         })
 
-    # Generate CSV string
-    csv_headers = ['Line', 'Item/Job', 'Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'PO Qty', 'Price']
-    csv_lines = [','.join(csv_headers)]
+    # Get project details for header
+    project = db.query(DUProject).filter(DUProject.pid_po == entry.project_id).first()
+    project_name = project.project_name if project else entry.project_id
+    project_po = project.po if project else entry.project_id
 
+    # Get current date
+    from datetime import datetime
+    current_date = datetime.now().strftime('%d-%b-%y')
+
+    # Generate CSV string with metadata headers
+    csv_lines = []
+
+    # Add metadata header rows (3 rows)
+    csv_lines.append(f'" "," "," "," ",DU BOQ," "," "," "," ",')
+    csv_lines.append(f'BPO Number:,{project_po}," "," "," ",Date:,{current_date}," "," "')
+    csv_lines.append(f'Scope Description:,{scope}," "," "," ",Site Classification,{entry.sps_category or "N/A"}," "," "')
+    csv_lines.append(f'Vendor:,Nokia," "," "," ",Site ID:,{entry.site_id}," "," "')
+    csv_lines.append(f'" "," "," "," "," "," "," "," "," ",') # Empty row separator
+
+    # Add data table headers
+    csv_headers = ['Line', 'Item/Job', 'Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'PO Qty', 'Price']
+    csv_lines.append(','.join(csv_headers))
+
+    # Add data rows
     for row in result_data:
         csv_row = []
         for header in csv_headers:

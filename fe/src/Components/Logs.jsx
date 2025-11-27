@@ -763,19 +763,26 @@ const SeniorAdminDashboard = () => {
                       onChange={async (e) => {
                         const section = e.target.value;
                         setGrantForm({ ...grantForm, section, project_id: '' });
-                        if (section === '1') {
-                          const mwProjects = await apiService.apiCall('/get_project');
-                          setSectionProjects(Array.isArray(mwProjects) ? mwProjects : []);
-                        } else if (section === '2') {
-                          const ranProjects = await apiService.apiCall('/ran-projects');
-                          setSectionProjects(Array.isArray(ranProjects) ? ranProjects : []);
-                        } else if (section === '3') {
-                          const leProjects = await apiService.apiCall('/rop-projects/');
-                          setSectionProjects(Array.isArray(leProjects) ? leProjects : []);
-                        } else if (section === '4') {
-                          const duProjects = await apiService.apiCall('/du-projects/?limit=1000');
-                          setSectionProjects(Array.isArray(duProjects?.records) ? duProjects.records : []);
-                        } else {
+                        try {
+                          if (section === '1') {
+                            const mwProjects = await apiService.apiCall('/get_project');
+                            setSectionProjects(Array.isArray(mwProjects) ? mwProjects : []);
+                          } else if (section === '2') {
+                            const ranProjects = await apiService.apiCall('/ran-projects');
+                            setSectionProjects(Array.isArray(ranProjects) ? ranProjects : []);
+                          } else if (section === '3') {
+                            const leProjects = await apiService.apiCall('/rop-projects/');
+                            setSectionProjects(Array.isArray(leProjects) ? leProjects : []);
+                          } else if (section === '4') {
+                            const duProjects = await apiService.apiCall('/du-projects/?limit=1000');
+                            console.log('DU Projects Response:', duProjects);
+                            setSectionProjects(Array.isArray(duProjects?.records) ? duProjects.records : []);
+                          } else {
+                            setSectionProjects([]);
+                          }
+                        } catch (error) {
+                          console.error('Error loading projects for section:', section, error);
+                          showMessage(`Failed to load projects: ${error.message}`, 'error');
                           setSectionProjects([]);
                         }
                       }}
