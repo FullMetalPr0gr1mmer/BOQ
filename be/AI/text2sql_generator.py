@@ -9,7 +9,7 @@ This module implements the complete query pipeline for Text-to-SQL generation:
 
 This is the main interface for converting natural language to SQL.
 
-Author: Senior AI Architect
+
 Created: 2025-11-06
 """
 import re
@@ -50,8 +50,8 @@ class Text2SQLGenerator:
         self,
         vector_store=None,
         llm_client=None,
-        temperature: float = 0.1,  # Low temperature for deterministic SQL
-        max_context_chunks: int = 15
+        temperature: float = 0.05,  # Very low temperature for deterministic SQL (REDUCED from 0.1)
+        max_context_chunks: int = 5  # REDUCED from 15 to 5 for precision - less noise!
     ):
         """
         Initialize Text2SQL generator.
@@ -130,13 +130,13 @@ class Text2SQLGenerator:
     def _identify_relevant_tables(
         self,
         question: str,
-        max_tables: int = 5
+        max_tables: int = 2  # REDUCED from 5 to 2 for precision - focus on most relevant!
     ) -> List[str]:
         """
         Stage 1: Identify which tables are relevant to the question.
 
         Uses a multi-strategy approach:
-        1. Semantic search with lower threshold (handles fuzzy matches)
+        1. Semantic search with HIGH threshold (ensures precision)
         2. Keyword extraction (handles direct table name mentions)
 
         Args:
@@ -149,13 +149,13 @@ class Text2SQLGenerator:
         tables = []
         seen = set()
 
-        # Strategy 1: Semantic search with LOWER threshold for better recall
-        # Lower threshold (0.3 instead of 0.5) catches more potential matches
+        # Strategy 1: Semantic search with BALANCED threshold
+        # 0.55 balances precision and recall - catches all RAN tables
         results = self.vector_store.search(
             query=question,
-            limit=max_tables * 3,  # Fetch more candidates
+            limit=max_tables * 2,  # Fetch fewer candidates for precision
             chunk_types=["table_overview"],
-            score_threshold=0.3  # LOWERED from 0.5 to catch "ran lld" → "ran_lld"
+            score_threshold=0.55  # OPTIMIZED: 0.55 for best RAN performance!
         )
 
         for result in results:
@@ -173,12 +173,12 @@ class Text2SQLGenerator:
             keyword_tables = self._extract_table_keywords(question)
             for table_name in keyword_tables:
                 if table_name not in seen and len(tables) < max_tables:
-                    # Verify this table exists by searching with very low threshold
+                    # Verify this table exists by searching with lower threshold
                     verify_results = self.vector_store.search(
                         query=f"table {table_name}",
                         limit=1,
                         chunk_types=["table_overview"],
-                        score_threshold=0.2
+                        score_threshold=0.4  # Lower for keyword fallback
                     )
                     if verify_results and verify_results[0].get('table_name') == table_name:
                         tables.append(table_name)
@@ -269,7 +269,7 @@ class Text2SQLGenerator:
                 limit=self.max_context_chunks,
                 table_names=relevant_tables,
                 prioritize_relationships=True,
-                score_threshold=0.3  # LOWERED from 0.5 for better recall
+                score_threshold=0.5  # BALANCED: 0.5 for good context retrieval
             )
 
             for result in table_results:

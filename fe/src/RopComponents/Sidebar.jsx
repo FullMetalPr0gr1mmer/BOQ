@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaSignOutAlt, FaTimes, FaClipboardList, FaChevronDown, FaChevronRight, FaUser } from 'react-icons/fa';
+import { FaSignOutAlt, FaTimes, FaClipboardList, FaChevronDown, FaChevronRight, FaUser, FaCheckCircle } from 'react-icons/fa';
 import { FaProjectDiagram, FaMapMarkerAlt, FaBox, FaLayerGroup, FaCubes, FaFile, FaRobot, FaNetworkWired, FaBroadcastTower, FaAnchor, FaMobileAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import '../css/Sidebar.css';
@@ -133,6 +133,19 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                             )}
                         </div>
                     ))}
+
+                    {/* Approvals Workflow */}
+                    <div className="nav-section">
+                        <button
+                            className="nav-section-header single-item"
+                            onClick={() => handleNavigation('/approvals', null)}
+                        >
+                            <span className="nav-section-title">
+                                <span className="nav-icon"><FaCheckCircle /></span>
+                                Approvals
+                            </span>
+                        </button>
+                    </div>
 
                     {/* System Logs - Only for senior_admin */}
                     {user?.role === 'senior_admin' && (

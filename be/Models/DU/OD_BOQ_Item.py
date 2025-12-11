@@ -128,14 +128,14 @@ CSV_COLUMN_MAPPING = {
 # Reverse mapping (field name to column index)
 FIELD_TO_COLUMN = {v: k for k, v in CSV_COLUMN_MAPPING.items()}
 
-# Level 1 header categories (from row 1)
+# Level 1 header categories (from row 1 of CSV)
 LEVEL1_CATEGORIES = {
     'new_sran': 'New SRAN',
-    'sran_exp_1cc_l800': 'SRAN Expansion',
-    'sran_exp_1cc_l1800': 'SRAN Expansion',
-    'sran_exp_2cc_l800_l1800': 'SRAN Expansion',
-    'sran_exp_2cc_l1800_l2100': 'SRAN Expansion',
-    'sran_exp_2cc_l800_l2100': 'SRAN Expansion',
+    'sran_exp_1cc_l800': '1cc to 3cc (L800)',
+    'sran_exp_1cc_l1800': '1cc to 3cc (L1800)',
+    'sran_exp_2cc_l800_l1800': '2cc to 3cc (L800+L1800)',
+    'sran_exp_2cc_l1800_l2100': '2cc to 3cc (L1800+L2100)',
+    'sran_exp_2cc_l800_l2100': '2cc to 3cc (L800+L2100)',
     'new_5g_n78': 'New 5G -n78',
     'exp_5g_3cc': '5G Expansion-3CC',
     'exp_5g_n41_reuse': '5G Expansion-n41 Re-use',

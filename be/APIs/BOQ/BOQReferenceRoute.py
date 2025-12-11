@@ -1,11 +1,16 @@
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Tuple, Dict, Any, Union
 import csv
 import datetime
+import os
 from io import StringIO
 
 from fastapi import UploadFile, File, status, Query, HTTPException, Depends, Body, APIRouter
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_, func, and_
 from sqlalchemy.orm import Session
+
+# Import PAC generator utility
+from utils.pac_generator import create_boq_zip_package
 
 # Core and Schema Imports
 from APIs.Core import _parse_interface_name, _sa_row_to_dict, get_db, get_current_user
@@ -293,7 +298,7 @@ def delete_reference(id: str, db: Session = Depends(get_db), current_user: User 
 
 def process_boq_data(site_a_ip: str, site_b_ip: str, linked_ip: str, db: Session) -> Tuple:
     """Fetch LLD, inventory, and Lvl3 rows, handle swap/dismantling."""
-    # ... (original function code is unchanged)
+
     # Fetch BOQ references
     refs = db.query(BOQReference).filter(
         BOQReference.site_ip_a == site_a_ip,
@@ -455,7 +460,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                     vendor_part = inventory_item.get("part_no", "")
                     serial_no = inventory_item.get("serial_no", "")
 
-                # Handle ANTENNA items - ✅ Only process the first one
+                # Handle ANTENNA items - Only process the first one
                 elif "ANTENNA" in item_desc_upper:
                     if antenna_processed:
                         continue  # Skip if we've already processed one antenna item
@@ -537,7 +542,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         vendor_part = inventory_item.get("part_no", "")
                         serial_no = inventory_item.get("serial_no", "")
 
-                    # Handle ANTENNA items - ✅ Only process the first one
+                    # Handle ANTENNA items -  Only process the first one
                     elif "ANTENNA" in item_desc_upper:
                         if antenna_processed:
                             continue  # Skip if we've already processed one antenna item
@@ -576,12 +581,12 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
     return csv_string
 
 
-@BOQRouter.post("/generate-boq")
+@BOQRouter.post("/generate-boq", response_model=None)
 def generate_boq(
         payload: Dict[str, Any] = Body(...),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
+):
     site_a_ip = payload.get("siteA")
     site_b_ip = payload.get("siteB")
     linked_ip = payload.get("linkedIp") or payload.get("linkid") or payload.get("labelText")
@@ -607,13 +612,17 @@ def generate_boq(
 
     if not lld_row:
         raise HTTPException(status_code=404, detail=f"LLD data not found for linked_ip '{linked_ip}'.")
-
+    
     csv_site_a = _generate_site_csv_content(site_a_ip, lvl3_rows, outdoor_inv_a, indoor_inv_a, db, lld_row, "A",
                                             linked_ip)
     csv_site_b = _generate_site_csv_content(site_b_ip, lvl3_rows, outdoor_inv_b, indoor_inv_b, db, lld_row, "B")
 
     combined_csv = csv_site_a + csv_site_b
 
+    # Get site ID from site_a_ip for filename
+    site_id = site_a_ip.replace(".", "_")
+
+    # Return JSON response with CSV content for editing
     return {
         "status": "success",
         "message": "BOQ data generated successfully.",
@@ -621,6 +630,150 @@ def generate_boq(
         "site_a_total_matches": len(outdoor_inv_a) + len(indoor_inv_a),
         "site_b_total_matches": len(outdoor_inv_b) + len(indoor_inv_b)
     }
+
+
+@BOQRouter.post("/download-zip")
+def download_boq_zip(
+        payload: Dict[str, Any] = Body(...),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Download BOQ as ZIP file containing CSV and PAC Word document.
+
+    Expected payload:
+    - csv_content: The CSV content (potentially edited by user)
+    - siteA: Site A IP address
+    - linkedIp: Linked IP identifier
+    """
+    try:
+        print("[DEBUG] download_boq_zip endpoint called")
+        print(f"[DEBUG] Payload keys: {payload.keys()}")
+
+        csv_content = payload.get("csv_content")
+        site_a_ip = payload.get("siteA")
+        linked_ip = payload.get("linkedIp") or payload.get("linkid")
+
+        print(f"[DEBUG] csv_content length: {len(csv_content) if csv_content else 0}")
+        print(f"[DEBUG] site_a_ip: {site_a_ip}")
+        print(f"[DEBUG] linked_ip: {linked_ip}")
+
+        if not csv_content:
+            raise HTTPException(status_code=400, detail="csv_content is required")
+        if not linked_ip:
+            raise HTTPException(status_code=400, detail="linkedIp is required")
+        if not site_a_ip:
+            raise HTTPException(status_code=400, detail="siteA is required")
+
+        # 1. Get project info from BOQReference
+        print(f"[DEBUG] Querying BOQReference for linkid: {linked_ip}")
+        ref = db.query(BOQReference).filter(BOQReference.linkid == linked_ip).first()
+        if not ref:
+            raise HTTPException(status_code=404, detail=f"No BOQ Reference found for linked_ip '{linked_ip}'.")
+        print(f"[DEBUG] Found ref with pid_po: {ref.pid_po}")
+
+        print(f"[DEBUG] Querying Project for pid_po: {ref.pid_po}")
+        project = db.query(Project).filter(Project.pid_po == ref.pid_po).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found.")
+        print(f"[DEBUG] Found project: {project.project_name}")
+
+        # 2. Check access
+        print("[DEBUG] Checking project access")
+        if not check_project_access(current_user, project, db, "view"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to download BOQ for this project."
+            )
+        print("[DEBUG] Access check passed")
+
+        # 3. Extract site_id from both Site A and Site B
+        site_a_formatted = site_a_ip.replace(".", "_")
+
+        # Get Site B IP from the reference
+        site_b_ip = ref.site_ip_b
+        if site_b_ip:
+            site_b_formatted = site_b_ip.replace(".", "_")
+            site_id = f"{site_a_formatted}-{site_b_formatted}"
+        else:
+            site_id = site_a_formatted
+
+        print(f"[DEBUG] site_a_ip: {site_a_ip}")
+        print(f"[DEBUG] site_b_ip: {site_b_ip}")
+        print(f"[DEBUG] combined site_id: {site_id}")
+
+        # 4. Extract model name from "Implementation services" row
+        print("[DEBUG] Extracting model name from CSV")
+        model_name = "Implementation services - New Site"  # Default fallback
+
+        try:
+            import csv
+            from io import StringIO
+
+            csv_reader = csv.DictReader(StringIO(csv_content))
+            row_count = 0
+
+            # Print headers for debugging
+            if csv_reader.fieldnames:
+                print(f"[DEBUG] CSV Headers: {csv_reader.fieldnames}")
+
+            for row in csv_reader:
+                row_count += 1
+                # Look for row with "Implementation services" in Model Name column
+                model_col = row.get('Model Name', '').strip()
+
+                if row_count <= 3:  # Debug first few rows
+                    print(f"[DEBUG] Row {row_count} - Model Name: '{model_col}'")
+
+                if 'Implementation services' in model_col:
+                    model_name = model_col
+                    print(f"[DEBUG] Found Implementation services row:")
+                    print(f"[DEBUG]   Model Name: {model_name}")
+                    break
+
+            print(f"[DEBUG] Processed {row_count} rows")
+            print(f"[DEBUG] Final Model Name: {model_name}")
+        except Exception as e:
+            print(f"[DEBUG] Error extracting model name from CSV: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+        # 5. Get template path
+        template_path = os.path.join(os.path.dirname(__file__), "..", "..", "templates", "PAC_Template.docx")
+        print(f"[DEBUG] template_path: {template_path}")
+        print(f"[DEBUG] Template exists: {os.path.exists(template_path)}")
+
+        # 6. Generate ZIP package
+        print("[DEBUG] Calling create_boq_zip_package")
+        zip_buffer = create_boq_zip_package(
+            csv_content=csv_content,
+            site_id=site_id,
+            project_name=project.project_name,
+            project_po=project.pid_po,
+            link_id=linked_ip,  # Pass link ID for certificate number
+            template_path=template_path,
+            csv_filename=f"BOQ_{site_id}.csv",
+            model_name=model_name
+        )
+        print(f"[DEBUG] ZIP buffer size: {zip_buffer.tell()}")
+
+        # 6. Return ZIP file as download
+        print("[DEBUG] Returning StreamingResponse")
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename=BOQ_{site_id}.zip"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Unexpected error in download_boq_zip: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate ZIP package: {str(e)}")
+
 
 @BOQRouter.delete("/delete-all-references/{project_id}")
 def delete_all_references_for_project(

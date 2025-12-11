@@ -1,0 +1,202 @@
+[
+  {
+    "id": "ran_001",
+    "question": "show me all RAN projects",
+    "sql": "SELECT * FROM ran_projects",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "ran_002",
+    "question": "how many RAN projects do we have",
+    "sql": "SELECT COUNT(*) FROM ran_projects",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "ran_003",
+    "question": "show me RAN level 3 items",
+    "sql": "SELECT * FROM ranlvl3",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "ran_004",
+    "question": "how many RAN lvl3 items",
+    "sql": "SELECT COUNT(*) FROM ranlvl3",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "ran_005",
+    "question": "show me RAN inventory",
+    "sql": "SELECT * FROM ran_inventory",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "ran_006",
+    "question": "how many RAN antennas",
+    "sql": "SELECT COUNT(*) FROM ran_antenna_serials",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "ran_007",
+    "question": "show me RAN LLD",
+    "sql": "SELECT * FROM ran_lld",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "ran_008",
+    "question": "find RAN project with PO MW123",
+    "sql": "SELECT * FROM ran_projects WHERE po LIKE '%MW123%'",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "ran_009",
+    "question": "show me RAN lvl3 for project XYZ",
+    "sql": "SELECT * FROM ranlvl3 WHERE project_id = 'XYZ'",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "ran_010",
+    "question": "total quantity in RAN lvl3",
+    "sql": "SELECT SUM(total_quantity) FROM ranlvl3",
+    "created_at": "2025-12-10T00:00:00",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "5583008e-6b8b-4b6b-83e0-79e440423357",
+    "question": "show me all RAN projects",
+    "sql": "SELECT * FROM ran_projects",
+    "created_at": "2025-12-10T16:41:13.427312",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "ccfcd673-1bc9-4869-a43e-7be24fd94ced",
+    "question": "how many RAN projects do we have",
+    "sql": "SELECT COUNT(*) FROM ran_projects",
+    "created_at": "2025-12-10T16:41:13.742517",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "a63951bf-1669-4158-9a86-7102ca3c001d",
+    "question": "show me RAN level 3 items",
+    "sql": "SELECT * FROM ranlvl3",
+    "created_at": "2025-12-10T16:41:13.870155",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "95fb0862-406c-4da6-b4de-bb63446568e6",
+    "question": "how many RAN lvl3 items",
+    "sql": "SELECT COUNT(*) FROM ranlvl3",
+    "created_at": "2025-12-10T16:41:13.970123",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "e05ed807-956c-4102-b6f9-2fb0804942b8",
+    "question": "show me RAN inventory",
+    "sql": "SELECT * FROM ran_inventory",
+    "created_at": "2025-12-10T16:41:14.047338",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "e910a6ff-a4ac-41b5-b497-43120d169b11",
+    "question": "how many RAN antennas",
+    "sql": "SELECT COUNT(*) FROM ran_antenna_serials",
+    "created_at": "2025-12-10T16:41:14.119932",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "e93a5802-54c2-4cad-9484-3de1e1131295",
+    "question": "show me RAN LLD",
+    "sql": "SELECT * FROM ran_lld",
+    "created_at": "2025-12-10T16:41:14.221135",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "easy"
+    }
+  },
+  {
+    "id": "97dafa65-83fd-4185-aabf-6dc2fa5cfd22",
+    "question": "find RAN project with PO MW123",
+    "sql": "SELECT * FROM ran_projects WHERE po LIKE '%MW123%'",
+    "created_at": "2025-12-10T16:41:14.295695",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "5689bd47-d244-49b7-a6cb-ef70416fe63d",
+    "question": "show me RAN lvl3 for project XYZ",
+    "sql": "SELECT * FROM ranlvl3 WHERE project_id = 'XYZ'",
+    "created_at": "2025-12-10T16:41:14.398038",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "medium"
+    }
+  },
+  {
+    "id": "dde770f7-c88c-4400-93a8-13b4db595853",
+    "question": "total quantity in RAN lvl3",
+    "sql": "SELECT SUM(total_quantity) FROM ranlvl3",
+    "created_at": "2025-12-10T16:41:14.488878",
+    "metadata": {
+      "category": "ran",
+      "difficulty": "medium"
+    }
+  }
+]

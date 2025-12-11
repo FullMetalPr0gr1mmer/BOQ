@@ -70,6 +70,7 @@ export default function RANLLD() {
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [editableCsvData, setEditableCsvData] = useState([]);
   const [currentSiteId, setCurrentSiteId] = useState('');
+  const [currentSiteDbId, setCurrentSiteDbId] = useState(null);
   const [stats, setStats] = useState({ total_sites: 0, total_antennas: 0 });
 
   const fetchAbort = useRef(null);
@@ -160,6 +161,7 @@ export default function RANLLD() {
       const csvContent = await apiCall(`/ran-sites/${row.id}/generate-boq`);
       setEditableCsvData(parseCSV(csvContent));
       setCurrentSiteId(row.site_id);
+      setCurrentSiteDbId(row.id);
       setShowCsvModal(true);
       setTransient(setSuccess, `BoQ for site ${row.site_id} generated successfully.`);
     } catch (err) {
@@ -188,17 +190,43 @@ export default function RANLLD() {
     setEditableCsvData(editableCsvData.filter((_, index) => index !== rowIndexToDelete));
   };
 
-  const downloadCSV = () => {
+  const downloadCSV = async () => {
     if (!editableCsvData.length) return;
-    const csvContent = stringifyCSV(editableCsvData);
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `boq_${currentSiteId || 'export'}_edited.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    try {
+      const csvContent = stringifyCSV(editableCsvData);
+
+      // Call the download-zip endpoint
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/ran-sites/download-zip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          csv_content: csvContent,
+          site_id: currentSiteDbId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to download ZIP file' }));
+        throw new Error(errorData.detail || 'Failed to download ZIP file');
+      }
+
+      // Download the ZIP file
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `RAN_BOQ_${currentSiteId || 'export'}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to download ZIP file');
+    }
   };
 
   const onSearchChange = (e) => {

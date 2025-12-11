@@ -65,6 +65,7 @@ from APIs.BOQ.BOQReferenceRoute import BOQRouter
 from APIs.BOQ.DismantlingRoute import DismantlingRouter
 from APIs.BOQ.InventoryRoute import inventoryRoute
 from APIs.BOQ.LLDRoute import lld_router
+from APIs.BOQ.ApprovalRoute import router as approval_router
 from APIs.BOQ.LevelsRoute import levelsRouter
 from APIs.BOQ.ProjectRoute import projectRoute
 
@@ -95,6 +96,9 @@ from APIs.DU.CustomerPORoute import customerPORoute
 
 # Import AI models so SQLAlchemy recognizes them
 from Models.AI import Document, DocumentChunk, ChatHistory, AIAction
+
+# Import Approval model
+from Models.BOQ.Approval import Approval
 
 # Import DU models so SQLAlchemy recognizes them
 du_project_model = importlib.import_module("Models.DU.DU_Project")
@@ -143,6 +147,7 @@ app.include_router(BOQRouter)       # BOQ reference data
 app.include_router(Level3Route.router)  # Level 3 specific operations
 app.include_router(DismantlingRouter)    # Dismantling operations
 app.include_router(lld_router)      # Low Level Design operations
+app.include_router(approval_router) # Approval workflow management
 
 # RAN (Radio Access Network) Management
 app.include_router(RANProjectRoute) # RAN project management

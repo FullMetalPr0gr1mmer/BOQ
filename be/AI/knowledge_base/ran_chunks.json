@@ -1,0 +1,108 @@
+[
+  {
+    "content": "TABLE: ran_projects\n\nPrimary table for ZAIN RAN (Radio Access Network) projects.\n\nColumns:\n- pid_po (STRING, PRIMARY KEY): Combined Project ID + Purchase Order (e.g., \"PROJ001_PO123\")\n- pid (STRING, INDEXED): Project ID\n- po (STRING, INDEXED): Purchase Order number\n- project_name (STRING, INDEXED): Name of the RAN project\n\nThis is the MAIN table for RAN projects. Use this table when:\n- User asks about \"RAN projects\"\n- User wants to count/list RAN projects\n- User wants project information (name, PID, PO)\n\nExample queries:\n- \"show me all RAN projects\" → SELECT * FROM ran_projects\n- \"how many RAN projects\" → SELECT COUNT(*) FROM ran_projects\n- \"find RAN project with PO MW123\" → SELECT * FROM ran_projects WHERE po LIKE '%MW123%'\n",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_projects",
+      "priority": "high"
+    }
+  },
+  {
+    "content": "TABLE: ran_inventory\n\nRAN equipment inventory tracking serial numbers and site assignments.\n\nColumns:\n- id (INTEGER, PRIMARY KEY): Auto-increment ID\n- mrbts (STRING, INDEXED): MRBTS identifier\n- site_id (STRING, INDEXED): Site ID where equipment is located\n- identification_code (STRING, INDEXED): Equipment identification code\n- user_label (STRING): User-assigned label\n- serial_number (STRING, INDEXED): Equipment serial number\n- duplicate (BOOLEAN): Flag for duplicate entries (TRUE/FALSE)\n- duplicate_remarks (STRING): Notes about duplicates\n- pid_po (STRING, FOREIGN KEY → ran_projects.pid_po): Project reference\n\nUse this table when:\n- User asks about \"RAN inventory\"\n- User wants to find equipment by serial number\n- User asks about site equipment\n- User wants to check for duplicates\n\nExample queries:\n- \"show me RAN inventory\" → SELECT * FROM ran_inventory\n- \"find RAN inventory for site ABC123\" → SELECT * FROM ran_inventory WHERE site_id = 'ABC123'\n- \"how many RAN inventory items\" → SELECT COUNT(*) FROM ran_inventory\n- \"find duplicates in RAN inventory\" → SELECT * FROM ran_inventory WHERE duplicate = 1\n",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_inventory"
+    }
+  },
+  {
+    "content": "COLUMNS: ran_inventory\n\nDetailed column information for ran_inventory table:\n\nid: INTEGER, PRIMARY KEY, AUTO INCREMENT\n  - Unique identifier for each inventory item\n\nmrbts: STRING(200), INDEXED\n  - MRBTS (Mobile Radio Base Transceiver Station) identifier\n  - Search: WHERE mrbts = 'value' or WHERE mrbts LIKE '%value%'\n\nsite_id: STRING(200), INDEXED\n  - Site ID where equipment is installed\n  - Commonly used for filtering: WHERE site_id = 'ABC123'\n\nidentification_code: STRING(200), INDEXED\n  - Equipment identification/model code\n\nserial_number: STRING(200), INDEXED\n  - Unique serial number of equipment\n  - Often used for lookups: WHERE serial_number = '12345'\n\nduplicate: BOOLEAN (0/1)\n  - Flag indicating if this is a duplicate entry\n  - Filter duplicates: WHERE duplicate = 1 or WHERE duplicate = 0\n\npid_po: STRING(200), FOREIGN KEY\n  - References ran_projects.pid_po\n  - Use for JOINs with ran_projects\n",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ran_inventory"
+    }
+  },
+  {
+    "content": "TABLE: ranlvl3\n\nRAN Level 3 Bill of Quantities (BOQ) items. Main items in RAN BOQ.\n\nColumns:\n- id (INTEGER, PRIMARY KEY): Auto-increment ID\n- project_id (STRING, FOREIGN KEY → ran_projects.pid_po): Project reference\n- item_name (STRING, INDEXED): Name of the BOQ item\n- key (STRING): Item key/code\n- service_type (JSON STRING): Type of service (Software/Hardware/Service)\n- uom (STRING, INDEXED): Unit of Measure\n- total_quantity (INTEGER): Total quantity\n- total_price (FLOAT): Total price\n- po_line (STRING): Purchase order line number\n- upl_line (STRING): UPL line number\n- category (STRING): Item category\n- ran_category (STRING): RAN-specific category\n\nUse this table when:\n- User asks about \"RAN level 3\" or \"RAN lvl3\"\n- User wants BOQ items for RAN\n- User asks about quantities or pricing\n- User mentions \"RAN items\"\n\nExample queries:\n- \"show me RAN level 3 items\" → SELECT * FROM ranlvl3\n- \"how many RAN lvl3 items\" → SELECT COUNT(*) FROM ranlvl3\n- \"RAN items for project X\" → SELECT * FROM ranlvl3 WHERE project_id = 'X'\n- \"total RAN lvl3 quantity\" → SELECT SUM(total_quantity) FROM ranlvl3\n",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ranlvl3",
+      "priority": "high"
+    }
+  },
+  {
+    "content": "COLUMNS: ranlvl3\n\nDetailed column information for ranlvl3 table:\n\nid: INTEGER, PRIMARY KEY\n  - Unique identifier for level 3 item\n\nproject_id: STRING(200), FOREIGN KEY, INDEXED\n  - References ran_projects.pid_po\n  - Use for filtering by project: WHERE project_id = 'PROJ001_PO123'\n\nitem_name: STRING(200), INDEXED\n  - Name of the BOQ item\n  - Search: WHERE item_name LIKE '%keyword%'\n\ntotal_quantity: INTEGER\n  - Total quantity of this item\n  - Aggregate: SUM(total_quantity), AVG(total_quantity)\n\ntotal_price: FLOAT\n  - Total price for this item\n  - Aggregate: SUM(total_price), AVG(total_price)\n\nuom: STRING(200), INDEXED\n  - Unit of Measure (e.g., \"Each\", \"Meter\", \"Set\")\n\ncategory: STRING(200)\n  - General category\n\nran_category: STRING(100)\n  - RAN-specific category classification\n",
+    "metadata": {
+      "type": "columns",
+      "table_name": "ranlvl3"
+    }
+  },
+  {
+    "content": "TABLE: items_for_ranlvl3\n\nSub-items under RAN Level 3. Detail breakdown of ranlvl3 items.\n\nColumns:\n- id (INTEGER, PRIMARY KEY): Auto-increment ID\n- ranlvl3_id (INTEGER, FOREIGN KEY → ranlvl3.id): Parent level 3 item\n- item_name (STRING, INDEXED): Sub-item name\n- item_details (STRING): Detailed description\n- vendor_part_number (STRING, INDEXED): Vendor part number\n- service_type (JSON STRING): Service type\n- category (STRING): Item category\n- uom (INTEGER): Unit of measure\n- quantity (INTEGER): Quantity\n- price (FLOAT): Unit price\n- upl_line (STRING): UPL line number\n\nUse this table when:\n- User asks about \"sub-items\" or \"detail items\"\n- User wants vendor part numbers\n- User needs item-level details under level 3\n\nExample queries:\n- \"show me RAN sub-items\" → SELECT * FROM items_for_ranlvl3\n- \"items under RAN lvl3 ID 5\" → SELECT * FROM items_for_ranlvl3 WHERE ranlvl3_id = 5\n",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "items_for_ranlvl3"
+    }
+  },
+  {
+    "content": "TABLE: ran_antenna_serials\n\nRAN antenna serial number tracking.\n\nColumns:\n- id (INTEGER, PRIMARY KEY): Auto-increment ID\n- mrbts (STRING): MRBTS identifier\n- antenna_model (STRING): Model of antenna\n- serial_number (STRING): Antenna serial number\n- project_id (STRING, FOREIGN KEY → ran_projects.pid_po): Project reference\n\nUse this table when:\n- User asks about \"antennas\" or \"antenna serials\"\n- User wants to find antenna by serial number\n- User asks \"how many antennas\"\n\nExample queries:\n- \"show me RAN antennas\" → SELECT * FROM ran_antenna_serials\n- \"how many RAN antennas\" → SELECT COUNT(*) FROM ran_antenna_serials\n- \"find antenna serial 12345\" → SELECT * FROM ran_antenna_serials WHERE serial_number = '12345'\n",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_antenna_serials",
+      "priority": "medium"
+    }
+  },
+  {
+    "content": "TABLE: ran_lld (RAN Low Level Design)\n\nRAN Low Level Design (LLD) data. This table stores low-level design information for RAN sites.\n\nIMPORTANT: When user mentions ANY of these keywords, use ran_lld table:\n- \"RAN LLD\"\n- \"RAN low level design\"\n- \"LLD\"\n- \"low level design\"\n- \"show me RAN LLD\"\n- \"RAN design\"\n\nColumns:\n- id (INTEGER, PRIMARY KEY): Auto-increment ID\n- site_id (STRING, INDEXED): Site ID\n- new_antennas (STRING): New antennas information\n- total_antennas (INTEGER): Total number of antennas\n- technical_boq (STRING): Technical BOQ reference\n- key (STRING): LLD key\n- pid_po (STRING, FOREIGN KEY → ran_projects.pid_po): Project reference\n\nUse this table when:\n- User asks about \"RAN LLD\" or \"low level design\"\n- User wants site-level design information\n- User asks about antenna counts per site\n- User says \"show me RAN LLD\"\n\nExample queries:\n- \"show me RAN LLD\" → SELECT * FROM ran_lld\n- \"show RAN LLD\" → SELECT * FROM ran_lld\n- \"RAN LLD\" → SELECT * FROM ran_lld\n- \"RAN LLD for site ABC\" → SELECT * FROM ran_lld WHERE site_id = 'ABC'\n- \"total antennas in RAN LLD\" → SELECT SUM(total_antennas) FROM ran_lld\n- \"how many RAN LLD records\" → SELECT COUNT(*) FROM ran_lld\n",
+    "metadata": {
+      "type": "table_overview",
+      "table_name": "ran_lld",
+      "priority": "high"
+    }
+  },
+  {
+    "content": "RELATIONSHIP: ran_projects to ran_inventory\n\nHow to JOIN ran_projects with ran_inventory:\n\nSELECT p.project_name, i.site_id, i.serial_number\nFROM ran_projects p\nINNER JOIN ran_inventory i ON p.pid_po = i.pid_po\nWHERE p.project_name LIKE '%keyword%'\n\nIMPORTANT JOIN CONDITION:\nran_projects.pid_po = ran_inventory.pid_po\n\nUse this JOIN when:\n- User wants inventory for a specific RAN project\n- User asks \"show me inventory for RAN project X\"\n",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "ran_projects",
+      "related_table": "ran_inventory"
+    }
+  },
+  {
+    "content": "RELATIONSHIP: ran_projects to ranlvl3\n\nHow to JOIN ran_projects with ranlvl3:\n\nSELECT p.project_name, l.item_name, l.total_quantity, l.total_price\nFROM ran_projects p\nINNER JOIN ranlvl3 l ON p.pid_po = l.project_id\nWHERE p.project_name = 'ProjectName'\n\nIMPORTANT JOIN CONDITION:\nran_projects.pid_po = ranlvl3.project_id\n\nUse this JOIN when:\n- User wants level 3 items for a specific RAN project\n- User asks \"show me RAN lvl3 for project X\"\n",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "ran_projects",
+      "related_table": "ranlvl3"
+    }
+  },
+  {
+    "content": "RELATIONSHIP: ranlvl3 to items_for_ranlvl3\n\nHow to JOIN ranlvl3 with its sub-items:\n\nSELECT l.item_name AS parent_item, i.item_name AS sub_item, i.quantity, i.price\nFROM ranlvl3 l\nINNER JOIN items_for_ranlvl3 i ON l.id = i.ranlvl3_id\nWHERE l.project_id = 'PROJ001_PO123'\n\nIMPORTANT JOIN CONDITION:\nranlvl3.id = items_for_ranlvl3.ranlvl3_id\n\nUse this JOIN when:\n- User wants detail breakdown of level 3 items\n- User asks \"show me sub-items for RAN lvl3\"\n",
+    "metadata": {
+      "type": "relationship",
+      "table_name": "ranlvl3",
+      "related_table": "items_for_ranlvl3"
+    }
+  },
+  {
+    "content": "BUSINESS RULE: RAN Table Selection\n\nWhen user asks about RAN, use these EXACT table names (lowercase):\n\n1. \"RAN projects\" → USE ran_projects table (lowercase, underscore)\n2. \"RAN inventory\" → USE ran_inventory table (lowercase, underscore)\n3. \"RAN level 3\" or \"RAN lvl3\" → USE ranlvl3 table (lowercase, no underscore)\n4. \"RAN antennas\" → USE ran_antenna_serials table (lowercase, underscore)\n5. \"RAN LLD\" or \"show me RAN LLD\" → USE ran_lld table (lowercase, underscore)\n\nIMPORTANT TABLE NAMING:\n- ALL RAN table names are lowercase\n- Use underscores (ran_lld, ran_projects) NOT camelCase (RanLLD, RanProjects)\n- Exception: ranlvl3 has no underscore\n\nNEVER use non-RAN tables (projects, lvl3, inventory) when user specifically says \"RAN\".\n\nAlways prefix with \"ran_\" for RAN-specific queries.\n",
+    "metadata": {
+      "type": "business_rule",
+      "category": "table_selection",
+      "priority": "high"
+    }
+  },
+  {
+    "content": "BUSINESS RULE: Counting in RAN\n\nWhen user asks \"how many\" for RAN:\n\n- \"how many RAN projects\" → SELECT COUNT(*) FROM ran_projects\n- \"how many RAN inventory items\" → SELECT COUNT(*) FROM ran_inventory\n- \"how many RAN lvl3 items\" → SELECT COUNT(*) FROM ranlvl3\n- \"how many RAN antennas\" → SELECT COUNT(*) FROM ran_antenna_serials\n- \"how many RAN LLD records\" → SELECT COUNT(*) FROM ran_lld\n\nUse COUNT(*) for total records.\nUse COUNT(DISTINCT column) only when explicitly needed.\n",
+    "metadata": {
+      "type": "business_rule",
+      "category": "counting"
+    }
+  },
+  {
+    "content": "BUSINESS RULE: SQL Server Syntax\n\nThis is a SQL Server database. Use SQL Server syntax:\n\n✅ CORRECT:\n- SELECT TOP 10 * FROM ran_projects\n- SELECT * FROM ran_projects WHERE project_name LIKE '%keyword%'\n- SELECT COUNT(*) FROM ran_projects\n\n❌ WRONG:\n- SELECT * FROM ran_projects LIMIT 10  (MySQL/PostgreSQL syntax)\n- SELECT * FROM ran_projects WHERE project_name ILIKE '%keyword%'  (PostgreSQL)\n\nAlways use:\n- TOP instead of LIMIT\n- LIKE instead of ILIKE (SQL Server is case-insensitive by default)\n",
+    "metadata": {
+      "type": "business_rule",
+      "category": "sql_syntax"
+    }
+  }
+]

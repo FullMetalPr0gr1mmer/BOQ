@@ -181,7 +181,7 @@ NOTE: This is a verified correct example. Use it as a reference pattern.
         self,
         question: str,
         limit: int = 3,
-        score_threshold: float = 0.7
+        score_threshold: float = 0.5  # LOWERED from 0.7 to 0.5 for better recall
     ) -> List[Dict[str, Any]]:
         """
         Retrieve similar few-shot examples for a question.

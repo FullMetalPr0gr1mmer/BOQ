@@ -28,6 +28,7 @@ import DUProjects from './DUComponents/DUProjects';
 import RolloutSheet from './DUComponents/RolloutSheet';
 import ODBOQItems from './DUComponents/ODBOQItems';
 import CustomerPO from './DUComponents/CustomerPO';
+import Approvals from './Components/Approvals';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { setGlobalToast } from './api';
 
@@ -129,6 +130,8 @@ function AppContent() {
               <Route path="/du-boq-generation" element={<RolloutSheet />} />
               <Route path="/du-boq-items" element={<ODBOQItems />} />
               <Route path="/du-customer-po" element={<CustomerPO />} />
+              <Route path="/approvals" element={<Approvals />} />
+              <Route path="/triggering" element={<Approvals />} />
               <Route path="*" element={<Home setActiveSection={setActiveSection} user={auth.user}/>} />
             </Routes>
           </div>

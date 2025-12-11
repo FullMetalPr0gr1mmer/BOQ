@@ -181,6 +181,7 @@
   overflow-y: visible;
   margin-bottom: 1.5rem;
   -webkit-overflow-scrolling: touch;
+  padding: 0;
 }
 
 .data-table {
@@ -260,19 +261,39 @@
 
 /* Expanded Row */
 .expanded-row {
-  background: #f8fafb !important;
+  background: white !important;
 }
 
 .expanded-row td {
   padding: 0 !important;
-  border-top: 2px solid #124191;
+  margin: 0 !important;
+  border-top: none;
+  overflow: visible !important;
+  max-width: none !important;
+}
+
+.data-table .expanded-row td {
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  max-width: none !important;
+}
+
+.data-table tbody .expanded-row td {
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  max-width: none !important;
 }
 
 /* Nested Items Container */
 .nested-items-container {
-  padding: 1.5rem;
-  border-left: 4px solid #124191;
-  background: linear-gradient(to right, #f8fafb 0%, white 100%);
+  padding: 1rem 1.5rem;
+  
+  background: white;
+  
+  width: 108%;
+  box-sizing: border-box;
 }
 
 .nested-items-header {
@@ -280,10 +301,12 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid #e5e7eb;
+  padding: 0 0 0.75rem 0 !important;
+  border-bottom: 1px solid #e5e7eb;
   flex-wrap: wrap;
   gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .nested-items-title {
@@ -303,7 +326,10 @@
 .nested-table-wrapper {
   overflow-x: auto;
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100%;
 }
 
 .nested-table-wrapper::-webkit-scrollbar {
@@ -327,10 +353,14 @@
 /* Nested Table */
 .nested-table {
   width: 100%;
-  min-width: 1200px;
+  min-width: 1000px;
   border-collapse: collapse;
   font-size: 0.8rem;
   background: white;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .nested-table thead {
@@ -346,7 +376,15 @@
   font-size: 0.7rem;
   letter-spacing: 0.5px;
   white-space: nowrap;
-  border-bottom: 2px solid #124191;
+  border-bottom: none;
+}
+
+.nested-table th:first-child {
+  border-top-left-radius: 8px;
+}
+
+.nested-table th:last-child {
+  border-top-right-radius: 8px;
 }
 
 .nested-table tbody tr {
@@ -355,7 +393,7 @@
 }
 
 .nested-table tbody tr:hover {
-  background: #f0f9ff;
+  background: #f9fafb;
 }
 
 .nested-table tbody tr:last-child {

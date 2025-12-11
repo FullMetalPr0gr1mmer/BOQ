@@ -1,12 +1,16 @@
 import csv
+import os
 from io import StringIO
-from typing import List
+from typing import List, Dict, Any
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status, Form
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status, Form, Body
 from sqlalchemy.orm import Session
 import io
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import joinedload
+
+# Import PAC generator utility
+from utils.pac_generator import create_boq_zip_package
 
 from Models.RAN.RANInventory import RANInventory
 from Models.RAN.RANLvl3 import RANLvl3
@@ -422,7 +426,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
         # Safe concatenation for parent merge line
         po_line_str = str(parent.po_line) if parent.po_line is not None else "NA"
         upl_line_str = str(parent.upl_line) if parent.upl_line is not None else "NA"
-        parent_merge_line = f"{po_line_str}\{upl_line_str}"
+        parent_merge_line = f"{po_line_str}\\{upl_line_str}"
 
         # Determine quantity based on ran_category, service type, and model name
         parent_quantity = 1  # Default quantity
@@ -469,7 +473,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                 # Safe concatenation for child merge line
                 child_po_line = str(parent.po_line) if parent.po_line is not None else "NA"
                 child_upl_line = str(child.upl_line) if child.upl_line is not None else "NA"
-                child_merge_line = f"{child_po_line}\{child_upl_line}"
+                child_merge_line = f"{child_po_line}\\{child_upl_line}"
 
                 child_row = [
                     site.site_id,  # Site ID
@@ -507,7 +511,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             # Create merge line for antenna
             antenna_po_line_str = str(antenna_po_line) if antenna_po_line != "NA" else "NA"
             antenna_upl_line_str = str(antenna_upl_line) if antenna_upl_line != "NA" else "NA"
-            antenna_merge_line = f"{antenna_po_line_str}\{antenna_upl_line_str}"
+            antenna_merge_line = f"{antenna_po_line_str}\\{antenna_upl_line_str}"
 
             # Get MRBTS values from inventory pool (already fetched above) for this site
             mrbts_values = set()
@@ -557,13 +561,146 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             pass
 
     output.seek(0)
+    csv_content = output.getvalue()
 
-    # 5. Return the CSV as a streaming response
-    return StreamingResponse(
-        output,
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=boq_{site.site_id}.csv"}
-    )
+    # Return plain CSV content (text)
+    return csv_content
+
+
+@ran_lld_router.post("/download-zip")
+def download_ran_boq_zip(
+        payload: Dict[str, Any] = Body(...),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Download RAN BOQ as ZIP file containing CSV and PAC Word document.
+
+    Expected payload:
+    - csv_content: The CSV content (potentially edited by user)
+    - site_id: The RAN site ID (database ID, not site_id field)
+    """
+    try:
+        print("[DEBUG] download_ran_boq_zip endpoint called")
+        print(f"[DEBUG] Payload keys: {payload.keys()}")
+
+        csv_content = payload.get("csv_content")
+        site_db_id = payload.get("site_id")
+
+        print(f"[DEBUG] csv_content length: {len(csv_content) if csv_content else 0}")
+        print(f"[DEBUG] site_db_id: {site_db_id}")
+
+        if not csv_content:
+            raise HTTPException(status_code=400, detail="csv_content is required")
+        if not site_db_id:
+            raise HTTPException(status_code=400, detail="site_id is required")
+
+        # 1. Get site info
+        print(f"[DEBUG] Querying RAN_LLD for id: {site_db_id}")
+        site = db.query(RAN_LLD).filter(RAN_LLD.id == site_db_id).first()
+        if not site:
+            raise HTTPException(status_code=404, detail="Site not found")
+        print(f"[DEBUG] Found site: {site.site_id}, pid_po: {site.pid_po}")
+
+        # 2. Get project info
+        print(f"[DEBUG] Querying RanProject for pid_po: {site.pid_po}")
+        from Models.RAN.RANProject import RanProject
+        project = db.query(RanProject).filter(RanProject.pid_po == site.pid_po).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        print(f"[DEBUG] Found project: {project.project_name}")
+
+        # 3. Check access
+        print("[DEBUG] Checking RAN project access")
+        if not check_ranlld_project_access(current_user, site.pid_po, db, "view"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to download BOQ for this project."
+            )
+        print("[DEBUG] Access check passed")
+
+        # 4. Get template path
+        template_path = os.path.join(os.path.dirname(__file__), "..", "..", "templates", "PAC_Template.docx")
+        print(f"[DEBUG] template_path: {template_path}")
+        print(f"[DEBUG] Template exists: {os.path.exists(template_path)}")
+
+        # 4.5. Extract model name and PO line number from "Implementation services" row
+        print("[DEBUG] Extracting model name and PO line from CSV")
+        model_name = "Implementation services - New Site"  # Default fallback
+        po_line_number_str = "1"  # Default fallback
+
+        try:
+            import csv
+            from io import StringIO
+
+            csv_reader = csv.DictReader(StringIO(csv_content))
+            row_count = 0
+
+            # Print headers for debugging
+            if csv_reader.fieldnames:
+                print(f"[DEBUG] CSV Headers: {csv_reader.fieldnames}")
+
+            for row in csv_reader:
+                row_count += 1
+                # Look for row with "Implementation services" in Model Name column
+                # Try both possible header formats (with and without space after "Name")
+                model_col = row.get('Model Name / Description', '').strip()
+                if not model_col:
+                    model_col = row.get('Model Name/Description', '').strip()
+
+                if row_count <= 3:  # Debug first few rows
+                    print(f"[DEBUG] Row {row_count} - Model column: '{model_col}'")
+
+                if 'Implementation services' in model_col:
+                    model_name = model_col
+                    po_line = row.get('PO Line -L1', '').strip()
+                    if po_line:
+                        po_line_number_str = po_line
+
+                    print(f"[DEBUG] Found Implementation services row:")
+                    print(f"[DEBUG]   Model Name: {model_name}")
+                    print(f"[DEBUG]   PO Line: {po_line_number_str}")
+                    break
+
+            print(f"[DEBUG] Processed {row_count} rows")
+            print(f"[DEBUG] Final Model Name: {model_name}")
+            print(f"[DEBUG] Final PO Line Number: {po_line_number_str}")
+        except Exception as e:
+            print(f"[DEBUG] Error extracting from CSV: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+        # 5. Generate ZIP package
+        print("[DEBUG] Calling create_boq_zip_package")
+        zip_buffer = create_boq_zip_package(
+            csv_content=csv_content,
+            site_id=site.site_id,
+            project_name=project.project_name,
+            project_po=project.pid_po,
+            link_id=site.site_id,  # Use site_id as link_id for certificate number
+            template_path=template_path,
+            csv_filename=f"RAN_BOQ_{site.site_id}.csv",
+            po_line_number=po_line_number_str,
+            model_name=model_name
+        )
+        print(f"[DEBUG] ZIP buffer size: {zip_buffer.tell()}")
+
+        # 6. Return ZIP file as download
+        print("[DEBUG] Returning StreamingResponse")
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename=RAN_BOQ_{site.site_id}.zip"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Unexpected error in download_ran_boq_zip: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate ZIP package: {str(e)}")
 
 
 @ran_lld_router.delete("/delete-all-sites/{pid_po}")

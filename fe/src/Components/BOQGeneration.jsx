@@ -47,6 +47,8 @@ export default function BOQGeneration() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [linkedIp, setLinkedIp] = useState('');
+  const [siteA, setSiteA] = useState('');
+  const [siteB, setSiteB] = useState('');
   const [generating, setGenerating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -229,6 +231,8 @@ export default function BOQGeneration() {
     setGenerating(true);
     setError('');
     setLinkedIp(row.linkedIp);
+    setSiteA(row.siteA);
+    setSiteB(row.siteB);
 
     try {
       const data = await apiCall('/boq/generate-boq', {
@@ -268,17 +272,44 @@ export default function BOQGeneration() {
     setEditableCsvData(editableCsvData.filter((_, index) => index !== rowIndexToDelete));
   };
 
-  const downloadCSV = () => {
+  const downloadCSV = async () => {
     if (!editableCsvData.length) return;
-    const csvContent = stringifyCSV(editableCsvData);
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `BOQ_${linkedIp || 'export'}_edited.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    try {
+      const csvContent = stringifyCSV(editableCsvData);
+
+      // Call the download-zip endpoint
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/boq/download-zip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          csv_content: csvContent,
+          siteA: siteA,
+          linkedIp: linkedIp,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to download ZIP file' }));
+        throw new Error(errorData.detail || 'Failed to download ZIP file');
+      }
+
+      // Download the ZIP file
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `BOQ_${linkedIp || 'export'}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to download ZIP file');
+    }
   };
 
   // --- Create / Edit / Delete ---

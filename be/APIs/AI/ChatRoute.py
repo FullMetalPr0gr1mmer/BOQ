@@ -55,7 +55,7 @@ async def chat(
             project_context=request.project_context,
             chat_context=request.chat_context
         )
-        print("Chat request received3")
+      
         return ChatResponse(
             response=response['response'],
             conversation_id=response['conversation_id'],

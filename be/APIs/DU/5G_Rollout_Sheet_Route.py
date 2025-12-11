@@ -520,7 +520,24 @@ async def upload_rollout_sheet_csv(
 
     try:
         content = await file.read()
-        csv_content = StringIO(content.decode('utf-8'))
+
+        # Try multiple encodings to handle different CSV formats
+        csv_content = None
+        encodings = ['utf-8', 'cp1252', 'latin-1', 'iso-8859-1']
+
+        for encoding in encodings:
+            try:
+                csv_content = StringIO(content.decode(encoding))
+                break
+            except UnicodeDecodeError:
+                continue
+
+        if csv_content is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to decode CSV file. Please ensure it's saved in UTF-8, Windows-1252, or Latin-1 encoding."
+            )
+
         csv_reader = csv.DictReader(csv_content)
 
         # Define header mapping for CSV columns to model fields
@@ -705,20 +722,25 @@ def get_scope_column(scope: str) -> Optional[str]:
     """
     Map a scope value from the rollout sheet to the corresponding column in OD_BOQ_Item.
     Returns the first matching column field name, or None if no match.
+    Handles scopes with newlines and extra whitespace.
     """
     if not scope:
         return None
 
-    scope_lower = scope.lower().strip()
+    # Normalize whitespace: replace all whitespace (including newlines) with single space
+    import re
+    scope_normalized = re.sub(r'\s+', ' ', scope.strip()).lower()
 
     # Iterate through LEVEL1_CATEGORIES to find the first matching column
     for field_name, category_name in LEVEL1_CATEGORIES.items():
-        if category_name.lower() == scope_lower:
+        category_normalized = re.sub(r'\s+', ' ', category_name.strip()).lower()
+        if category_normalized == scope_normalized:
             return field_name
 
     # Try partial matching if exact match fails
     for field_name, category_name in LEVEL1_CATEGORIES.items():
-        if scope_lower in category_name.lower() or category_name.lower() in scope_lower:
+        category_normalized = re.sub(r'\s+', ' ', category_name.strip()).lower()
+        if scope_normalized in category_normalized or category_normalized in scope_normalized:
             return field_name
 
     return None

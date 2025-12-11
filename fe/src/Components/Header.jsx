@@ -5,6 +5,7 @@ const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Genera
 const leAutomationTabs = ['ROP Project', 'ROP Package', 'LogOut'];
 const ranBoqTabs = ['Ran Projects', 'RAN BOQ Generation', 'Ran Level3', 'Ran Inventory', 'Ran Antenna Serials', 'LogOut'];
 const du5gTabs = ['DU Projects', 'DU BOQ Generation', 'DU BOQ Items', 'DU Customer PO', 'LogOut'];
+const approvalTabs = ['Approvals', 'Triggering', 'LogOut'];
 export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,8 +15,13 @@ export default function Header({ onLogout, activeSection, user }) {
     return null;
   }
 
+  // Show approval tabs when on approvals page
+  const isApprovalsPage = location.pathname.startsWith('/approvals') || location.pathname.startsWith('/triggering');
+
   let tabs = activeSection === 'le-automation' ? leAutomationTabs : boqTabs;
-  if (activeSection === 'ran-boq') {
+  if (isApprovalsPage) {
+    tabs = approvalTabs;
+  } else if (activeSection === 'ran-boq') {
     tabs = ranBoqTabs;
   } else if (activeSection === 'du-5g') {
     tabs = du5gTabs;

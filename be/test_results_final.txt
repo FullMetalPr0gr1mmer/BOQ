@@ -1,0 +1,2 @@
+ERROR:AI.ollama_client:Ollama generation error: timed out
+ERROR:AI.text2sql_generator:Error generating SQL: timed out

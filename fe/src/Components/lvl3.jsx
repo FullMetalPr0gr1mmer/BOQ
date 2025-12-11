@@ -770,15 +770,15 @@ export default function Lvl3() {
                                 ) : (
                                   (entry.items || []).map((item) => (
                                     <tr key={item.id}>
-                                      <td>{item.item_name}</td>
-                                      <td>{item.item_details}</td>
-                                      <td>{item.vendor_part_number}</td>
-                                      <td>{item.category}</td>
-                                      <td>{item.uom}</td>
-                                      <td>{item.upl_line || 'N/A'}</td>
-                                      <td>{item.quantity}</td>
-                                      <td>{item.price?.toLocaleString()}</td>
-                                      <td>{(item.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
+                                      <td title={item.item_name}>{item.item_name}</td>
+                                      <td title={item.item_details}>{item.item_details}</td>
+                                      <td title={item.vendor_part_number}>{item.vendor_part_number}</td>
+                                      <td title={item.category}>{item.category}</td>
+                                      <td title={item.uom}>{item.uom}</td>
+                                      <td title={item.upl_line || 'N/A'}>{item.upl_line || 'N/A'}</td>
+                                      <td title={item.quantity}>{item.quantity}</td>
+                                      <td title={item.price?.toLocaleString()}>{item.price?.toLocaleString()}</td>
+                                      <td title={(item.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}>{(item.service_type || []).map(val => SERVICE_LABELS[val] || val).join(', ')}</td>
                                       <td>
                                         <div className="action-buttons">
                                           <button
