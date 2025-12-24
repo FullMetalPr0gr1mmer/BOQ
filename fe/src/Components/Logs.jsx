@@ -765,14 +765,14 @@ const SeniorAdminDashboard = () => {
                         setGrantForm({ ...grantForm, section, project_id: '' });
                         try {
                           if (section === '1') {
-                            const mwProjects = await apiService.apiCall('/get_project');
-                            setSectionProjects(Array.isArray(mwProjects) ? mwProjects : []);
+                            const mwProjects = await apiService.apiCall('/get_project?limit=1000');
+                            setSectionProjects(Array.isArray(mwProjects?.records) ? mwProjects.records : (Array.isArray(mwProjects) ? mwProjects : []));
                           } else if (section === '2') {
-                            const ranProjects = await apiService.apiCall('/ran-projects');
-                            setSectionProjects(Array.isArray(ranProjects) ? ranProjects : []);
+                            const ranProjects = await apiService.apiCall('/ran-projects?limit=1000');
+                            setSectionProjects(Array.isArray(ranProjects?.records) ? ranProjects.records : (Array.isArray(ranProjects) ? ranProjects : []));
                           } else if (section === '3') {
-                            const leProjects = await apiService.apiCall('/rop-projects/');
-                            setSectionProjects(Array.isArray(leProjects) ? leProjects : []);
+                            const leProjects = await apiService.apiCall('/rop-projects/?limit=1000');
+                            setSectionProjects(Array.isArray(leProjects?.records) ? leProjects.records : (Array.isArray(leProjects) ? leProjects : []));
                           } else if (section === '4') {
                             const duProjects = await apiService.apiCall('/du-projects/?limit=1000');
                             console.log('DU Projects Response:', duProjects);

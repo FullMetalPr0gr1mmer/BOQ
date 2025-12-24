@@ -396,3 +396,67 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* --- Password Requirements Display --- */
+.password-requirements {
+  margin-top: 0.75rem;
+  padding: 0.875rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.requirements-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.requirements-list li {
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.requirements-list li.invalid {
+  color: #64748b;
+  background: transparent;
+}
+
+.requirements-list li.valid {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.08);
+  font-weight: 500;
+}
+
+.req-icon {
+  font-size: 1rem;
+  font-weight: bold;
+  min-width: 18px;
+  text-align: center;
+}
+
+.requirements-list li.invalid .req-icon {
+  color: #cbd5e1;
+}
+
+.requirements-list li.valid .req-icon {
+  color: #10b981;
+}

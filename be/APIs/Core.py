@@ -51,6 +51,8 @@ from starlette import status
 
 from Database.session import Session
 from Models.Admin.User import User
+from Models.Admin.RefreshToken import RefreshToken
+from Models.Admin.TokenBlacklist import TokenBlacklist
 
 # Load environment variables from .env file
 load_dotenv()
@@ -62,7 +64,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")            # OAuth2 auth
 # JWT configuration from environment variables
 SECRET_KEY = os.getenv("SECRET_KEY")                               # Secret key for JWT signing
 ALGORITHM = os.getenv("ALGORITHM")                                 # JWT signing algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))  # Token expiration time
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))  # Access token expiration (30 minutes)
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))  # Refresh token expiration (7 days default)
 
 
 # ===== AUTHENTICATION FUNCTIONS =====
@@ -137,8 +140,49 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """
     to_encode = data.copy()
     expire = datetime.now() + (expires_delta or timedelta(minutes=15))
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_refresh_token(data: dict, user_id: int, db: Session) -> str:
+    """
+    Create a JWT refresh token and store it in the database.
+
+    Refresh tokens are longer-lived than access tokens (7 days vs 30 minutes)
+    and allow users to obtain new access tokens without re-authenticating.
+
+    Args:
+        data (dict): Data to encode in the token (typically includes 'sub' for username)
+        user_id (int): ID of the user this token belongs to
+        db (Session): Database session for storing the refresh token
+
+    Returns:
+        str: Encoded JWT refresh token
+    """
+    # Revoke all existing refresh tokens for this user
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).update({"revoked": True})
+
+    # Calculate expiration
+    expires_delta = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.utcnow() + expires_delta
+
+    # Create token payload
+    to_encode = data.copy()
+    to_encode.update({"exp": expire, "type": "refresh"})
+
+    # Encode token
+    encoded_token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+    # Store in database
+    refresh_token_record = RefreshToken(
+        user_id=user_id,
+        token=encoded_token,
+        expires_at=expire
+    )
+    db.add(refresh_token_record)
+    db.commit()
+
+    return encoded_token
 
 
 # ===== UTILITY FUNCTIONS =====
@@ -313,6 +357,15 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             raise credentials_exception
     except JWTError:
         raise credentials_exception
+
+    # Check if token is blacklisted (revoked on logout)
+    is_blacklisted = db.query(TokenBlacklist).filter(TokenBlacklist.token == token).first()
+    if is_blacklisted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     # Load user from database
     user = db.query(User).filter(User.username == username).first()

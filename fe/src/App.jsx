@@ -28,6 +28,7 @@ import DUProjects from './DUComponents/DUProjects';
 import RolloutSheet from './DUComponents/RolloutSheet';
 import ODBOQItems from './DUComponents/ODBOQItems';
 import CustomerPO from './DUComponents/CustomerPO';
+import NDPDData from './NDPDComponents/NDPDData';
 import Approvals from './Components/Approvals';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { setGlobalToast } from './api';
@@ -40,6 +41,8 @@ const getSectionFromPath = (pathname) => {
     return 'ran-boq';
   } else if (pathname.startsWith('/du-')) {
     return 'du-5g';
+  } else if (pathname.startsWith('/ndpd-')) {
+    return 'ndpd';
   }
   return 'boq';
 };
@@ -130,6 +133,7 @@ function AppContent() {
               <Route path="/du-boq-generation" element={<RolloutSheet />} />
               <Route path="/du-boq-items" element={<ODBOQItems />} />
               <Route path="/du-customer-po" element={<CustomerPO />} />
+              <Route path="/ndpd-data" element={<NDPDData />} />
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/triggering" element={<Approvals />} />
               <Route path="*" element={<Home setActiveSection={setActiveSection} user={auth.user}/>} />
@@ -147,7 +151,7 @@ function AppContent() {
             onSelect={(section) => {
               if (section === 'logout') {
                 logout();
-              } else if (section === 'boq' || section === 'le-automation' || section === 'ran-boq' || section === 'du-5g') {
+              } else if (section === 'boq' || section === 'le-automation' || section === 'ran-boq' || section === 'du-5g' || section === 'ndpd') {
                 setActiveSection(section);
               }
               setSidebarOpen(false);

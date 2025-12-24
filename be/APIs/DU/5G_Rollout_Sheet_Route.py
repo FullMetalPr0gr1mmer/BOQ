@@ -806,12 +806,32 @@ def generate_boq_for_rollout_entry(
     for item in boq_items:
         qty_value = getattr(item, scope_column, None)
         if qty_value is not None and qty_value != 0:
+            # Override quantity based on category (service type)
+            category_lower = (item.category or '').lower()
+            description_lower = (item.description or '').lower()
+
+            if category_lower == 'hw':
+                # Hardware -> quantity = 1
+                final_qty = 1
+            elif category_lower == 'sw':
+                # Software -> quantity = 3
+                final_qty = 3
+            elif category_lower == 'service':
+                # Service -> quantity = 1, except if contains 'DU breaker' then 2
+                if 'du breaker' in description_lower:
+                    final_qty = 2
+                else:
+                    final_qty = 1
+            else:
+                # If category doesn't match, use original quantity
+                final_qty = qty_value
+
             filtered_items.append({
                 'description': item.description,
                 'uom': item.uom,
                 'category': item.category,
                 'bu': item.bu,
-                'boq_qty': qty_value
+                'boq_qty': final_qty
             })
 
     if not filtered_items:

@@ -112,6 +112,7 @@ class User(Base):
     # Relationships
     role = relationship("Role", back_populates="users")
     audit_logs = relationship("AuditLog", back_populates="user", lazy="dynamic")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
 
 
 class UserProjectAccess(Base):

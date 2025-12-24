@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { FaSignOutAlt, FaTimes, FaClipboardList, FaChevronDown, FaChevronRight, FaUser, FaCheckCircle } from 'react-icons/fa';
-import { FaProjectDiagram, FaMapMarkerAlt, FaBox, FaLayerGroup, FaCubes, FaFile, FaRobot, FaNetworkWired, FaBroadcastTower, FaAnchor, FaMobileAlt } from 'react-icons/fa';
+import { FaProjectDiagram, FaMapMarkerAlt, FaBox, FaLayerGroup, FaCubes, FaFile, FaRobot, FaNetworkWired, FaBroadcastTower, FaAnchor, FaMobileAlt, FaDatabase } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import '../css/Sidebar.css';
 import ChatSidebar from '../AIComponents/ChatSidebar';
 import { FiPaperclip } from 'react-icons/fi';
+import { logout } from '../api';
 
 function Sidebar({ isOpen, onClose, onSelect, user }) {
     const navigate = useNavigate();
@@ -73,6 +74,14 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                 { label: 'BOQ Generation', path: '/du-rollout-sheet', icon: <FaFile /> },
                 { label: 'OD BOQ Items', path: '/du-boq-items', icon: <FaCubes /> },
                 { label: 'Customer PO', path: '/du-customer-po', icon: <FaClipboardList /> }
+            ]
+        },
+        {
+            key: 'ndpd',
+            title: 'NDPD Data',
+            icon: <FaDatabase />,
+            items: [
+                { label: 'NDPD Records', path: '/ndpd-data', icon: <FaDatabase /> }
             ]
         }
     ];
@@ -162,25 +171,23 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                         </div>
                     )}
 
-                    {/* AI Assistant - Only for senior_admin */}
-                    {user?.role === 'senior_admin' && (
-                        <div className="nav-section">
-                            <button
-                                className="nav-section-header single-item"
-                                onClick={() => setChatOpen(true)}
-                            >
-                                <span className="nav-section-title">
-                                    <span className="nav-icon"><FaRobot /></span>
-                                    AI Assistant
-                                </span>
-                            </button>
-                        </div>
-                    )}
+                    {/* AI Assistant - Available to all users */}
+                    <div className="nav-section">
+                        <button
+                            className="nav-section-header single-item"
+                            onClick={() => setChatOpen(true)}
+                        >
+                            <span className="nav-section-title">
+                                <span className="nav-icon"><FaRobot /></span>
+                                AI Assistant
+                            </span>
+                        </button>
+                    </div>
                 </nav>
 
                 {/* Footer / Logout */}
                 <div className="sidebar-footer">
-                    <button className="logout-btn" onClick={() => { onSelect('logout'); onClose(); }}>
+                    <button className="logout-btn" onClick={() => logout()}>
                         <FaSignOutAlt />
                         Logout
                     </button>

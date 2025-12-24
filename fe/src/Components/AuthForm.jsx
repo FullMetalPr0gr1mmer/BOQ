@@ -13,9 +13,34 @@ export default function AuthForm({ onLogin }) {
   const [error, setError] = useState('');
   const [regError, setRegError] = useState('');
   const [regSuccess, setRegSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState('');
+  const [passwordValidation, setPasswordValidation] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecial: false
+  });
 
   const navigate = useNavigate();
+
+  // Password validation function
+  const validatePassword = (pwd) => {
+    return {
+      minLength: pwd.length >= 8,
+      hasUppercase: /[A-Z]/.test(pwd),
+      hasLowercase: /[a-z]/.test(pwd),
+      hasNumber: /\d/.test(pwd),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
+    };
+  };
+
+  // Handle password change with real-time validation
+  const handlePasswordChange = (e) => {
+    const pwd = e.target.value;
+    setRegPassword(pwd);
+    setPasswordValidation(validatePassword(pwd));
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -29,6 +54,10 @@ export default function AuthForm({ onLogin }) {
         skipAuth: true
       });
       if (data.access_token) {
+        // Store refresh token if provided
+        if (data.refresh_token) {
+          localStorage.setItem('refreshToken', data.refresh_token);
+        }
         onLogin({ token: data.access_token, user: { role: data.role, username } });
         navigate('/*');
       } else {
@@ -174,10 +203,37 @@ export default function AuthForm({ onLogin }) {
                   type="password"
                   placeholder="Create a password"
                   value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
+                  onChange={handlePasswordChange}
                   required
                   disabled={isLoading}
                 />
+                {regPassword && (
+                  <div className="password-requirements">
+                    <p className="requirements-title">Password must contain:</p>
+                    <ul className="requirements-list">
+                      <li className={passwordValidation.minLength ? 'valid' : 'invalid'}>
+                        <span className="req-icon">{passwordValidation.minLength ? '✓' : '○'}</span>
+                        At least 8 characters
+                      </li>
+                      <li className={passwordValidation.hasUppercase ? 'valid' : 'invalid'}>
+                        <span className="req-icon">{passwordValidation.hasUppercase ? '✓' : '○'}</span>
+                        One uppercase letter (A-Z)
+                      </li>
+                      <li className={passwordValidation.hasLowercase ? 'valid' : 'invalid'}>
+                        <span className="req-icon">{passwordValidation.hasLowercase ? '✓' : '○'}</span>
+                        One lowercase letter (a-z)
+                      </li>
+                      <li className={passwordValidation.hasNumber ? 'valid' : 'invalid'}>
+                        <span className="req-icon">{passwordValidation.hasNumber ? '✓' : '○'}</span>
+                        One number (0-9)
+                      </li>
+                      <li className={passwordValidation.hasSpecial ? 'valid' : 'invalid'}>
+                        <span className="req-icon">{passwordValidation.hasSpecial ? '✓' : '○'}</span>
+                        One special character (!@#$%...)
+                      </li>
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <button

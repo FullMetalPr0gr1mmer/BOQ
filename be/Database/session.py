@@ -50,9 +50,13 @@ load_dotenv()
 # Get database URL from environment variables
 db_url = os.getenv('DATABASE_URL')
 
+# Get environment setting (development/production)
+environment = os.getenv('ENVIRONMENT', 'development').lower()
+
 # Create SQLAlchemy engine
-# echo=True enables SQL query logging for debugging
-engine = create_engine(db_url, echo=True)
+# echo=True enables SQL query logging for debugging (only in development)
+# Disabled in production for better performance and cleaner logs
+engine = create_engine(db_url, echo=(environment == 'development'))
 
 # Create session factory
 # autoflush=False: Manual control over when changes are flushed to database
