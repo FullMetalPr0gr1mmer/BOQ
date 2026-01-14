@@ -1,0 +1,139 @@
+/* ==========================================
+   Action Menu Component Styles
+   Dropdown menu for table actions
+   ========================================== */
+
+.action-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.action-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-menu-trigger:hover {
+  background: #f1f5f9;
+  border-color: #124191;
+}
+
+.action-menu-icon {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #475569;
+  line-height: 1;
+}
+
+.action-menu-dropdown {
+  position: fixed;
+  min-width: 220px;
+  min-height: 100px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  padding: 6px;
+  animation: slideDown 0.2s ease;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom scrollbar for dropdown */
+.action-menu-dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+
+.action-menu-dropdown::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+  margin: 4px 0;
+}
+
+.action-menu-dropdown::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 8px;
+  border: 2px solid #f1f5f9;
+}
+
+.action-menu-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.action-menu-item {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+  font-size: 0.875rem;
+  color: #334155;
+  flex-shrink: 0;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.action-menu-item:hover {
+  background: #f1f5f9;
+}
+
+.action-menu-item-icon {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.action-menu-item-text {
+  flex: 1;
+  white-space: nowrap;
+}
+
+/* Action-specific styling - Remove colored backgrounds */
+.action-menu-item.btn-primary,
+.action-menu-item.btn-danger,
+.action-menu-item.btn-secondary,
+.action-menu-item.btn-info {
+  background: transparent !important;
+  color: #334155 !important;
+}
+
+.action-menu-item.btn-primary:hover,
+.action-menu-item.btn-danger:hover,
+.action-menu-item.btn-secondary:hover,
+.action-menu-item.btn-info:hover {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+}

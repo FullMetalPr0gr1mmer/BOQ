@@ -1,16 +1,38 @@
-import { useState } from 'react';
-import { FaSignOutAlt, FaTimes, FaClipboardList, FaChevronDown, FaChevronRight, FaUser, FaCheckCircle } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaSignOutAlt, FaTimes, FaClipboardList, FaChevronDown, FaChevronRight, FaUser, FaCheckCircle, FaFileAlt } from 'react-icons/fa';
 import { FaProjectDiagram, FaMapMarkerAlt, FaBox, FaLayerGroup, FaCubes, FaFile, FaRobot, FaNetworkWired, FaBroadcastTower, FaAnchor, FaMobileAlt, FaDatabase } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import '../css/Sidebar.css';
 import ChatSidebar from '../AIComponents/ChatSidebar';
 import { FiPaperclip } from 'react-icons/fi';
-import { logout } from '../api';
+import { logout, apiCall } from '../api';
 
 function Sidebar({ isOpen, onClose, onSelect, user }) {
     const navigate = useNavigate();
     const [expandedSections, setExpandedSections] = useState({});
     const [chatOpen, setChatOpen] = useState(false);
+    const [approvalPermissions, setApprovalPermissions] = useState({
+        can_access_approval: false,
+        can_access_triggering: false,
+        can_access_logistics: false
+    });
+
+    // Fetch approval permissions on mount
+    useEffect(() => {
+        const fetchPermissions = async () => {
+            try {
+                const data = await apiCall('/approvals/user/permissions');
+                setApprovalPermissions({
+                    can_access_approval: data.can_access_approval,
+                    can_access_triggering: data.can_access_triggering,
+                    can_access_logistics: data.can_access_logistics
+                });
+            } catch (error) {
+                console.error('Failed to fetch approval permissions:', error);
+            }
+        };
+        fetchPermissions();
+    }, []);
 
     const toggleSection = (sectionKey) => {
         setExpandedSections(prev => ({
@@ -143,17 +165,59 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                         </div>
                     ))}
 
-                    {/* Approvals Workflow */}
+                    {/* Approvals Section */}
                     <div className="nav-section">
                         <button
-                            className="nav-section-header single-item"
-                            onClick={() => handleNavigation('/approvals', null)}
+                            className={`nav-section-header ${expandedSections['approvals'] ? 'expanded' : ''}`}
+                            onClick={() => toggleSection('approvals')}
                         >
                             <span className="nav-section-title">
                                 <span className="nav-icon"><FaCheckCircle /></span>
                                 Approvals
                             </span>
+                            <span className="nav-chevron">
+                                {expandedSections['approvals'] ? <FaChevronDown /> : <FaChevronRight />}
+                            </span>
                         </button>
+
+                        {expandedSections['approvals'] && (
+                            <div className="nav-section-items">
+                                {approvalPermissions.can_access_approval && (
+                                    <button
+                                        className="nav-item"
+                                        onClick={() => handleNavigation('/approvals', null)}
+                                    >
+                                        <span className="nav-icon"><FaCheckCircle /></span>
+                                        Approval Stage
+                                    </button>
+                                )}
+                                {approvalPermissions.can_access_triggering && (
+                                    <button
+                                        className="nav-item"
+                                        onClick={() => handleNavigation('/triggering', null)}
+                                    >
+                                        <span className="nav-icon"><FaCheckCircle /></span>
+                                        Triggering Stage
+                                    </button>
+                                )}
+                                {approvalPermissions.can_access_logistics && (
+                                    <button
+                                        className="nav-item"
+                                        onClick={() => handleNavigation('/logistics', null)}
+                                    >
+                                        <span className="nav-icon"><FaCheckCircle /></span>
+                                        Logistics Stage
+                                    </button>
+                                )}
+                                <button
+                                    className="nav-item"
+                                    onClick={() => handleNavigation('/po-report', null)}
+                                >
+                                    <span className="nav-icon"><FaFileAlt /></span>
+                                    PO Report
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* System Logs - Only for senior_admin */}

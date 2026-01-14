@@ -1,14 +1,38 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { apiCall } from '../api';
 import '../css/header.css';
 
 const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Generation', 'LLD', 'Dismantling', 'LogOut'];
 const leAutomationTabs = ['ROP Project', 'ROP Package', 'LogOut'];
 const ranBoqTabs = ['Ran Projects', 'RAN BOQ Generation', 'Ran Level3', 'Ran Inventory', 'Ran Antenna Serials', 'LogOut'];
 const du5gTabs = ['DU Projects', 'DU BOQ Generation', 'DU BOQ Items', 'DU Customer PO', 'LogOut'];
-const approvalTabs = ['Approvals', 'Triggering', 'LogOut'];
+
 export default function Header({ onLogout, activeSection, user }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [approvalPermissions, setApprovalPermissions] = useState({
+    can_access_approval: false,
+    can_access_triggering: false,
+    can_access_logistics: false
+  });
+
+  // Fetch approval permissions on mount
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        const data = await apiCall('/approvals/user/permissions');
+        setApprovalPermissions({
+          can_access_approval: data.can_access_approval,
+          can_access_triggering: data.can_access_triggering,
+          can_access_logistics: data.can_access_logistics
+        });
+      } catch (error) {
+        console.error('Failed to fetch approval permissions:', error);
+      }
+    };
+    fetchPermissions();
+  }, []);
 
   // Hide the header if the current path is the home page
   if (location.pathname === '/*' || location.pathname === '/logs' || location.pathname === '/') {
@@ -16,7 +40,20 @@ export default function Header({ onLogout, activeSection, user }) {
   }
 
   // Show approval tabs when on approvals page
-  const isApprovalsPage = location.pathname.startsWith('/approvals') || location.pathname.startsWith('/triggering');
+  const isApprovalsPage = location.pathname.startsWith('/approvals') || location.pathname.startsWith('/triggering') || location.pathname.startsWith('/logistics');
+
+  // Build approval tabs based on user permissions
+  const approvalTabs = [];
+  if (approvalPermissions.can_access_approval) {
+    approvalTabs.push('Approvals');
+  }
+  if (approvalPermissions.can_access_triggering) {
+    approvalTabs.push('Triggering');
+  }
+  if (approvalPermissions.can_access_logistics) {
+    approvalTabs.push('Logistics');
+  }
+  approvalTabs.push('LogOut');
 
   let tabs = activeSection === 'le-automation' ? leAutomationTabs : boqTabs;
   if (isApprovalsPage) {

@@ -1,5 +1,6 @@
 import React from 'react';
 import './DataTable.css';
+import ActionMenu from './ActionMenu';
 
 /**
  * DataTable Component
@@ -18,6 +19,7 @@ import './DataTable.css';
  *   - onClick: function (click handler receiving row item)
  *   - title: string (button tooltip)
  *   - className: string (optional, additional CSS class)
+ *   - condition: function (optional, receives row, returns boolean to show/hide action)
  * @param {boolean} loading - Whether data is loading
  * @param {string} noDataMessage - Message to display when no data available
  * @param {string} className - Additional CSS class for table wrapper
@@ -67,18 +69,10 @@ export default function DataTable({
                 })}
                 {hasActions && (
                   <td>
-                    <div className="action-buttons">
-                      {actions.map((action, actionIdx) => (
-                        <button
-                          key={actionIdx}
-                          className={`btn-action ${action.className || ''}`}
-                          onClick={() => action.onClick(row)}
-                          title={action.title}
-                        >
-                          {action.icon}
-                        </button>
-                      ))}
-                    </div>
+                    <ActionMenu
+                      actions={actions.filter(action => !action.condition || action.condition(row))}
+                      row={row}
+                    />
                   </td>
                 )}
               </tr>

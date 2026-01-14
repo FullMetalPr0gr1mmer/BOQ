@@ -29,6 +29,7 @@ const initialLvl3State = {
   total_quantity: '',
   total_price: '',
   service_type: '',
+  sequence: '',
 };
 
 const initialItemState = {
@@ -231,6 +232,7 @@ export default function Lvl3() {
       service_type: (entry.service_type && entry.service_type.length > 0)
         ? (SERVICE_VALUES[entry.service_type[0]] || entry.service_type[0])
         : '',
+      sequence: entry.sequence || '',
     });
     setShowForm(true);
     setError('');
@@ -247,6 +249,7 @@ export default function Lvl3() {
       total_quantity: parseInt(formData.total_quantity, 10),
       total_price: parseFloat(formData.total_price),
       service_type: formData.service_type ? [formData.service_type] : [],
+      sequence: formData.sequence ? parseInt(formData.sequence, 10) : null,
     };
 
     try {
@@ -667,6 +670,7 @@ export default function Lvl3() {
               <th>Project ID</th>
               <th>Project Name</th>
               <th>Item Name</th>
+              <th>Sequence</th>
               <th>UOM</th>
               <th>UPL Line</th>
               <th>Total Quantity</th>
@@ -678,7 +682,7 @@ export default function Lvl3() {
           <tbody>
             {paginatedEntries.length === 0 && !loading ? (
               <tr>
-                <td colSpan={10} className="no-data">No Level 3 entries found</td>
+                <td colSpan={11} className="no-data">No Level 3 entries found</td>
               </tr>
             ) : (
               paginatedEntries.map((entry) => (
@@ -696,6 +700,7 @@ export default function Lvl3() {
                     <td>{entry.project_id}</td>
                     <td>{entry.project_name}</td>
                     <td>{entry.item_name}</td>
+                    <td>{entry.sequence || '-'}</td>
                     <td>{entry.uom}</td>
                     <td>{entry.upl_line}</td>
                     <td>{entry.total_quantity?.toLocaleString()}</td>
@@ -722,7 +727,7 @@ export default function Lvl3() {
                   </tr>
                   {expandedRowId === entry.id && (
                     <tr className="expanded-row">
-                      <td colSpan={9}>
+                      <td colSpan={10}>
                         <div className="nested-items-container">
                           <div className="nested-items-header">
                             <h4 className="nested-items-title">Items for {entry.item_name}</h4>
@@ -862,6 +867,14 @@ export default function Lvl3() {
             value={formData.item_name}
             onChange={handleChange}
             required
+          />
+          <FormField
+            label="Sequence"
+            name="sequence"
+            type="number"
+            value={formData.sequence}
+            onChange={handleChange}
+            placeholder="Enter sequence number"
           />
           <FormField
             label="UOM"

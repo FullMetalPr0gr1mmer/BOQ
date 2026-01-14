@@ -12,7 +12,10 @@ const ROWS_PER_PAGE = 50;
 
 export default function Approvals() {
   const location = useLocation();
-  const activeTab = location.pathname === '/triggering' ? 'triggering' : 'approval';
+  const activeTab =
+    location.pathname === '/triggering' ? 'triggering' :
+    location.pathname === '/logistics' ? 'logistics' :
+    'approval';
   const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -32,6 +35,16 @@ export default function Approvals() {
   const [rejectingItem, setRejectingItem] = useState(null);
   const [rejectNotes, setRejectNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Approve modal state (for multi-SMP input)
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approvingItem, setApprovingItem] = useState(null);
+  const [smpId, setSmpId] = useState(''); // Deprecated - keeping for backward compatibility
+  const [planningSmpId, setPlanningSmpId] = useState('');
+  const [implementationSmpId, setImplementationSmpId] = useState('');
+  const [dismantlingSmpId, setDismantlingSmpId] = useState('');
+  const [epacReq, setEpacReq] = useState('');
+  const [inserviceDate, setInserviceDate] = useState('');
 
   // Info modal state (for individual items)
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -91,7 +104,7 @@ export default function Approvals() {
       // Calculate status counts
       const items = data.items || [];
       const pending = items.filter(item =>
-        item.status === 'pending_approval' || item.status === 'pending_triggering'
+        item.status === 'pending_approval' || item.status === 'pending_triggering' || item.status === 'pending_logistics'
       ).length;
       const rejected = items.filter(item => item.status === 'rejected').length;
       setPendingCount(pending);
@@ -236,17 +249,105 @@ export default function Approvals() {
     }
   };
 
-  const handleApprove = async (row) => {
+  const openApproveModal = (row) => {
+    // If in approval stage, need multi-SMP input
+    if (row.stage === 'approval') {
+      setApprovingItem(row);
+      setSmpId('');
+      setPlanningSmpId('');
+      setImplementationSmpId('');
+      setDismantlingSmpId('');
+      setEpacReq('');
+      setInserviceDate('');
+      setShowApproveModal(true);
+    } else {
+      // If in triggering stage, direct approval
+      handleDirectApprove(row);
+    }
+  };
+
+  const closeApproveModal = () => {
+    setShowApproveModal(false);
+    setApprovingItem(null);
+    setSmpId('');
+    setPlanningSmpId('');
+    setImplementationSmpId('');
+    setDismantlingSmpId('');
+    setEpacReq('');
+    setInserviceDate('');
+  };
+
+  const handleDirectApprove = async (row) => {
     if (!window.confirm(`Are you sure you want to approve "${row.filename}"?`)) return;
 
     try {
       const result = await apiCall(`/approvals/${row.id}/approve`, {
         method: 'POST',
+        body: JSON.stringify({}),
       });
       setTransient(setSuccess, result.message || 'Approved successfully!');
       fetchApprovals(currentPage, activeTab, searchTerm, filterProjectType, selectedProject);
     } catch (err) {
       setTransient(setError, err.message);
+    }
+  };
+
+  const handleApproveSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate required fields
+    if (!planningSmpId.trim()) {
+      setTransient(setError, 'Please provide Planning Services SMP ID');
+      return;
+    }
+
+    if (!implementationSmpId.trim()) {
+      setTransient(setError, 'Please provide Implementation Services SMP ID');
+      return;
+    }
+
+    if (!epacReq.trim()) {
+      setTransient(setError, 'Please provide E-PAC Req');
+      return;
+    }
+
+    if (!inserviceDate.trim()) {
+      setTransient(setError, 'Please provide InService Date');
+      return;
+    }
+
+    // Check if MW BOQ for dismantling validation
+    const isMW = approvingItem.project_type.includes('MW') || approvingItem.project_type.includes('Mw');
+    if (isMW && !dismantlingSmpId.trim()) {
+      setTransient(setError, 'Please provide Dismantling Services SMP ID (required for MW BOQ)');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const requestBody = {
+        planning_smp_id: planningSmpId.trim(),
+        implementation_smp_id: implementationSmpId.trim(),
+        epac_req: epacReq.trim(),
+        inservice_date: inserviceDate.trim()
+      };
+
+      // Add dismantling SMP for MW
+      if (isMW) {
+        requestBody.dismantling_smp_id = dismantlingSmpId.trim();
+      }
+
+      const result = await apiCall(`/approvals/${approvingItem.id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      });
+      setTransient(setSuccess, result.message || 'Approved and moved to triggering!');
+      closeApproveModal();
+      fetchApprovals(currentPage, activeTab, searchTerm, filterProjectType, selectedProject);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -357,6 +458,33 @@ export default function Approvals() {
     }
   };
 
+  const handleDownloadTriggering = async (row) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/approvals/download-triggering/${row.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Download failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `triggering_${row.filename}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to download triggering CSV');
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
@@ -386,6 +514,8 @@ export default function Approvals() {
   const tableColumns = [
     { key: 'filename', label: 'File Name' },
     { key: 'project_type', label: 'Project Type' },
+    { key: 'smp_id', label: 'SMP ID', render: (row) => row.smp_id || '-' },
+    { key: 'so_number', label: 'SO#', render: (row) => row.so_number || '-' },
     {
       key: 'created_at',
       label: 'Upload Date',
@@ -420,24 +550,34 @@ export default function Approvals() {
       {
         icon: '📄',
         onClick: handleDownload,
-        title: 'Download CSV',
+        title: 'Download BOQ',
         className: 'btn-secondary'
       },
       {
         icon: '📝',
         onClick: handleDownloadTemplate,
-        title: 'Download Template',
+        title: 'Download EPac',
         className: 'btn-secondary'
-      },
-      {
-        icon: '✅',
-        onClick: handleApprove,
-        title: 'Approve',
-        className: 'btn-primary'
       }
     ];
 
-    if (activeTab === 'triggering') {
+    // Add triggering BOQ download button if available
+    actions.push({
+      icon: '📥',
+      onClick: handleDownloadTriggering,
+      title: 'Download Triggering BOQ',
+      className: 'btn-secondary',
+      condition: (row) => !!row.triggering_file_path
+    });
+
+    actions.push({
+      icon: '✅',
+      onClick: openApproveModal,
+      title: 'Approve',
+      className: 'btn-primary'
+    });
+
+    if (activeTab === 'triggering' || activeTab === 'logistics') {
       actions.push({
         icon: '❌',
         onClick: openRejectModal,
@@ -462,7 +602,7 @@ export default function Approvals() {
   const statCards = [
     { label: 'Total Items', value: total },
     { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
-    { label: 'Stage', value: activeTab === 'approval' ? 'Approval' : 'Triggering' },
+    { label: 'Stage', value: activeTab === 'approval' ? 'Approval' : activeTab === 'triggering' ? 'Triggering' : 'Logistics' },
     { label: 'Pending', value: <span style={{ color: '#d97706' }}>{pendingCount}</span> },
     { label: 'Rejected', value: <span style={{ color: '#dc2626' }}>{rejectedCount}</span> }
   ];
@@ -565,7 +705,7 @@ export default function Approvals() {
         data={rows}
         actions={getTableActions()}
         loading={loading}
-        noDataMessage={`No items in ${activeTab === 'approval' ? 'approval' : 'triggering'} stage`}
+        noDataMessage={`No items in ${activeTab === 'approval' ? 'approval' : activeTab === 'triggering' ? 'triggering' : 'logistics'} stage`}
         className="inventory-table-wrapper"
       />
 
@@ -604,8 +744,8 @@ export default function Approvals() {
                     color: '#475569',
                     lineHeight: '1.6'
                   }}>
-                    The Approvals Workflow is a two-stage process for managing PAC (Project Authorization Certificate) files.
-                    Files move through approval and triggering stages to ensure proper validation before deployment.
+                    The Approvals Workflow is a three-stage process for managing PAC (Project Authorization Certificate) files.
+                    Files move through approval, triggering, and logistics stages to ensure proper validation before deployment.
                   </p>
                 </div>
 
@@ -641,6 +781,7 @@ export default function Approvals() {
 
                   {/* Stage 2 */}
                   <div style={{
+                    marginBottom: '16px',
                     padding: '16px',
                     background: '#f8fafc',
                     borderRadius: '8px',
@@ -651,10 +792,29 @@ export default function Approvals() {
                       <strong style={{ fontSize: '1rem', color: '#1e293b' }}>Triggering Stage</strong>
                     </div>
                     <ul style={{ margin: '8px 0 0 0', paddingLeft: '24px', fontSize: '0.875rem', color: '#475569' }}>
-                      <li>Final validation and deployment preparation</li>
+                      <li>Validation and triggering preparation</li>
                       <li>Files have "Pending Triggering" status</li>
-                      <li>Actions: Approve (completes workflow) or Reject (sends back with notes)</li>
+                      <li>Actions: Approve (moves to Logistics) or Reject (sends back to Approval with notes)</li>
                       <li>Rejection sends file back to Approval stage for corrections</li>
+                    </ul>
+                  </div>
+
+                  {/* Stage 3 */}
+                  <div style={{
+                    padding: '16px',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                    borderLeft: '4px solid #f59e0b'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '1.5rem' }}>3️⃣</span>
+                      <strong style={{ fontSize: '1rem', color: '#1e293b' }}>Logistics Stage</strong>
+                    </div>
+                    <ul style={{ margin: '8px 0 0 0', paddingLeft: '24px', fontSize: '0.875rem', color: '#475569' }}>
+                      <li>Final logistics validation and deployment preparation</li>
+                      <li>Files have "Pending Logistics" status</li>
+                      <li>Actions: Approve (completes workflow) or Reject (sends back to Triggering with notes)</li>
+                      <li>Rejection sends file back to Triggering stage for corrections</li>
                     </ul>
                   </div>
                 </div>
@@ -777,6 +937,50 @@ export default function Approvals() {
                   <span className="info-value">{infoItem.uploader_name || '-'}</span>
                 </div>
 
+                <div className="info-row">
+                  <label className="info-label">Planning SMP ID:</label>
+                  <span className="info-value">{infoItem.planning_smp_id || '-'}</span>
+                </div>
+
+                <div className="info-row">
+                  <label className="info-label">Planning SO#:</label>
+                  <span className="info-value">{infoItem.planning_so_number || '-'}</span>
+                </div>
+
+                <div className="info-row">
+                  <label className="info-label">Implementation SMP ID:</label>
+                  <span className="info-value">{infoItem.implementation_smp_id || '-'}</span>
+                </div>
+
+                <div className="info-row">
+                  <label className="info-label">Implementation SO#:</label>
+                  <span className="info-value">{infoItem.implementation_so_number || '-'}</span>
+                </div>
+
+                {(infoItem.project_type?.includes('MW') || infoItem.project_type?.includes('Mw')) && (
+                  <>
+                    <div className="info-row">
+                      <label className="info-label">Dismantling SMP ID:</label>
+                      <span className="info-value">{infoItem.dismantling_smp_id || '-'}</span>
+                    </div>
+
+                    <div className="info-row">
+                      <label className="info-label">Dismantling SO#:</label>
+                      <span className="info-value">{infoItem.dismantling_so_number || '-'}</span>
+                    </div>
+                  </>
+                )}
+
+                <div className="info-row">
+                  <label className="info-label">E-PAC Req:</label>
+                  <span className="info-value">{infoItem.epac_req || '-'}</span>
+                </div>
+
+                <div className="info-row">
+                  <label className="info-label">InService Date:</label>
+                  <span className="info-value">{infoItem.inservice_date || '-'}</span>
+                </div>
+
                 {infoItem.notes && (
                   <div className="info-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                     <label className="info-label">Notes:</label>
@@ -802,6 +1006,158 @@ export default function Approvals() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Modal (for multi-SMP input) */}
+      {showApproveModal && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeApproveModal()}>
+          <div className="modal-container" style={{ maxWidth: '650px', maxHeight: '90vh', overflow: 'auto' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Approve to Triggering</h2>
+              <button className="modal-close" onClick={closeApproveModal} type="button">✕</button>
+            </div>
+
+            <form className="modal-form" onSubmit={handleApproveSubmit}>
+              <div style={{
+                background: '#f8fafc',
+                padding: '16px',
+                borderRadius: '8px',
+                marginBottom: '20px'
+              }}>
+                <p style={{ margin: '0 0 8px', fontSize: '0.875rem', color: '#475569' }}>
+                  <strong>File:</strong> {approvingItem?.filename}
+                </p>
+                <p style={{ margin: '0', fontSize: '0.875rem', color: '#475569' }}>
+                  <strong>Project Type:</strong> {approvingItem?.project_type}
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gap: '16px' }}>
+                <div className="form-field">
+                  <label>Planning Services SMP ID *</label>
+                  <input
+                    type="text"
+                    value={planningSmpId}
+                    onChange={(e) => setPlanningSmpId(e.target.value)}
+                    placeholder="Enter Planning Services SMP ID..."
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                    Will be mapped to the row with "Planning services" in description
+                  </p>
+                </div>
+
+                <div className="form-field">
+                  <label>Implementation Services SMP ID *</label>
+                  <input
+                    type="text"
+                    value={implementationSmpId}
+                    onChange={(e) => setImplementationSmpId(e.target.value)}
+                    placeholder="Enter Implementation Services SMP ID..."
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                    Will be mapped to the row with "Implementation services" in description
+                  </p>
+                </div>
+
+                {/* Show Dismantling field only for MW BOQ */}
+                {(approvingItem?.project_type?.includes('MW') || approvingItem?.project_type?.includes('Mw')) && (
+                  <div className="form-field">
+                    <label>Dismantling Services SMP ID *</label>
+                    <input
+                      type="text"
+                      value={dismantlingSmpId}
+                      onChange={(e) => setDismantlingSmpId(e.target.value)}
+                      placeholder="Enter Dismantling Services SMP ID..."
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                    <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                      Will be mapped to the row with "Dismantling" in description (MW only)
+                    </p>
+                  </div>
+                )}
+
+                <div className="form-field">
+                  <label>E-PAC Req *</label>
+                  <input
+                    type="text"
+                    value={epacReq}
+                    onChange={(e) => setEpacReq(e.target.value)}
+                    placeholder="Enter E-PAC Req value..."
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                    Will be mapped to the Inservice column in the E-PAC Req CSV
+                  </p>
+                </div>
+
+                <div className="form-field">
+                  <label>InService Date *</label>
+                  <input
+                    type="text"
+                    value={inserviceDate}
+                    onChange={(e) => setInserviceDate(e.target.value)}
+                    placeholder="Enter InService Date..."
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                    Will be mapped to the Inservice column in the triggering CSV
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-actions" style={{ marginTop: '24px' }}>
+                <button type="button" className="btn-cancel" onClick={closeApproveModal}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? 'Approving...' : 'Approve & Move to Triggering'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

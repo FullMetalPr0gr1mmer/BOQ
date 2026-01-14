@@ -397,14 +397,14 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
             project = get_project_for_boq(lvl3_rows[0].project_id, db=db)
         except Exception:
             pass
-        writer.writerow([" ", " ", " ", " ", " "," ", "MW BOQ", " ", " ", " ", " ", " "," "])
+        writer.writerow([" ", " ", " ", " ", " "," ", "MW BOQ", " ", " ", " ", " ", " "," ",""])
         writer.writerow(
-            ["Project Name:", project.project_name, " ", " ", " ", " "," ", "PO Number:", project.po, " ", " ", " "," " ])
+            ["Project Name:", project.project_name, " ", " ", " ", " "," ", "PO Number:", project.po, " ", " ", " "," "," " ])
         writer.writerow(["Scope:", lld_row.scope, " ", " ", " ", " ", " ", " ", " ", " ", " "," ", " ", ])
-        writer.writerow(["MW Code:", code, " ", " ", " ", " "," ", "Region:", lld_row.region," ", " ", " ", " ", ])
+        writer.writerow(["MW Code:", code, " ", " ", " ", " "," ", "Region:", lld_row.region," ", " ", " ", " "," " ])
 
         # CSV Headers
-        headers = ["Site_IP", "Item Name", "Item Description", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
+        headers = ["Site_IP", "Item Name", "Item Description", "Sequence", "L1 Category", "Vendor Part Number", "Type", "Category", "UOM",
                    "UPL Line", "Total Qtts", "Discounted unit price", "SN", "SW Number"]
         writer.writerow(headers)
 
@@ -422,6 +422,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         site_display,
                         parent_item_name,  # Item Name column
                         parent.item_name,  # Item Description
+                        parent.sequence or " ",  # Sequence
                         "MW links (HW,SW,Services,Passive)",
                         "-----------------",  # Vendor Part Number
                         get_service_type_name(parent.service_type),
@@ -482,6 +483,8 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                     site_display,
                     item_name_with_type,  # Item Name column
                     item_desc,  # Item Description
+                    # lvl3.sequence or
+                     " ",  # Sequence from parent lvl3
                     "MW links (HW,SW,Services,Passive)",
                     vendor_part,
                     get_service_type_name(item.service_type),
@@ -564,6 +567,8 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         site_display,
                         item_name_with_type,  # Item Name column
                         item_desc,  # Item Description
+                                            # lvl3.sequence or
+                        " ",  # Sequence from parent lvl3
                         "MW links (HW,SW,Services,Passive)",
                         vendor_part,
                         get_service_type_name(item.service_type),

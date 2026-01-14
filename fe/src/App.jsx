@@ -30,6 +30,7 @@ import ODBOQItems from './DUComponents/ODBOQItems';
 import CustomerPO from './DUComponents/CustomerPO';
 import NDPDData from './NDPDComponents/NDPDData';
 import Approvals from './Components/Approvals';
+import POReport from './Components/POReport';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { setGlobalToast } from './api';
 
@@ -136,6 +137,8 @@ function AppContent() {
               <Route path="/ndpd-data" element={<NDPDData />} />
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/triggering" element={<Approvals />} />
+              <Route path="/logistics" element={<Approvals />} />
+              <Route path="/po-report" element={<POReport />} />
               <Route path="*" element={<Home setActiveSection={setActiveSection} user={auth.user}/>} />
             </Routes>
           </div>

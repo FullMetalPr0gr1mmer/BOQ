@@ -21,7 +21,7 @@ Last Modified: [Date]
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from Database.session import Base
 from .AuditLog import AuditLog  # Import AuditLog model for relationship
@@ -108,6 +108,11 @@ class User(Base):
 
     # Foreign key to Role model
     role_id = Column(Integer, ForeignKey('roles.id'))
+
+    # Approval workflow stage access permissions
+    can_access_approval = Column(Boolean, default=False, nullable=False)
+    can_access_triggering = Column(Boolean, default=False, nullable=False)
+    can_access_logistics = Column(Boolean, default=False, nullable=False)
 
     # Relationships
     role = relationship("Role", back_populates="users")

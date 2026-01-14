@@ -99,6 +99,7 @@ export default function RANLvl3() {
           po_line: r.po_line,
           upl_line: r.upl_line,
           ran_category: r.ran_category,
+          sequence: r.sequence,
           items: r.items || [],
         }))
       );
@@ -215,7 +216,8 @@ export default function RANLvl3() {
       category: '',
       po_line: '',
       upl_line: '',
-      ran_category: ''
+      ran_category: '',
+      sequence: ''
     });
     setIsCreateModalOpen(true);
     setError('');
@@ -600,6 +602,7 @@ export default function RANLvl3() {
                 <th>Project ID</th>
                 <th>Item Name</th>
                 <th>Key</th>
+                <th>Sequence</th>
                 <th>Service Type</th>
                 <th>UOM</th>
                 <th>Total Qty</th>
@@ -614,7 +617,7 @@ export default function RANLvl3() {
             <tbody>
               {rows.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={13} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                  <td colSpan={14} style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
                     No RAN Level 3 records found
                   </td>
                 </tr>
@@ -640,6 +643,7 @@ export default function RANLvl3() {
                       <td>{row.project_id}</td>
                       <td><strong>{row.item_name}</strong></td>
                       <td>{row.key}</td>
+                      <td>{row.sequence || '-'}</td>
                       <td>
                         {Array.isArray(row.service_type)
                           ? row.service_type.map(s => serviceTypes[s] || s).join(', ')
@@ -663,7 +667,7 @@ export default function RANLvl3() {
                     </tr>
                     {expandedRows.has(row.id) && (
                       <tr>
-                        <td colSpan={13} style={{ padding: 0, background: '#f9fafb' }}>
+                        <td colSpan={14} style={{ padding: 0, background: '#f9fafb' }}>
                           <div style={{ padding: '1.5rem', borderLeft: '4px solid #124191' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                               <h4 style={{ margin: 0, color: '#124191', fontSize: '1rem', fontWeight: '600' }}>
@@ -812,6 +816,15 @@ export default function RANLvl3() {
                     />
                   </div>
                   <div className="form-field">
+                    <label>Sequence</label>
+                    <input
+                      type="number"
+                      value={createForm.sequence}
+                      onChange={e => onCreateChange('sequence', e.target.value)}
+                      placeholder="Enter sequence number"
+                    />
+                  </div>
+                  <div className="form-field">
                     <label>Service Type</label>
                     <select
                       value={createForm.service_type}
@@ -944,6 +957,15 @@ export default function RANLvl3() {
                       type="text"
                       value={editForm.key || ''}
                       onChange={e => onEditChange('key', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Sequence</label>
+                    <input
+                      type="number"
+                      value={editForm.sequence !== null && editForm.sequence !== undefined ? editForm.sequence : ''}
+                      onChange={e => onEditChange('sequence', e.target.value)}
+                      placeholder="Enter sequence number"
                     />
                   </div>
                   <div className="form-field">

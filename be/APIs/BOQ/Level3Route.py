@@ -125,6 +125,7 @@ def create_lvl3(
             upl_line=payload.upl_line,
             total_quantity=payload.total_quantity,
             total_price=payload.total_price,
+            sequence=payload.sequence,
         )
         lvl3.service_type = payload.service_type or []
 

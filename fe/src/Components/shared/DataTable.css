@@ -83,6 +83,12 @@
   max-width: 150px;
 }
 
+/* Allow overflow for actions column to show dropdown */
+.data-table td:last-child {
+  overflow: visible;
+  position: relative;
+}
+
 .no-data {
   text-align: center !important;
   padding: 3rem !important;

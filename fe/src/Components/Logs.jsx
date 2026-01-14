@@ -98,7 +98,14 @@ const SeniorAdminDashboard = () => {
   const [showGrantModal, setShowGrantModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showControlAdminModal, setShowControlAdminModal] = useState(false);
+  const [showApprovalAccessModal, setShowApprovalAccessModal] = useState(false);
   const [selectedAccess, setSelectedAccess] = useState(null);
+  const [selectedUserForApproval, setSelectedUserForApproval] = useState(null);
+  const [approvalAccessForm, setApprovalAccessForm] = useState({
+    can_access_approval: false,
+    can_access_triggering: false,
+    can_access_logistics: false
+  });
   const [grantForm, setGrantForm] = useState({
     user_id: '',
     section: '',
@@ -285,6 +292,43 @@ const SeniorAdminDashboard = () => {
     }
   };
 
+  const handleOpenApprovalAccessModal = (user) => {
+    setSelectedUserForApproval(user);
+    setApprovalAccessForm({
+      can_access_approval: user.can_access_approval || false,
+      can_access_triggering: user.can_access_triggering || false,
+      can_access_logistics: user.can_access_logistics || false
+    });
+    setShowApprovalAccessModal(true);
+  };
+
+  const handleUpdateApprovalAccess = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      setLoading(true);
+      await apiService.apiCall('/audit-logs/update_approval_stage_access', {
+        method: 'PUT',
+        body: JSON.stringify({
+          user_id: selectedUserForApproval.id,
+          ...approvalAccessForm
+        }),
+      });
+      showMessage('Approval stage access updated successfully', 'success');
+      setShowApprovalAccessModal(false);
+      setSelectedUserForApproval(null);
+      await loadUsers();
+    } catch (error) {
+      if (error.message.includes('Unauthorized')) {
+        setAuthError(error.message);
+      } else {
+        showMessage(`Failed to update approval stage access: ${error.message}`, 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(userSearch.toLowerCase()) ||
     user.email.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -409,6 +453,37 @@ const SeniorAdminDashboard = () => {
         ) : (
           <em style={{ color: '#888' }}>No project access</em>
         )
+      )
+    },
+    {
+      key: 'approval_access',
+      label: 'Approval Access',
+      render: (user) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+            {user.can_access_approval && (
+              <span className="permission-badge permission-view">Approval</span>
+            )}
+            {user.can_access_triggering && (
+              <span className="permission-badge permission-edit">Triggering</span>
+            )}
+            {user.can_access_logistics && (
+              <span className="permission-badge permission-all">Logistics</span>
+            )}
+            {!user.can_access_approval && !user.can_access_triggering && !user.can_access_logistics && (
+              <em style={{ color: '#888', fontSize: '0.875rem' }}>No access</em>
+            )}
+          </div>
+          <button
+            className="btn-action btn-edit"
+            onClick={() => handleOpenApprovalAccessModal(user)}
+            disabled={loading}
+            title="Manage Approval Stage Access"
+            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+          >
+            ⚙️ Manage
+          </button>
+        </div>
       )
     }
   ];
@@ -1011,6 +1086,105 @@ const SeniorAdminDashboard = () => {
                 </button>
                 <button type="submit" className="btn-submit" disabled={loading}>
                   {loading ? 'Updating...' : 'Update Access'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Stage Access Modal */}
+      {showApprovalAccessModal && selectedUserForApproval && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowApprovalAccessModal(false)}>
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2 className="modal-title">Manage Approval Stage Access</h2>
+              <button className="modal-close" onClick={() => {
+                setShowApprovalAccessModal(false);
+                setSelectedUserForApproval(null);
+              }}>✕</button>
+            </div>
+
+            <form className="modal-form" onSubmit={handleUpdateApprovalAccess}>
+              <div className="form-section">
+                <h3 className="section-title">User: {selectedUserForApproval.username}</h3>
+                <p style={{ color: '#666', marginBottom: '20px', fontSize: '0.875rem' }}>
+                  Grant access to different stages of the approval workflow. Users will only see items in stages they have access to.
+                </p>
+                <div className="form-grid">
+                  <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input
+                      type="checkbox"
+                      id="can_access_approval"
+                      checked={approvalAccessForm.can_access_approval}
+                      onChange={(e) => setApprovalAccessForm({
+                        ...approvalAccessForm,
+                        can_access_approval: e.target.checked
+                      })}
+                      style={{ width: 'auto', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="can_access_approval" style={{ cursor: 'pointer', marginBottom: 0 }}>
+                      <strong>Approval Stage</strong>
+                      <span style={{ display: 'block', color: '#666', fontSize: '0.8rem' }}>
+                        Can view and manage items in the approval stage
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input
+                      type="checkbox"
+                      id="can_access_triggering"
+                      checked={approvalAccessForm.can_access_triggering}
+                      onChange={(e) => setApprovalAccessForm({
+                        ...approvalAccessForm,
+                        can_access_triggering: e.target.checked
+                      })}
+                      style={{ width: 'auto', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="can_access_triggering" style={{ cursor: 'pointer', marginBottom: 0 }}>
+                      <strong>Triggering Stage</strong>
+                      <span style={{ display: 'block', color: '#666', fontSize: '0.8rem' }}>
+                        Can view and manage items in the triggering stage
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <input
+                      type="checkbox"
+                      id="can_access_logistics"
+                      checked={approvalAccessForm.can_access_logistics}
+                      onChange={(e) => setApprovalAccessForm({
+                        ...approvalAccessForm,
+                        can_access_logistics: e.target.checked
+                      })}
+                      style={{ width: 'auto', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="can_access_logistics" style={{ cursor: 'pointer', marginBottom: 0 }}>
+                      <strong>Logistics Stage</strong>
+                      <span style={{ display: 'block', color: '#666', fontSize: '0.8rem' }}>
+                        Can view and manage items in the logistics stage
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => {
+                    setShowApprovalAccessModal(false);
+                    setSelectedUserForApproval(null);
+                  }}
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit" disabled={loading}>
+                  {loading ? 'Updating...' : 'Update Approval Access'}
                 </button>
               </div>
             </form>

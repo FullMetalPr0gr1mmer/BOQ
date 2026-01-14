@@ -19,6 +19,20 @@ class ApprovalResponse(BaseModel):
     stage: str
     status: str
     notes: Optional[str] = None
+    smp_id: Optional[str] = None  # Deprecated
+    so_number: Optional[str] = None  # Deprecated
+
+    # New multi-SMP fields
+    planning_smp_id: Optional[str] = None
+    planning_so_number: Optional[str] = None
+    implementation_smp_id: Optional[str] = None
+    implementation_so_number: Optional[str] = None
+    dismantling_smp_id: Optional[str] = None
+    dismantling_so_number: Optional[str] = None
+    epac_req: Optional[str] = None
+    inservice_date: Optional[str] = None
+
+    triggering_file_path: Optional[str] = None
     uploaded_by: int
     uploader_name: Optional[str] = None
     created_at: datetime
@@ -37,6 +51,18 @@ class ApprovalListResponse(BaseModel):
 
 class ApprovalReject(BaseModel):
     notes: str = Field(..., description="Reason for rejection")
+
+
+class ApprovalApprove(BaseModel):
+    # Deprecated field for backward compatibility
+    smp_id: Optional[str] = Field(None, description="Deprecated - use specific SMP fields instead")
+
+    # New multi-SMP fields
+    planning_smp_id: Optional[str] = Field(None, description="Planning services SMP ID")
+    implementation_smp_id: Optional[str] = Field(None, description="Implementation services SMP ID")
+    dismantling_smp_id: Optional[str] = Field(None, description="Dismantling services SMP ID (MW only)")
+    epac_req: Optional[str] = Field(None, description="E-PAC Req value")
+    inservice_date: Optional[str] = Field(None, description="InService Date value")
 
 
 class ApprovalUpdate(BaseModel):

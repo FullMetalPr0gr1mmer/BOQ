@@ -68,6 +68,7 @@ class Lvl3Base(BaseModel):
     upl_line: Optional[str] = None
     total_quantity: Optional[int] = None
     total_price: Optional[float] = None
+    sequence: Optional[int] = None
 
 
 class Lvl3Create(Lvl3Base):

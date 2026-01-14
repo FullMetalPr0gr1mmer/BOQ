@@ -416,7 +416,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
     output = io.StringIO()
     writer = csv.writer(output)
     headers = [
-        "Site ID", "PO#", "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","L1 Category", "RAN Category", "Service Type",
+        "Site ID", "PO#", "PO Line -L1","UPL line","Merge POLine# UPLLine#","Item Code","Sequence","L1 Category", "RAN Category", "Service Type",
         "Model Name / Description", "Serial number", "Identification Code", "Quantity", "Notes"
     ]
     writer.writerow(headers)
@@ -442,6 +442,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             parent.upl_line or "NA",
             parent_merge_line,
             "NA",  # Item Code
+            parent.sequence or " ",  # Sequence
             parent.category,
             parent.ran_category or "NA",  # RAN Category
             get_service_type_name(parent.service_type),
@@ -482,6 +483,8 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                     child.upl_line or "NA",
                     child_merge_line,
                     child.vendor_part_number,
+                    # parent.sequence or
+                    " ",  # Sequence from parent
                     child.category or "NA",
                     parent.ran_category or "NA",  # RAN Category - child takes parent's value
                     get_service_type_name(parent.service_type),
@@ -507,6 +510,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
             antenna_category = antenna_lvl3_item.category if antenna_lvl3_item and antenna_lvl3_item.category else "NA"
             antenna_ran_category = antenna_lvl3_item.ran_category if antenna_lvl3_item and antenna_lvl3_item.ran_category else "NA"
             antenna_service_type = get_service_type_name(antenna_lvl3_item.service_type) if antenna_lvl3_item and antenna_lvl3_item.service_type else "NA"
+            antenna_sequence = antenna_lvl3_item.sequence if antenna_lvl3_item and antenna_lvl3_item.sequence else " "
 
             # Create merge line for antenna
             antenna_po_line_str = str(antenna_po_line) if antenna_po_line != "NA" else "NA"
@@ -546,6 +550,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
                     antenna_upl_line,  # UPL Line from RANLvl3
                     antenna_merge_line,  # Merge line
                     "NA",  # Item Code
+                    antenna_sequence,  # Sequence from RANLvl3
                     antenna_category,  # L1 Category from RANLvl3
                     antenna_ran_category,  # RAN Category from RANLvl3
                     antenna_service_type,  # Service Type from RANLvl3

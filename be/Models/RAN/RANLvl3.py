@@ -26,6 +26,7 @@ class RANLvl3(Base):
     category = Column(String(200), nullable=True)
     upl_line=Column(String(100), nullable=True)
     ran_category = Column(String(100), nullable=True)
+    sequence = Column(Integer, nullable=True)
 
     @property
     def service_type(self):

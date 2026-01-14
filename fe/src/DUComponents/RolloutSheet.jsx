@@ -103,6 +103,15 @@ export default function RolloutSheet() {
   const [editableCsvData, setEditableCsvData] = useState([]);
   const [currentSiteId, setCurrentSiteId] = useState('');
 
+  // Multi-selection State
+  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [selectAll, setSelectAll] = useState(false);
+
+  // Bulk BOQ Generation State
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkBoqData, setBulkBoqData] = useState([]); // Array of {entry_id, site_id, scope, csvData}
+  const [currentBoqIndex, setCurrentBoqIndex] = useState(0);
+
   const fetchAbort = useRef(null);
 
   const fetchProjects = async () => {
@@ -421,43 +430,441 @@ export default function RolloutSheet() {
     }
   };
 
+  // Excel Download Handlers
+  const handleDownloadSingleExcel = async (row) => {
+    if (!row.scope) {
+      setTransient(setError, 'This entry has no scope defined. Cannot download BOQ.');
+      return;
+    }
+    setGeneratingBoqId(row.id);
+    setError("");
+    try {
+      const token = localStorage.getItem('token');
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+      const response = await fetch(`${API_BASE}/rollout-sheet/${row.id}/download-boq-excel`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to download Excel file';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOQ_${row.site_id}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setTransient(setSuccess, `Excel BOQ for site ${row.site_id} downloaded successfully.`);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setGeneratingBoqId(null);
+    }
+  };
+
+  // Selection Handlers
+  const handleSelectRow = (rowId) => {
+    const newSelected = new Set(selectedRows);
+    if (newSelected.has(rowId)) {
+      newSelected.delete(rowId);
+    } else {
+      newSelected.add(rowId);
+    }
+    setSelectedRows(newSelected);
+    // Update selectAll state based on whether all rows with scope are selected
+    const selectableRows = rows.filter(row => row.scope);
+    setSelectAll(newSelected.size === selectableRows.length && selectableRows.length > 0);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedRows(new Set());
+      setSelectAll(false);
+    } else {
+      const allIds = rows
+        .filter(row => row.scope) // Only select rows with scope
+        .map(row => row.id);
+      setSelectedRows(new Set(allIds));
+      setSelectAll(true);
+    }
+  };
+
+  // Bulk BOQ Generation Handler
+  const handleBulkGenerateBoq = async () => {
+    if (selectedRows.size === 0) {
+      setTransient(setError, 'Please select at least one site to generate BOQ.');
+      return;
+    }
+
+    setBulkGenerating(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const entryIds = Array.from(selectedRows);
+      const response = await apiCall('/rollout-sheet/bulk-generate-boq', {
+        method: 'POST',
+        body: JSON.stringify({ entry_ids: entryIds })
+      });
+
+      const successfulBoqs = response.results
+        .filter(r => r.success)
+        .map(r => ({
+          entry_id: r.entry_id,
+          site_id: r.site_id,
+          scope: r.scope,
+          csvData: parseCSV(r.csv_content)
+        }));
+
+      const failedBoqs = response.results
+        .filter(r => !r.success)
+        .map(r => ({
+          site_id: r.site_id || `Entry ID: ${r.entry_id}`,
+          error: r.error
+        }));
+
+      if (successfulBoqs.length === 0) {
+        const failedSites = failedBoqs.map(f => f.site_id).join(', ');
+        setTransient(setError, `Failed to generate BOQs for all selected sites: ${failedSites}`);
+        return;
+      }
+
+      setBulkBoqData(successfulBoqs);
+      setCurrentBoqIndex(0);
+      setShowBoqModal(true);
+
+      const failedCount = response.failed;
+      if (failedCount > 0) {
+        const failedSites = failedBoqs.map(f => f.site_id).join(', ');
+        setTransient(setSuccess,
+          `Generated ${successfulBoqs.length} BOQs successfully. ${failedCount} failed: ${failedSites}`);
+      } else {
+        setTransient(setSuccess,
+          `Generated ${successfulBoqs.length} BOQs successfully.`);
+      }
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
+  // Bulk Excel Download Handler
+  const handleBulkDownloadExcel = async () => {
+    if (selectedRows.size === 0) {
+      setTransient(setError, 'Please select at least one site to download BOQ.');
+      return;
+    }
+
+    setBulkGenerating(true);
+    setError("");
+    try {
+      const entryIds = Array.from(selectedRows);
+      const token = localStorage.getItem('token');
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+      const response = await fetch(`${API_BASE}/rollout-sheet/bulk-download-boq-excel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ entry_ids: entryIds })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to download Excel file';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOQ_Bulk_${selectedRows.size}_sites_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setTransient(setSuccess, `Bulk Excel BOQ for ${selectedRows.size} sites downloaded successfully.`);
+      setSelectedRows(new Set());
+      setSelectAll(false);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
+  // Navigation Handlers
+  const handlePreviousBoq = () => {
+    if (currentBoqIndex > 0) {
+      setCurrentBoqIndex(currentBoqIndex - 1);
+    }
+  };
+
+  const handleNextBoq = () => {
+    if (currentBoqIndex < bulkBoqData.length - 1) {
+      setCurrentBoqIndex(currentBoqIndex + 1);
+    }
+  };
+
+  const getCurrentBoq = () => {
+    return bulkBoqData[currentBoqIndex];
+  };
+
   const handleCellChange = (rowIndex, cellIndex, value) => {
-    const updatedData = editableCsvData.map((row, rIdx) =>
-      rIdx === rowIndex ? row.map((cell, cIdx) => (cIdx === cellIndex ? value : cell)) : row
-    );
-    setEditableCsvData(updatedData);
+    // Check if we're in bulk mode
+    if (bulkBoqData.length > 0) {
+      const currentBoq = getCurrentBoq();
+      const updatedData = currentBoq.csvData.map((row, rIdx) =>
+        rIdx === rowIndex ? row.map((cell, cIdx) =>
+          cIdx === cellIndex ? value : cell
+        ) : row
+      );
+
+      // Update the current BOQ's data in bulkBoqData
+      const updatedBulkData = [...bulkBoqData];
+      updatedBulkData[currentBoqIndex].csvData = updatedData;
+      setBulkBoqData(updatedBulkData);
+    } else {
+      // Single mode - use legacy state
+      const updatedData = editableCsvData.map((row, rIdx) =>
+        rIdx === rowIndex ? row.map((cell, cIdx) => (cIdx === cellIndex ? value : cell)) : row
+      );
+      setEditableCsvData(updatedData);
+    }
   };
 
   const handleAddRow = () => {
-    const numColumns = editableCsvData[0]?.length || 1;
-    const newRow = Array(numColumns).fill('');
-    const updatedData = [editableCsvData[0], ...editableCsvData.slice(1), newRow];
-    setEditableCsvData(updatedData);
+    if (bulkBoqData.length > 0) {
+      const currentBoq = getCurrentBoq();
+      const numColumns = currentBoq.csvData[0]?.length || 1;
+      const newRow = Array(numColumns).fill('');
+      const updatedData = [
+        currentBoq.csvData[0],
+        ...currentBoq.csvData.slice(1),
+        newRow
+      ];
+
+      const updatedBulkData = [...bulkBoqData];
+      updatedBulkData[currentBoqIndex].csvData = updatedData;
+      setBulkBoqData(updatedBulkData);
+    } else {
+      // Single mode - use legacy state
+      const numColumns = editableCsvData[0]?.length || 1;
+      const newRow = Array(numColumns).fill('');
+      const updatedData = [editableCsvData[0], ...editableCsvData.slice(1), newRow];
+      setEditableCsvData(updatedData);
+    }
   };
 
   const handleDeleteRow = (rowIndexToDelete) => {
     if (rowIndexToDelete === 0) return; // Don't delete header
-    setEditableCsvData(editableCsvData.filter((_, index) => index !== rowIndexToDelete));
+
+    if (bulkBoqData.length > 0) {
+      const currentBoq = getCurrentBoq();
+      const updatedData = currentBoq.csvData.filter((_, index) =>
+        index !== rowIndexToDelete
+      );
+
+      const updatedBulkData = [...bulkBoqData];
+      updatedBulkData[currentBoqIndex].csvData = updatedData;
+      setBulkBoqData(updatedBulkData);
+    } else {
+      // Single mode - use legacy state
+      setEditableCsvData(editableCsvData.filter((_, index) => index !== rowIndexToDelete));
+    }
   };
 
   const downloadCSV = () => {
-    if (!editableCsvData.length) return;
-    const csvContent = stringifyCSV(editableCsvData);
+    // Get the current data based on mode (bulk vs single)
+    let dataToDownload;
+    let filename;
+
+    if (bulkBoqData.length > 0) {
+      // Bulk mode - use current BOQ's data
+      const currentBoq = getCurrentBoq();
+      dataToDownload = currentBoq.csvData;
+      filename = `boq_${currentBoq.site_id}_generated.csv`;
+    } else {
+      // Single mode - use editableCsvData
+      dataToDownload = editableCsvData;
+      filename = `boq_${currentSiteId || 'export'}_generated.csv`;
+    }
+
+    if (!dataToDownload || !dataToDownload.length) {
+      setTransient(setError, 'No data to download');
+      return;
+    }
+
+    const csvContent = stringifyCSV(dataToDownload);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `boq_${currentSiteId || 'export'}_generated.csv`);
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    setTransient(setSuccess, 'CSV downloaded successfully');
+  };
+
+  // Download current BOQ as Excel using template (with edited data)
+  const downloadCurrentAsExcel = async () => {
+    // Get the current data based on mode
+    let csvData, siteId, entryId;
+
+    if (bulkBoqData.length > 0) {
+      // Bulk mode - use current BOQ's data
+      const currentBoq = getCurrentBoq();
+      csvData = currentBoq.csvData;
+      siteId = currentBoq.site_id;
+      entryId = currentBoq.entry_id;
+    } else {
+      // Single mode - use editableCsvData
+      csvData = editableCsvData;
+      siteId = currentSiteId;
+      entryId = rows.find(r => r.site_id === currentSiteId)?.id;
+    }
+
+    if (!csvData || !csvData.length || !entryId) {
+      setTransient(setError, 'No data available for download or could not determine entry ID.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+
+      // Send CSV data to backend for Excel generation
+      const response = await fetch(`${API_BASE}/rollout-sheet/download-boq-excel-from-csv`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          entry_id: entryId,
+          csv_data: csvData,
+          site_id: siteId
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to download Excel file';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOQ_${siteId}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setTransient(setSuccess, `Excel BOQ for site ${siteId} downloaded successfully.`);
+    } catch (err) {
+      setTransient(setError, err.message);
+    }
+  };
+
+  // Download all BOQs as Excel using template (bulk mode only, with edited data)
+  const downloadAllAsExcel = async () => {
+    if (bulkBoqData.length === 0) {
+      setTransient(setError, 'No bulk data available.');
+      return;
+    }
+
+    try {
+      // Prepare all BOQ data with their CSV data
+      const boqDataList = bulkBoqData.map(boq => ({
+        entry_id: boq.entry_id,
+        site_id: boq.site_id,
+        csv_data: boq.csvData
+      }));
+
+      const token = localStorage.getItem('token');
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+      const response = await fetch(`${API_BASE}/rollout-sheet/bulk-download-boq-excel-from-csv`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ boq_data_list: boqDataList })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to download Excel file';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOQ_Bulk_${bulkBoqData.length}_sites_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setTransient(setSuccess, `Bulk Excel BOQ for ${bulkBoqData.length} sites downloaded successfully.`);
+    } catch (err) {
+      setTransient(setError, err.message);
+    }
   };
 
   const closeBoqModal = () => {
     setShowBoqModal(false);
     setEditableCsvData([]);
     setCurrentSiteId('');
+    setBulkBoqData([]);
+    setCurrentBoqIndex(0);
+    setSelectedRows(new Set());
+    setSelectAll(false);
   };
 
   const totalPages = Math.ceil(total / rowsPerPage);
@@ -493,12 +900,33 @@ export default function RolloutSheet() {
     }
   ];
 
-  // CSV data for modal
-  const csvHeaders = editableCsvData[0] || [];
-  const csvBody = editableCsvData.slice(1);
+  // CSV data for modal - support both single and bulk modes
+  const currentBoq = bulkBoqData.length > 0 ? getCurrentBoq() : null;
+  const csvHeaders = currentBoq ? currentBoq.csvData[0] : editableCsvData[0] || [];
+  const csvBody = currentBoq ? currentBoq.csvData.slice(1) : editableCsvData.slice(1);
 
   // Define table columns (all fields)
   const tableColumns = [
+    {
+      key: 'select',
+      label: (
+        <input
+          type="checkbox"
+          checked={selectAll}
+          onChange={handleSelectAll}
+          title="Select all sites with scope"
+        />
+      ),
+      render: (row) => (
+        <input
+          type="checkbox"
+          checked={selectedRows.has(row.id)}
+          onChange={() => handleSelectRow(row.id)}
+          disabled={!row.scope}
+          title={!row.scope ? "No scope defined" : "Select site"}
+        />
+      )
+    },
     {
       key: 'boq',
       label: 'BoQ',
@@ -507,9 +935,23 @@ export default function RolloutSheet() {
           onClick={() => handleGenerateBoq(row)}
           className="btn-generate"
           disabled={generatingBoqId === row.id || !row.scope}
-          title={!row.scope ? "No scope defined for BoQ" : "Generate and Edit BoQ"}
+          title={!row.scope ? "No scope defined for BoQ" : "Generate single BoQ (CSV editor)"}
         >
           {generatingBoqId === row.id ? '⚙️' : '📥'}
+        </button>
+      )
+    },
+    {
+      key: 'excel',
+      label: 'Excel',
+      render: (row) => (
+        <button
+          onClick={() => handleDownloadSingleExcel(row)}
+          className="btn-generate"
+          disabled={generatingBoqId === row.id || !row.scope}
+          title={!row.scope ? "No scope defined for Excel" : "Download BOQ as Excel"}
+        >
+          {generatingBoqId === row.id ? '⚙️' : '📊'}
         </button>
       )
     },
@@ -573,10 +1015,14 @@ export default function RolloutSheet() {
         <HelpList
           items={[
             { label: '+ New Record', text: 'Opens a form to create a new rollout entry. Select a project first.' },
+            { label: 'Bulk CSV', text: 'Generate BOQ for selected sites and open in CSV editor for review/editing.' },
+            { label: 'Bulk Excel', text: 'Download BOQ for all selected sites as one Excel file using the template (ordered by line).' },
             { label: '📤 Upload CSV', text: 'Bulk upload rollout data from a CSV file.' },
             { label: '🗑️ Delete All', text: 'Deletes ALL rollout entries for the selected project.' },
             { label: 'Search', text: 'Filter entries by Site ID, Partner, PO Number, etc.' },
             { label: 'Project Dropdown', text: 'Filter all entries by project.' },
+            { label: '📥 BoQ', text: 'Generate single BOQ in CSV format (opens editor for review).' },
+            { label: '📊 Excel', text: 'Download single BOQ as Excel file using the template.' },
             { label: '✏️ Edit', text: 'Modify an existing rollout entry.' },
             { label: '🗑️ Delete', text: 'Remove a rollout entry (requires confirmation).' },
           ]}
@@ -637,6 +1083,25 @@ export default function RolloutSheet() {
       )
     },
     {
+      icon: '📊',
+      title: 'Excel Download Features',
+      content: (
+        <>
+          <HelpText>
+            The BOQ Excel download uses the official template and preserves all formatting, colors, and logos.
+          </HelpText>
+          <HelpList
+            items={[
+              { label: 'Single Site', text: 'Click the 📊 Excel button in any row to download BOQ for that site.' },
+              { label: 'Bulk Download', text: 'Select multiple sites using checkboxes, then click "Bulk Excel" to download all sites in one file.' },
+              { label: 'Ordered Output', text: 'All BOQ items are automatically sorted by line number.' },
+              { label: 'Mapped Fields', text: 'ERP Item Code, Budget Line, SMP, and all other fields are automatically populated.' },
+            ]}
+          />
+        </>
+      )
+    },
+    {
       icon: '💡',
       title: 'Tips',
       content: (
@@ -646,6 +1111,8 @@ export default function RolloutSheet() {
             'Use the search feature to quickly find entries.',
             'The table scrolls horizontally - use the scrollbar to see all columns.',
             'Statistics update automatically when you filter by project.',
+            'For bulk Excel download, select multiple sites and click "Bulk Excel" - all sites will be combined in one file.',
+            'Only sites with a defined scope can generate BOQs.',
           ]}
         />
       )
@@ -687,6 +1154,24 @@ export default function RolloutSheet() {
           >
             <span className="btn-icon">+</span>
             New Record
+          </button>
+          <button
+            className={`btn-primary ${selectedRows.size === 0 || bulkGenerating ? 'disabled' : ''}`}
+            onClick={handleBulkGenerateBoq}
+            disabled={selectedRows.size === 0 || bulkGenerating}
+            title={selectedRows.size === 0 ? "Select sites first" : `Generate BOQ CSV for ${selectedRows.size} sites (opens editor)`}
+          >
+            <span className="btn-icon">{bulkGenerating ? '⚙️' : '📥'}</span>
+            {bulkGenerating ? 'Processing...' : `Bulk CSV (${selectedRows.size})`}
+          </button>
+          <button
+            className={`btn-primary ${selectedRows.size === 0 || bulkGenerating ? 'disabled' : ''}`}
+            onClick={handleBulkDownloadExcel}
+            disabled={selectedRows.size === 0 || bulkGenerating}
+            title={selectedRows.size === 0 ? "Select sites first" : `Download BOQ Excel for ${selectedRows.size} sites`}
+          >
+            <span className="btn-icon">{bulkGenerating ? '⚙️' : '📊'}</span>
+            {bulkGenerating ? 'Processing...' : `Bulk Excel (${selectedRows.size})`}
           </button>
           <label className={`btn-secondary ${uploading || !selectedProject ? 'disabled' : ''}`}>
             <span className="btn-icon">📤</span>
@@ -951,7 +1436,48 @@ export default function RolloutSheet() {
 
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
-              <h3 style={{ margin: 0 }}>Edit BoQ Data for {currentSiteId}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <h3 style={{ margin: 0 }}>
+                  Edit BoQ Data for {currentBoq?.site_id || currentSiteId}
+                </h3>
+
+                {bulkBoqData.length > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      onClick={handlePreviousBoq}
+                      disabled={currentBoqIndex === 0}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 4,
+                        border: '1px solid #ddd',
+                        background: currentBoqIndex === 0 ? '#f5f5f5' : '#fff',
+                        cursor: currentBoqIndex === 0 ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      ← Previous
+                    </button>
+
+                    <span style={{ color: '#666', fontSize: 14 }}>
+                      Site {currentBoqIndex + 1} of {bulkBoqData.length}
+                    </span>
+
+                    <button
+                      onClick={handleNextBoq}
+                      disabled={currentBoqIndex === bulkBoqData.length - 1}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 4,
+                        border: '1px solid #ddd',
+                        background: currentBoqIndex === bulkBoqData.length - 1 ? '#f5f5f5' : '#fff',
+                        cursor: currentBoqIndex === bulkBoqData.length - 1 ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button onClick={closeBoqModal} style={{ fontSize: 18, cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px' }}>
                 ✖
               </button>
@@ -965,6 +1491,14 @@ export default function RolloutSheet() {
               <button onClick={downloadCSV} style={{ padding: '8px 16px', borderRadius: 6, cursor: 'pointer', background: '#2196F3', color: 'white', border: 'none' }}>
                 ⬇ Download CSV
               </button>
+              <button onClick={downloadCurrentAsExcel} style={{ padding: '8px 16px', borderRadius: 6, cursor: 'pointer', background: '#FF9800', color: 'white', border: 'none' }}>
+                📊 Download Current as Excel
+              </button>
+              {bulkBoqData.length > 1 && (
+                <button onClick={downloadAllAsExcel} style={{ padding: '8px 16px', borderRadius: 6, cursor: 'pointer', background: '#9C27B0', color: 'white', border: 'none' }}>
+                  📊 Download All as Excel ({bulkBoqData.length} sites)
+                </button>
+              )}
               <span style={{ color: '#666', alignSelf: 'center' }}>
                 {csvBody.filter(row => row.join('').trim() !== '').length} rows
               </span>

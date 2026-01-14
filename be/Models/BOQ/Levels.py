@@ -48,6 +48,7 @@ class Lvl3(Base):
     upl_line = Column(String(200), nullable=True)
     total_quantity = Column(Integer, nullable=True)
     total_price = Column(Float, nullable=True)
+    sequence = Column(Integer, nullable=True)
 
     # 🔑 establish relationship: one Lvl3 has many ItemsForLvl3
     items = relationship("ItemsForLvl3", back_populates="lvl3", cascade="all, delete-orphan")

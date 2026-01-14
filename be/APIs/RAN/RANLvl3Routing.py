@@ -123,7 +123,8 @@ def create_ranlvl3(db: Session, ranlvl3: RANLvl3Create):
         category=ranlvl3.category,
         po_line=ranlvl3.po_line,
         upl_line=ranlvl3.upl_line,
-        ran_category=ran_category
+        ran_category=ran_category,
+        sequence=ranlvl3.sequence
     )
     db_ranlvl3.service_type = ranlvl3.service_type
 
@@ -169,6 +170,7 @@ def update_ranlvl3(db: Session, ranlvl3_id: int, ranlvl3_data: RANLvl3Update):
     db_ranlvl3.po_line = ranlvl3_data.po_line
     db_ranlvl3.upl_line=ranlvl3_data.upl_line
     db_ranlvl3.ran_category = ran_category
+    db_ranlvl3.sequence = ranlvl3_data.sequence
 
     db.commit()
     db.refresh(db_ranlvl3)

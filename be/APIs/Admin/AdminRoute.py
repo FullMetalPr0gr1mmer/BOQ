@@ -17,7 +17,9 @@ from Schemas.Admin.AccessSchema import (
     UserProjectAccessCreate,
     UserProjectAccessResponse,
     UserProjectAccessUpdate,
-    UserWithProjectsResponse
+    UserWithProjectsResponse,
+    ApprovalStageAccessUpdate,
+    ApprovalStageAccessResponse
 )
 from Schemas.Admin.LogSchema import AuditLogResponse
 from Schemas.Admin.UserSchema import UserRoleUpdateResponse, UserRoleUpdateRequest
@@ -455,7 +457,10 @@ async def get_all_users_with_projects(
             "username": user.username,
             "email": user.email,
             "role_name": user.role.name,
-            "projects": projects
+            "projects": projects,
+            "can_access_approval": user.can_access_approval,
+            "can_access_triggering": user.can_access_triggering,
+            "can_access_logistics": user.can_access_logistics
         })
 
     return result
@@ -529,7 +534,10 @@ async def get_user_projects(
         "username": user.username,
         "email": user.email,
         "role_name": user.role.name,
-        "projects": projects
+        "projects": projects,
+        "can_access_approval": user.can_access_approval,
+        "can_access_triggering": user.can_access_triggering,
+        "can_access_logistics": user.can_access_logistics
     }
 
 
@@ -737,4 +745,73 @@ async def update_user_role(
         email=target_user.email,
         old_role=old_role_name,
         new_role=role_data.new_role_name
+    )
+
+
+# ===========================
+# APPROVAL STAGE ACCESS MANAGEMENT
+# ===========================
+
+@adminRoute.put("/update_approval_stage_access", response_model=ApprovalStageAccessResponse)
+async def update_approval_stage_access(
+    access_data: ApprovalStageAccessUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update approval workflow stage access for a user. Only senior_admin can do this."""
+
+    # Check if the current user has the 'senior_admin' role
+    if current_user.role.name != "senior_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action"
+        )
+
+    # Find the target user
+    target_user = db.query(User).filter(User.id == access_data.user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Update stage access permissions
+    if access_data.can_access_approval is not None:
+        target_user.can_access_approval = access_data.can_access_approval
+    if access_data.can_access_triggering is not None:
+        target_user.can_access_triggering = access_data.can_access_triggering
+    if access_data.can_access_logistics is not None:
+        target_user.can_access_logistics = access_data.can_access_logistics
+
+    db.commit()
+    db.refresh(target_user)
+
+    # Create audit log
+    try:
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update_approval_stage_access",
+            resource_type="user",
+            resource_id=str(target_user.id),
+            resource_name=target_user.username,
+            details=json.dumps({
+                "target_user": target_user.username,
+                "can_access_approval": target_user.can_access_approval,
+                "can_access_triggering": target_user.can_access_triggering,
+                "can_access_logistics": target_user.can_access_logistics
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+    except Exception as e:
+        print(f"Failed to create audit log: {e}")
+
+    return ApprovalStageAccessResponse(
+        id=target_user.id,
+        username=target_user.username,
+        can_access_approval=target_user.can_access_approval,
+        can_access_triggering=target_user.can_access_triggering,
+        can_access_logistics=target_user.can_access_logistics
     )
