@@ -4,15 +4,15 @@ import "../css/Inventory.css";
 import '../css/shared/DownloadButton.css';
 import StatsCarousel from '../Components/shared/StatsCarousel';
 import FilterBar from '../Components/shared/FilterBar';
-import DataTable from '../Components/shared/DataTable';
 import HelpModal, { HelpList, HelpText, CodeBlock } from '../Components/shared/HelpModal';
 import TitleWithInfo from '../Components/shared/InfoButton';
-import { downloadDUODBOQItemsUploadTemplate } from '../utils/csvTemplateDownloader';
 import Pagination from '../Components/shared/Pagination';
 import DeleteConfirmationModal from '../Components/shared/DeleteConfirmationModal';
+import { downloadCustomCSVTemplate } from '../utils/csvTemplateDownloader';
 
 export default function ODBOQItems() {
-  const [rows, setRows] = useState([]);
+  // State for sites (main table)
+  const [sites, setSites] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -25,43 +25,60 @@ export default function ODBOQItems() {
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRow, setEditingRow] = useState(null);
+  // State for site editing
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSite, setEditingSite] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [updating, setUpdating] = useState(false);
 
+  // State for products mini-table (View Products)
+  const [expandedSiteId, setExpandedSiteId] = useState(null);
+  const [currentSiteProducts, setCurrentSiteProducts] = useState(null);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  // State for product editing within expanded row
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [productFormData, setProductFormData] = useState({
+    description: '',
+    line_number: '',
+    code: '',
+    category: '',
+    total_po_qty: '',
+    consumed_in_year: '',
+    remaining_in_po: ''
+  });
+
+  // State for filters and projects
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    cat: '',
-    bu: '',
-    category: '',
-    description: '',
-    uom: '',
-    new_sran: '',
-    sran_exp_1cc_l800: '',
-    sran_exp_1cc_l1800: '',
-    sran_exp_2cc_l800_l1800: '',
-    sran_exp_2cc_l1800_l2100: '',
-    sran_exp_2cc_l800_l2100: '',
-    new_5g_n78: '',
-    exp_5g_3cc: '',
-    exp_5g_n41_reuse: '',
-    exp_5g_3cc_ontop: '',
-    exp_5g_band_swap: '',
-    nr_fdd_model1_activation: '',
-    nr_fdd_model1_tdra: '',
-    nr_fdd_model1_2025: '',
-    antenna_cutover_ipaa: '',
-    total_qty: '',
-    project_id: ''
+  const [stats, setStats] = useState({
+    total_sites: 0,
+    total_products: 0,
+    total_site_products: 0,
+    unique_scopes: 0,
+    unique_subscopes: 0,
+    unique_categories: 0
   });
-  const [creating, setCreating] = useState(false);
-  const [stats, setStats] = useState({ total_items: 0, unique_categories: 0, unique_bus: 0 });
+
+  // Filter options
+  const [filterOptions, setFilterOptions] = useState({
+    regions: [],
+    scopes: [],
+    subscopes: [],
+    categories: [],
+    projects: []
+  });
+  const [selectedRegion, setSelectedRegion] = useState('');
+  const [selectedScope, setSelectedScope] = useState('');
+  const [selectedSubscope, setSelectedSubscope] = useState('');
+
+  // CSV upload state
+  const [consumedYear, setConsumedYear] = useState(new Date().getFullYear());
 
   const fetchAbort = useRef(null);
 
+  // Fetch projects
   const fetchProjects = async () => {
     try {
       const data = await apiCall('/du-projects');
@@ -73,19 +90,52 @@ export default function ODBOQItems() {
     }
   };
 
+  // Fetch stats
   const fetchStats = async (projectId = '') => {
     try {
       const params = new URLSearchParams();
       if (projectId) params.append('project_id', projectId);
 
-      const data = await apiCall(`/boq-items/stats?${params.toString()}`);
-      setStats(data || { total_items: 0, unique_categories: 0, unique_bus: 0 });
+      const data = await apiCall(`/od-boq/stats?${params.toString()}`);
+      setStats(data || {
+        total_sites: 0,
+        total_products: 0,
+        total_site_products: 0,
+        unique_scopes: 0,
+        unique_subscopes: 0,
+        unique_categories: 0
+      });
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     }
   };
 
-  const fetchBOQItems = async (page = 1, search = "", limit = rowsPerPage, projectId = selectedProject) => {
+  // Fetch filter options
+  const fetchFilterOptions = async () => {
+    try {
+      const data = await apiCall('/od-boq/filters/options');
+      setFilterOptions(data || {
+        regions: [],
+        scopes: [],
+        subscopes: [],
+        categories: [],
+        projects: []
+      });
+    } catch (err) {
+      console.error('Failed to fetch filter options:', err);
+    }
+  };
+
+  // Fetch sites (main data)
+  const fetchSites = async (
+    page = 1,
+    search = "",
+    limit = rowsPerPage,
+    projectId = selectedProject,
+    region = selectedRegion,
+    scope = selectedScope,
+    subscope = selectedSubscope
+  ) => {
     try {
       if (fetchAbort.current) fetchAbort.current.abort();
       const controller = new AbortController();
@@ -101,16 +151,19 @@ export default function ODBOQItems() {
 
       if (search.trim()) params.append('search', search.trim());
       if (projectId) params.append('project_id', projectId);
+      if (region) params.append('region', region);
+      if (scope) params.append('scope', scope);
+      if (subscope) params.append('subscope', subscope);
 
-      const { records, total } = await apiCall(`/boq-items?${params.toString()}`, {
+      const { records, total } = await apiCall(`/od-boq/sites?${params.toString()}`, {
         signal: controller.signal,
       });
 
-      setRows(records || []);
+      setSites(records || []);
       setTotal(total || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (err.name !== "AbortError") setTransient(setError, err.message || "Failed to fetch records");
+      if (err.name !== "AbortError") setTransient(setError, err.message || "Failed to fetch sites");
     } finally {
       setLoading(false);
     }
@@ -118,26 +171,52 @@ export default function ODBOQItems() {
 
   useEffect(() => {
     fetchProjects();
-    fetchBOQItems(1, "", rowsPerPage, '');
+    fetchFilterOptions();
+    fetchSites(1, "", rowsPerPage, '', '', '', '');
     fetchStats('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Handle project change
   const handleProjectChange = (e) => {
     const projectId = e.target.value;
     setSelectedProject(projectId);
     setSearchTerm('');
     setCurrentPage(1);
-    fetchBOQItems(1, '', rowsPerPage, projectId);
+    fetchSites(1, '', rowsPerPage, projectId, selectedRegion, selectedScope, selectedSubscope);
     fetchStats(projectId);
   };
 
+  // Handle filter changes
+  const handleRegionChange = (e) => {
+    const region = e.target.value;
+    setSelectedRegion(region);
+    setCurrentPage(1);
+    fetchSites(1, searchTerm, rowsPerPage, selectedProject, region, selectedScope, selectedSubscope);
+  };
+
+  const handleScopeChange = (e) => {
+    const scope = e.target.value;
+    setSelectedScope(scope);
+    setCurrentPage(1);
+    fetchSites(1, searchTerm, rowsPerPage, selectedProject, selectedRegion, scope, selectedSubscope);
+  };
+
+  const handleSubscopeChange = (e) => {
+    const subscope = e.target.value;
+    setSelectedSubscope(subscope);
+    setCurrentPage(1);
+    fetchSites(1, searchTerm, rowsPerPage, selectedProject, selectedRegion, selectedScope, subscope);
+  };
+
+  // Handle search
   const onSearchChange = (e) => {
     const v = e.target.value;
     setSearchTerm(v);
-    fetchBOQItems(1, v, rowsPerPage, selectedProject);
+    fetchSites(1, v, rowsPerPage, selectedProject, selectedRegion, selectedScope, selectedSubscope);
   };
 
+  // Handle CSV upload
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -154,16 +233,17 @@ export default function ODBOQItems() {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("project_id", selectedProject);
-    formData.append("skip_header_rows", "4");
+    formData.append("consumed_year", consumedYear.toString());
 
     try {
-      const result = await apiCall('/boq-items/upload-csv', {
+      const result = await apiCall('/od-boq/upload-csv', {
         method: "POST",
         body: formData,
       });
       setTransient(setSuccess, `Upload successful! ${result.message}`);
-      fetchBOQItems(1, searchTerm);
+      fetchSites(1, searchTerm, rowsPerPage, selectedProject, selectedRegion, selectedScope, selectedSubscope);
       fetchStats(selectedProject);
+      fetchFilterOptions();
     } catch (err) {
       setTransient(setError, err.message);
     } finally {
@@ -172,19 +252,21 @@ export default function ODBOQItems() {
     }
   };
 
-  const handleDelete = async (row) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
+  // Handle site delete
+  const handleDeleteSite = async (site) => {
+    if (!window.confirm(`Are you sure you want to delete site ${site.site_id}? This will also delete all associated product quantities.`)) return;
     try {
-      await apiCall(`/boq-items/${row.id}`, { method: "DELETE" });
-      setTransient(setSuccess, "Item deleted successfully");
-      fetchBOQItems(currentPage, searchTerm);
+      await apiCall(`/od-boq/sites/${site.site_id}`, { method: "DELETE" });
+      setTransient(setSuccess, "Site deleted successfully");
+      fetchSites(currentPage, searchTerm, rowsPerPage, selectedProject, selectedRegion, selectedScope, selectedSubscope);
       fetchStats(selectedProject);
     } catch (err) {
       setTransient(setError, err.message);
     }
   };
 
-  const handleDeleteAllBOQItems = () => {
+  // Handle delete all sites for project
+  const handleDeleteAllSites = () => {
     if (!selectedProject) {
       setTransient(setError, 'Please select a project first.');
       return;
@@ -192,7 +274,7 @@ export default function ODBOQItems() {
     setShowDeleteAllModal(true);
   };
 
-  const confirmDeleteAllBOQItems = async () => {
+  const confirmDeleteAllSites = async () => {
     if (!selectedProject) return;
 
     setDeleteAllLoading(true);
@@ -200,22 +282,23 @@ export default function ODBOQItems() {
     setSuccess('');
 
     try {
-      const result = await apiCall(`/boq-items/delete-all/${selectedProject}`, { method: 'DELETE' });
-      const message = `Successfully deleted ${result.deleted_count} BOQ items.`;
+      const result = await apiCall(`/od-boq/sites/delete-all/${selectedProject}`, { method: 'DELETE' });
+      const message = `Successfully deleted ${result.deleted_sites} sites and ${result.deleted_site_products} site-product records.`;
       setTransient(setSuccess, message);
       setShowDeleteAllModal(false);
       setSelectedProject('');
-      fetchBOQItems(1, '', rowsPerPage, '');
+      fetchSites(1, '', rowsPerPage, '', '', '', '');
       fetchStats('');
+      fetchFilterOptions();
     } catch (err) {
-      setTransient(setError, err.message || 'Failed to delete BOQ items');
+      setTransient(setError, err.message || 'Failed to delete sites');
       setShowDeleteAllModal(false);
     } finally {
       setDeleteAllLoading(false);
     }
   };
 
-  const cancelDeleteAllBOQItems = () => {
+  const cancelDeleteAllSites = () => {
     if (!deleteAllLoading) {
       setShowDeleteAllModal(false);
     }
@@ -226,16 +309,17 @@ export default function ODBOQItems() {
     return project ? `${project.project_name} (${project.pid_po})` : selectedProject;
   };
 
-  const openEditModal = (row) => {
-    setEditingRow(row);
-    const { id, ...formFields } = row;
+  // Handle site edit
+  const openEditModal = (site) => {
+    setEditingSite(site);
+    const { site_id, ...formFields } = site;
     setEditForm(formFields);
-    setIsModalOpen(true);
+    setIsEditModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingRow(null);
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingSite(null);
     setEditForm({});
     setError("");
     setSuccess("");
@@ -245,19 +329,19 @@ export default function ODBOQItems() {
     setEditForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleUpdate = async () => {
-    if (!editingRow) return;
+  const handleUpdateSite = async () => {
+    if (!editingSite) return;
     setUpdating(true);
     setError("");
     setSuccess("");
     try {
-      await apiCall(`/boq-items/${editingRow.id}`, {
+      await apiCall(`/od-boq/sites/${editingSite.site_id}`, {
         method: "PUT",
         body: JSON.stringify(editForm),
       });
-      setTransient(setSuccess, "Item updated successfully!");
-      closeModal();
-      fetchBOQItems(currentPage, searchTerm);
+      setTransient(setSuccess, "Site updated successfully!");
+      closeEditModal();
+      fetchSites(currentPage, searchTerm, rowsPerPage, selectedProject, selectedRegion, selectedScope, selectedSubscope);
       fetchStats(selectedProject);
     } catch (err) {
       setTransient(setError, err.message);
@@ -266,88 +350,141 @@ export default function ODBOQItems() {
     }
   };
 
-  const openCreateModal = () => {
-    if (!selectedProject) {
-      setTransient(setError, 'Please select a project to create a new item.');
+  // Handle View Products (Toggle expand/collapse)
+  const toggleExpandSite = async (site) => {
+    // If clicking on already expanded site, collapse it
+    if (expandedSiteId === site.site_id) {
+      setExpandedSiteId(null);
+      setCurrentSiteProducts(null);
       return;
     }
-    setCreateForm({
-      cat: '',
-      bu: '',
-      category: '',
-      description: '',
-      uom: '',
-      new_sran: '',
-      sran_exp_1cc_l800: '',
-      sran_exp_1cc_l1800: '',
-      sran_exp_2cc_l800_l1800: '',
-      sran_exp_2cc_l1800_l2100: '',
-      sran_exp_2cc_l800_l2100: '',
-      new_5g_n78: '',
-      exp_5g_3cc: '',
-      exp_5g_n41_reuse: '',
-      exp_5g_3cc_ontop: '',
-      exp_5g_band_swap: '',
-      nr_fdd_model1_activation: '',
-      nr_fdd_model1_tdra: '',
-      nr_fdd_model1_2025: '',
-      antenna_cutover_ipaa: '',
-      total_qty: '',
-      project_id: selectedProject
-    });
-    setShowCreateModal(true);
-    setError('');
-    setSuccess('');
-  };
 
-  const closeCreateModal = () => {
-    setShowCreateModal(false);
-    setCreateForm({});
-    setError('');
-    setSuccess('');
-  };
+    // Expand new site and load products
+    setExpandedSiteId(site.site_id);
+    setLoadingProducts(true);
+    setCurrentSiteProducts(null);
+    setError("");
 
-  const onCreateChange = (key, value) => {
-    setCreateForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setCreating(true);
-    setError('');
-    setSuccess('');
     try {
-      await apiCall('/boq-items', {
-        method: 'POST',
-        body: JSON.stringify(createForm),
-      });
-      setTransient(setSuccess, 'Item created successfully!');
-      fetchBOQItems(currentPage, searchTerm);
-      fetchStats(selectedProject);
-      setTimeout(() => closeCreateModal(), 1200);
+      const data = await apiCall(`/od-boq/sites/${site.site_id}/with-products`);
+      setCurrentSiteProducts(data);
     } catch (err) {
-      setTransient(setError, err.message);
+      setTransient(setError, `Failed to load products for site ${site.site_id}: ${err.message}`);
+      setExpandedSiteId(null);
     } finally {
-      setCreating(false);
+      setLoadingProducts(false);
     }
   };
 
+  // Product Management Handlers
+  const handleAddProduct = () => {
+    setProductFormData({
+      description: '',
+      line_number: '',
+      code: '',
+      category: '',
+      total_po_qty: '',
+      consumed_in_year: '',
+      remaining_in_po: ''
+    });
+    setEditingProduct(null);
+    setShowProductForm(true);
+  };
+
+  const handleEditProduct = (product) => {
+    setProductFormData({
+      description: product.description || '',
+      line_number: product.line_number || '',
+      code: product.code || '',
+      category: product.category || '',
+      total_po_qty: product.total_po_qty || '',
+      consumed_in_year: product.consumed_in_year || '',
+      remaining_in_po: product.remaining_in_po || ''
+    });
+    setEditingProduct(product);
+    setShowProductForm(true);
+  };
+
+  const handleProductFormChange = (e) => {
+    const { name, value } = e.target;
+    setProductFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    const payload = {
+      ...productFormData,
+      total_po_qty: parseFloat(productFormData.total_po_qty) || 0,
+      consumed_in_year: parseFloat(productFormData.consumed_in_year) || 0,
+      remaining_in_po: parseFloat(productFormData.remaining_in_po) || 0,
+      consumed_year: consumedYear
+    };
+
+    try {
+      if (editingProduct) {
+        await apiCall(`/od-boq/products/${editingProduct.product_id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        });
+        setTransient(setSuccess, 'Product updated successfully!');
+      } else {
+        await apiCall('/od-boq/products', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        setTransient(setSuccess, 'Product created successfully!');
+      }
+      setShowProductForm(false);
+      setEditingProduct(null);
+      // Refresh the current site's products if expanded
+      if (expandedSiteId) {
+        const data = await apiCall(`/od-boq/sites/${expandedSiteId}/with-products`);
+        setCurrentSiteProducts(data);
+      }
+    } catch (err) {
+      setTransient(setError, err.message);
+    }
+  };
+
+  const handleDeleteProduct = async (product) => {
+    if (!window.confirm(`Are you sure you want to delete product "${product.description}"?`)) return;
+
+    try {
+      await apiCall(`/od-boq/products/${product.product_id}`, {
+        method: 'DELETE'
+      });
+      setTransient(setSuccess, 'Product deleted successfully!');
+      // Refresh the current site's products if expanded
+      if (expandedSiteId) {
+        const data = await apiCall(`/od-boq/sites/${expandedSiteId}/with-products`);
+        setCurrentSiteProducts(data);
+      }
+    } catch (err) {
+      setTransient(setError, err.message);
+    }
+  };
+
+  // Pagination
   const totalPages = Math.ceil(total / rowsPerPage);
 
   const handleRowsPerPageChange = (e) => {
     const newLimit = parseInt(e.target.value);
     setRowsPerPage(newLimit);
     setCurrentPage(1);
-    fetchBOQItems(1, searchTerm, newLimit);
+    fetchSites(1, searchTerm, newLimit, selectedProject, selectedRegion, selectedScope, selectedSubscope);
   };
 
   // Define stat cards
   const statCards = [
-    { label: 'Total Items', value: stats.total_items || total },
-    { label: 'Categories', value: stats.unique_categories || 0 },
-    { label: 'BUs', value: stats.unique_bus || 0 },
+    { label: 'Total Sites', value: stats.total_sites || total },
+    { label: 'Total Products', value: stats.total_products || 0 },
+    { label: 'Scopes', value: stats.unique_scopes || 0 },
+    { label: 'Subscopes', value: stats.unique_subscopes || 0 },
     { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
-    { label: 'Showing', value: `${rows.length} items` },
+    { label: 'Showing', value: `${sites.length} sites` },
     {
       label: 'Rows Per Page',
       isEditable: true,
@@ -365,38 +502,6 @@ export default function ODBOQItems() {
     }
   ];
 
-  // Define table columns
-  const tableColumns = [
-    { key: 'cat', label: 'CAT' },
-    { key: 'bu', label: 'BU' },
-    { key: 'category', label: 'Category' },
-    { key: 'description', label: 'Description' },
-    { key: 'uom', label: 'UoM' },
-    { key: 'new_sran', label: 'New SRAN' },
-    { key: 'sran_exp_1cc_l800', label: 'SRAN Exp L800' },
-    { key: 'sran_exp_1cc_l1800', label: 'SRAN Exp L1800' },
-    { key: 'sran_exp_2cc_l800_l1800', label: 'SRAN Exp L800+L1800' },
-    { key: 'sran_exp_2cc_l1800_l2100', label: 'SRAN Exp L1800+L2100' },
-    { key: 'sran_exp_2cc_l800_l2100', label: 'SRAN Exp L800+L2100' },
-    { key: 'new_5g_n78', label: 'New 5G n78' },
-    { key: 'exp_5g_3cc', label: '5G Exp 3CC' },
-    { key: 'exp_5g_n41_reuse', label: '5G n41 Reuse' },
-    { key: 'exp_5g_3cc_ontop', label: '5G 3CC Ontop' },
-    { key: 'exp_5g_band_swap', label: '5G Band Swap' },
-    { key: 'nr_fdd_model1_activation', label: 'NR FDD Activation' },
-    { key: 'nr_fdd_model1_tdra', label: 'NR FDD TDRA' },
-    { key: 'nr_fdd_model1_2025', label: 'NR FDD 2025' },
-    { key: 'antenna_cutover_ipaa', label: 'Antenna IPAA' },
-    { key: 'total_qty', label: 'Total Qty' },
-    { key: 'project_id', label: 'Project' }
-  ];
-
-  // Define table actions
-  const tableActions = [
-    { icon: '✏️', onClick: (row) => openEditModal(row), title: 'Edit', className: 'btn-edit' },
-    { icon: '🗑️', onClick: (row) => handleDelete(row), title: 'Delete', className: 'btn-delete' }
-  ];
-
   // Help modal sections
   const helpSections = [
     {
@@ -404,8 +509,8 @@ export default function ODBOQItems() {
       title: 'Overview',
       content: (
         <HelpText>
-          The OD BOQ Items Management component allows you to manage Bill of Quantities items with multi-level headers.
-          It supports New SRAN, SRAN Expansion, 5G, and NR FDD scope types.
+          The OD BOQ Management component uses a 3-table structure: Sites (parent), Products (master catalog),
+          and Site-Product (junction with quantities). Upload CSVs to populate all tables automatically.
         </HelpText>
       )
     },
@@ -415,13 +520,14 @@ export default function ODBOQItems() {
       content: (
         <HelpList
           items={[
-            { label: '+ New Item', text: 'Opens a form to create a new BOQ item. Select a project first.' },
-            { label: '📤 Upload CSV', text: 'Bulk upload BOQ data from a CSV file with multi-level headers.' },
-            { label: '🗑️ Delete All', text: 'Deletes ALL BOQ items for the selected project.' },
-            { label: 'Search', text: 'Filter items by Description, CAT, BU, Category.' },
-            { label: 'Project Dropdown', text: 'Filter all items by project.' },
-            { label: '✏️ Edit', text: 'Modify an existing BOQ item.' },
-            { label: '🗑️ Delete', text: 'Remove a BOQ item (requires confirmation).' },
+            { label: 'View Products', text: 'Expands the row to show a mini-table with all products and quantities for that site.' },
+            { label: 'Hide Products', text: 'Collapses the expanded products mini-table.' },
+            { label: 'Edit', text: 'Modify site information (region, scope, etc.).' },
+            { label: 'Delete', text: 'Remove a site and all its product quantities.' },
+            { label: '📤 Upload CSV', text: 'Bulk upload BOQ data from a CSV file with multi-header structure.' },
+            { label: '🗑️ Delete All', text: 'Deletes ALL sites and related data for the selected project.' },
+            { label: 'Search', text: 'Filter sites by Site ID, Region, Scope, Subscope.' },
+            { label: 'Filters', text: 'Use dropdowns to filter by Project, Region, Scope, or Subscope.' },
           ]}
         />
       )
@@ -432,54 +538,62 @@ export default function ODBOQItems() {
       content: (
         <>
           <HelpText>
-            Your CSV file must have these exact headers (in order):
+            Your CSV file must follow this structure:
           </HelpText>
           <CodeBlock
             items={[
-              'CAT',
-              'BU',
-              'Category',
-              'Description',
-              'UoM',
-              'New SRAN',
-              'SRAN Exp 1cc L800',
-              'SRAN Exp 1cc L1800',
-              'SRAN Exp 2cc L800+L1800',
-              'SRAN Exp 2cc L1800+L2100',
-              'SRAN Exp 2cc L800+L2100',
-              'New 5G n78',
-              '5G Exp 3CC',
-              '5G n41 Reuse',
-              '5G 3CC Ontop',
-              '5G Band Swap',
-              'NR FDD Activation',
-              'NR FDD TDRA',
-              'NR FDD 2025',
-              'Antenna IPAA',
-              'Total Qty'
+              'Row 1: Product descriptions (starting column H)',
+              'Row 2: Line numbers',
+              'Row 3: Product codes',
+              'Row 4: Categories (Hardware/SW/Service)',
+              'Row 5: Total PO QTY',
+              'Row 6: Consumed in [Year]',
+              'Row 7: Column headers (Region, Distance, Scope, Subscope, Site ID, PO Model, Remaining in PO)',
+              'Row 8+: Site data rows with quantities'
             ]}
           />
-          <button className="btn-download-template" onClick={downloadDUODBOQItemsUploadTemplate} type="button">
-            Download CSV Template
-          </button>
           <HelpText isNote>
-            <strong>Note:</strong> Select a project before uploading. The file skips 4 header rows by default (multi-level headers).
+            <strong>Note:</strong> Select a project and set the consumed year before uploading.
+            The system automatically creates products from column headers and populates all site-product quantities.
           </HelpText>
+          <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                const headers = [
+                  'Region', 'Distance', 'Scope', 'Subscope', 'Site ID', 'PO Model', 'Remaining in PO',
+                  'Product 1', 'Product 2', 'Product 3', 'Product 4', 'Product 5'
+                ];
+                const sampleRows = [
+                  ['Description:', '', '', '', '', '', '', 'ODU - External', 'IDU - Indoor', 'Cable - 10m', 'Antenna 0.6m', 'Mounting Kit'],
+                  ['Line Number:', '', '', '', '', '', '', 'LINE-001', 'LINE-002', 'LINE-003', 'LINE-004', 'LINE-005'],
+                  ['Code:', '', '', '', '', '', '', 'ODU-EXT-001', 'IDU-IN-001', 'CBL-10M-001', 'ANT-06M-001', 'MNT-KIT-001'],
+                  ['Category:', '', '', '', '', '', '', 'Hardware', 'Hardware', 'Hardware', 'Hardware', 'Hardware'],
+                  ['Total PO QTY:', '', '', '', '', '', '', '100', '100', '200', '50', '50'],
+                  [`Consumed in ${consumedYear}:`, '', '', '', '', '', '', '20', '20', '40', '10', '10'],
+                  ['', '', '', '', '', '', '', '', '', '', '', ''],
+                  ['North', '5km', 'New', 'Installation', 'SITE001', 'Model A', '80', '2', '2', '4', '1', '1'],
+                  ['South', '10km', 'Upgrade', 'Enhancement', 'SITE002', 'Model B', '75', '3', '3', '6', '2', '2']
+                ];
+                downloadCustomCSVTemplate(headers, 'od_boq_template', sampleRows);
+              }}
+              style={{ padding: '0.75rem 1.5rem' }}
+            >
+              📥 Download CSV Template
+            </button>
+          </div>
         </>
       )
     },
     {
-      icon: '💡',
-      title: 'Scope Types',
+      icon: '🏗️',
+      title: 'Database Structure',
       content: (
         <HelpList
           items={[
-            'New SRAN: New 3G/LTE sites',
-            'SRAN Expansion: 1cc to 3cc or 2cc to 3cc expansions',
-            'New 5G-n78: New 5G colocation n78',
-            '5G Expansion: 3CC, n41 reuse, band swap',
-            '5G-NR FDD: FDD NR activation and readiness',
-            'Antenna Cutover (IPAA+): IPAA services',
+            'OD_BOQ_Site: Stores site information (Site ID, Region, Distance, Scope, Subscope, PO Model)',
+            'OD_BOQ_Product: Master product catalog (Description, Line#, Code, Category, Total PO QTY, etc.)',
+            'OD_BOQ_Site_Product: Junction table with quantities for each site-product combination',
           ]}
         />
       )
@@ -502,40 +616,28 @@ export default function ODBOQItems() {
     </div>
   );
 
-  // Numeric form field renderer - uses != null to properly show 0 values
-  const renderNumericField = (label, name, value, onChange) => (
-    <div className="form-field">
-      <label>{label}</label>
-      <input
-        type="number"
-        step="0.01"
-        name={name}
-        value={value != null ? value : ''}
-        onChange={onChange}
-      />
-    </div>
-  );
-
   return (
     <div className="inventory-container">
       {/* Header Section */}
       <div className="inventory-header">
         <TitleWithInfo
-          title="OD BOQ Items Management"
-          subtitle="Manage Bill of Quantities with multi-level headers"
+          title="OD BOQ Site Management"
+          subtitle="Manage Outdoor Bill of Quantities - 3-Table Structure"
           onInfoClick={() => setShowHelpModal(true)}
           infoTooltip="How to use this component"
         />
         <div className="header-actions">
-          <button
-            className={`btn-primary ${!selectedProject ? 'disabled' : ''}`}
-            onClick={openCreateModal}
-            disabled={!selectedProject}
-            title={!selectedProject ? "Select a project first" : "Create a new item"}
-          >
-            <span className="btn-icon">+</span>
-            New Item
-          </button>
+          <div className="form-field" style={{ marginRight: '1rem', minWidth: '120px' }}>
+            <label style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>Consumed Year</label>
+            <input
+              type="number"
+              value={consumedYear}
+              onChange={(e) => setConsumedYear(parseInt(e.target.value))}
+              min="2020"
+              max="2099"
+              style={{ width: '100%', padding: '0.5rem' }}
+            />
+          </div>
           <label className={`btn-secondary ${uploading || !selectedProject ? 'disabled' : ''}`}>
             <span className="btn-icon">📤</span>
             Upload CSV
@@ -549,9 +651,9 @@ export default function ODBOQItems() {
           </label>
           <button
             className={`btn-danger ${!selectedProject ? 'disabled' : ''}`}
-            onClick={handleDeleteAllBOQItems}
+            onClick={handleDeleteAllSites}
             disabled={!selectedProject}
-            title={!selectedProject ? "Select a project first" : "Delete all items for this project"}
+            title={!selectedProject ? "Select a project first" : "Delete all sites for this project"}
           >
             <span className="btn-icon">🗑️</span>
             Delete All
@@ -563,164 +665,249 @@ export default function ODBOQItems() {
       <FilterBar
         searchTerm={searchTerm}
         onSearchChange={onSearchChange}
-        searchPlaceholder="Search by Description, CAT, BU, Category..."
+        searchPlaceholder="Search by Site ID, Region, Scope, Subscope..."
         dropdowns={[
           {
             label: 'Project',
             value: selectedProject,
             onChange: handleProjectChange,
-            placeholder: '-- Select a Project --',
+            placeholder: '-- All Projects --',
             options: projects.map(p => ({
               value: p.pid_po,
               label: `${p.project_name} (${p.pid_po})`
             }))
+          },
+          {
+            label: 'Region',
+            value: selectedRegion,
+            onChange: handleRegionChange,
+            placeholder: '-- All Regions --',
+            options: filterOptions.regions.map(r => ({ value: r, label: r }))
+          },
+          {
+            label: 'Scope',
+            value: selectedScope,
+            onChange: handleScopeChange,
+            placeholder: '-- All Scopes --',
+            options: filterOptions.scopes.map(s => ({ value: s, label: s }))
+          },
+          {
+            label: 'Subscope',
+            value: selectedSubscope,
+            onChange: handleSubscopeChange,
+            placeholder: '-- All Subscopes --',
+            options: filterOptions.subscopes.map(s => ({ value: s, label: s }))
           }
         ]}
-        showClearButton={!!searchTerm}
-        onClearSearch={() => { setSearchTerm(''); fetchBOQItems(1, ''); }}
-        clearButtonText="Clear Search"
+        showClearButton={!!searchTerm || !!selectedRegion || !!selectedScope || !!selectedSubscope}
+        onClearSearch={() => {
+          setSearchTerm('');
+          setSelectedRegion('');
+          setSelectedScope('');
+          setSelectedSubscope('');
+          fetchSites(1, '', rowsPerPage, selectedProject, '', '', '');
+        }}
+        clearButtonText="Clear Filters"
       />
 
       {/* Messages */}
       {error && <div className="message error-message">{error}</div>}
       {success && <div className="message success-message">{success}</div>}
-      {loading && <div className="loading-indicator">Loading BOQ Items...</div>}
+      {loading && <div className="loading-indicator">Loading Sites...</div>}
 
       {/* Stats Bar */}
       <StatsCarousel cards={statCards} visibleCount={4} />
 
-      {/* Table Section */}
-      <DataTable
-        columns={tableColumns}
-        data={rows}
-        actions={tableActions}
-        loading={loading}
-        noDataMessage="No BOQ items found"
-        className="inventory-table-wrapper"
-      />
+      {/* Table Section with Expandable Rows */}
+      <div className="project-table-container">
+        <table className="project-table">
+          <thead>
+            <tr>
+              <th style={{ width: '40px' }}></th>
+              <th>Site ID</th>
+              <th>Region</th>
+              <th>Distance</th>
+              <th>Scope</th>
+              <th>Subscope</th>
+              <th>PO Model</th>
+              <th>Project</th>
+              <th style={{ width: '100px' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
+                  Loading sites...
+                </td>
+              </tr>
+            )}
+            {!loading && sites.length === 0 && (
+              <tr>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
+                  No sites found
+                </td>
+              </tr>
+            )}
+            {!loading && sites.map((site) => (
+              <React.Fragment key={site.site_id}>
+                {/* Main Site Row */}
+                <tr className="parent-row">
+                  <td>
+                    <button
+                      onClick={() => toggleExpandSite(site)}
+                      className="expand-btn"
+                      title="Expand/Collapse products"
+                    >
+                      {expandedSiteId === site.site_id ? '▼' : '▶'}
+                    </button>
+                  </td>
+                  <td>{site.site_id}</td>
+                  <td>{site.region || 'N/A'}</td>
+                  <td>{site.distance || 'N/A'}</td>
+                  <td>{site.scope || 'N/A'}</td>
+                  <td>{site.subscope || 'N/A'}</td>
+                  <td>{site.po_model || 'N/A'}</td>
+                  <td>{site.project_id || 'N/A'}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <div className="action-buttons">
+                      <button
+                        className="btn-action btn-edit"
+                        onClick={() => openEditModal(site)}
+                        title="Edit"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        className="btn-action btn-delete"
+                        onClick={() => handleDeleteSite(site)}
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                {/* Expandable Products Mini-Table */}
+                {expandedSiteId === site.site_id && (
+                  <tr className="expanded-row">
+                    <td colSpan="9">
+                      <div className="nested-items-container">
+                        <div className="nested-items-header">
+                          <h4 className="nested-items-title">Products for {site.site_id}</h4>
+                          <div className="nested-items-actions">
+                            <button
+                              className="btn-secondary"
+                              onClick={handleAddProduct}
+                            >
+                              <span className="btn-icon">+</span>
+                              Add Product
+                            </button>
+                          </div>
+                        </div>
+                        {loadingProducts && (
+                          <div style={{ textAlign: 'center', padding: '1rem' }}>
+                            Loading products...
+                          </div>
+                        )}
+                        {!loadingProducts && currentSiteProducts && (
+                          <div className="nested-table-wrapper">
+                            {currentSiteProducts.products && currentSiteProducts.products.length > 0 ? (
+                              <table className="nested-table">
+                                <thead>
+                                  <tr>
+                                    <th>Description</th>
+                                    <th>Line #</th>
+                                    <th>Code</th>
+                                    <th>Category</th>
+                                    <th>Total PO QTY</th>
+                                    <th>Consumed</th>
+                                    <th>Remaining</th>
+                                    <th>Qty for Site</th>
+                                    <th>Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {currentSiteProducts.products.map((product, idx) => (
+                                    <tr key={`${site.site_id}-product-${idx}`}>
+                                      <td title={product.description}>{product.description || 'N/A'}</td>
+                                      <td title={product.line_number}>{product.line_number || 'N/A'}</td>
+                                      <td title={product.code}>{product.code || 'N/A'}</td>
+                                      <td title={product.category}>{product.category || 'N/A'}</td>
+                                      <td title={product.total_po_qty}>{product.total_po_qty != null ? product.total_po_qty : 'N/A'}</td>
+                                      <td title={product.consumed_in_year}>{product.consumed_in_year != null ? product.consumed_in_year : 'N/A'}</td>
+                                      <td title={product.remaining_in_po}>{product.remaining_in_po != null ? product.remaining_in_po : 'N/A'}</td>
+                                      <td title={product.qty_per_site}>{product.qty_per_site != null ? product.qty_per_site : 'N/A'}</td>
+                                      <td>
+                                        <div className="action-buttons">
+                                          <button
+                                            className="btn-action btn-edit"
+                                            onClick={() => handleEditProduct(product)}
+                                            title="Edit"
+                                          >
+                                            ✏️
+                                          </button>
+                                          <button
+                                            className="btn-action btn-delete"
+                                            onClick={() => handleDeleteProduct(product)}
+                                            title="Delete"
+                                          >
+                                            🗑️
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <div className="no-data" style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>
+                                No products found for this site
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* Pagination */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
-        onPageChange={(page) => fetchBOQItems(page, searchTerm, rowsPerPage)}
+        onPageChange={(page) => fetchSites(page, searchTerm, rowsPerPage, selectedProject, selectedRegion, selectedScope, selectedSubscope)}
         previousText="← Previous"
         nextText="Next →"
       />
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeCreateModal()}>
-          <div className="modal-container" style={{ maxWidth: '900px' }}>
+      {/* Edit Site Modal */}
+      {isEditModalOpen && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeEditModal()}>
+          <div className="modal-container" style={{ maxWidth: '600px' }}>
             <div className="modal-header">
-              <h2 className="modal-title">Create New BOQ Item</h2>
-              <button className="modal-close" onClick={closeCreateModal} type="button">✕</button>
-            </div>
-
-            <form className="modal-form" onSubmit={handleCreate}>
-              {error && <div className="message error-message">{error}</div>}
-              {success && <div className="message success-message">{success}</div>}
-
-              {/* Basic Information */}
-              <div className="form-section">
-                <h3 className="section-title">Basic Information</h3>
-                <div className="form-grid">
-                  {renderFormField('Project ID', 'project_id', createForm.project_id, (e) => onCreateChange('project_id', e.target.value), true, true)}
-                  {renderFormField('CAT', 'cat', createForm.cat, (e) => onCreateChange('cat', e.target.value))}
-                  {renderFormField('BU', 'bu', createForm.bu, (e) => onCreateChange('bu', e.target.value))}
-                  {renderFormField('Category', 'category', createForm.category, (e) => onCreateChange('category', e.target.value))}
-                </div>
-              </div>
-
-              {/* Description & UoM */}
-              <div className="form-section">
-                <h3 className="section-title">Description</h3>
-                <div className="form-grid">
-                  {renderFormField('Description', 'description', createForm.description, (e) => onCreateChange('description', e.target.value), true)}
-                  {renderFormField('UoM', 'uom', createForm.uom, (e) => onCreateChange('uom', e.target.value))}
-                </div>
-              </div>
-
-              {/* SRAN Quantities */}
-              <div className="form-section">
-                <h3 className="section-title">SRAN Quantities</h3>
-                <div className="form-grid">
-                  {renderNumericField('New SRAN', 'new_sran', createForm.new_sran, (e) => onCreateChange('new_sran', e.target.value))}
-                  {renderNumericField('SRAN Exp 1cc L800', 'sran_exp_1cc_l800', createForm.sran_exp_1cc_l800, (e) => onCreateChange('sran_exp_1cc_l800', e.target.value))}
-                  {renderNumericField('SRAN Exp 1cc L1800', 'sran_exp_1cc_l1800', createForm.sran_exp_1cc_l1800, (e) => onCreateChange('sran_exp_1cc_l1800', e.target.value))}
-                  {renderNumericField('SRAN Exp 2cc L800+L1800', 'sran_exp_2cc_l800_l1800', createForm.sran_exp_2cc_l800_l1800, (e) => onCreateChange('sran_exp_2cc_l800_l1800', e.target.value))}
-                  {renderNumericField('SRAN Exp 2cc L1800+L2100', 'sran_exp_2cc_l1800_l2100', createForm.sran_exp_2cc_l1800_l2100, (e) => onCreateChange('sran_exp_2cc_l1800_l2100', e.target.value))}
-                  {renderNumericField('SRAN Exp 2cc L800+L2100', 'sran_exp_2cc_l800_l2100', createForm.sran_exp_2cc_l800_l2100, (e) => onCreateChange('sran_exp_2cc_l800_l2100', e.target.value))}
-                </div>
-              </div>
-
-              {/* 5G Quantities */}
-              <div className="form-section">
-                <h3 className="section-title">5G Quantities</h3>
-                <div className="form-grid">
-                  {renderNumericField('New 5G n78', 'new_5g_n78', createForm.new_5g_n78, (e) => onCreateChange('new_5g_n78', e.target.value))}
-                  {renderNumericField('5G Exp 3CC', 'exp_5g_3cc', createForm.exp_5g_3cc, (e) => onCreateChange('exp_5g_3cc', e.target.value))}
-                  {renderNumericField('5G n41 Reuse', 'exp_5g_n41_reuse', createForm.exp_5g_n41_reuse, (e) => onCreateChange('exp_5g_n41_reuse', e.target.value))}
-                  {renderNumericField('5G 3CC Ontop', 'exp_5g_3cc_ontop', createForm.exp_5g_3cc_ontop, (e) => onCreateChange('exp_5g_3cc_ontop', e.target.value))}
-                  {renderNumericField('5G Band Swap', 'exp_5g_band_swap', createForm.exp_5g_band_swap, (e) => onCreateChange('exp_5g_band_swap', e.target.value))}
-                </div>
-              </div>
-
-              {/* NR FDD & Other */}
-              <div className="form-section">
-                <h3 className="section-title">NR FDD & Other Quantities</h3>
-                <div className="form-grid">
-                  {renderNumericField('NR FDD Activation', 'nr_fdd_model1_activation', createForm.nr_fdd_model1_activation, (e) => onCreateChange('nr_fdd_model1_activation', e.target.value))}
-                  {renderNumericField('NR FDD TDRA', 'nr_fdd_model1_tdra', createForm.nr_fdd_model1_tdra, (e) => onCreateChange('nr_fdd_model1_tdra', e.target.value))}
-                  {renderNumericField('NR FDD 2025', 'nr_fdd_model1_2025', createForm.nr_fdd_model1_2025, (e) => onCreateChange('nr_fdd_model1_2025', e.target.value))}
-                  {renderNumericField('Antenna IPAA', 'antenna_cutover_ipaa', createForm.antenna_cutover_ipaa, (e) => onCreateChange('antenna_cutover_ipaa', e.target.value))}
-                  {renderNumericField('Total Qty', 'total_qty', createForm.total_qty, (e) => onCreateChange('total_qty', e.target.value))}
-                </div>
-              </div>
-
-              {/* Form Actions */}
-              <div className="form-actions">
-                <button type="button" className="btn-cancel" onClick={closeCreateModal}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-submit" disabled={creating}>
-                  {creating ? 'Creating...' : 'Create Item'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-          <div className="modal-container" style={{ maxWidth: '900px' }}>
-            <div className="modal-header">
-              <h2 className="modal-title">Edit BOQ Item</h2>
-              <button className="modal-close" onClick={closeModal} type="button">✕</button>
+              <h2 className="modal-title">Edit Site: {editingSite?.site_id}</h2>
+              <button className="modal-close" onClick={closeEditModal} type="button">✕</button>
             </div>
 
             <div className="modal-form">
               {error && <div className="message error-message">{error}</div>}
               {success && <div className="message success-message">{success}</div>}
 
-              {/* Basic Information */}
               <div className="form-section">
-                <h3 className="section-title">Basic Information</h3>
+                <h3 className="section-title">Site Information</h3>
                 <div className="form-grid">
-                  {renderFormField('CAT', 'cat', editForm.cat, (e) => onEditChange('cat', e.target.value))}
-                  {renderFormField('BU', 'bu', editForm.bu, (e) => onEditChange('bu', e.target.value))}
-                  {renderFormField('Category', 'category', editForm.category, (e) => onEditChange('category', e.target.value))}
-                  {renderFormField('UoM', 'uom', editForm.uom, (e) => onEditChange('uom', e.target.value))}
-                </div>
-              </div>
-
-              {/* Description & Project */}
-              <div className="form-section">
-                <h3 className="section-title">Description & Project</h3>
-                <div className="form-grid">
-                  {renderFormField('Description', 'description', editForm.description, (e) => onEditChange('description', e.target.value))}
+                  {renderFormField('Region', 'region', editForm.region, (e) => onEditChange('region', e.target.value))}
+                  {renderFormField('Distance', 'distance', editForm.distance, (e) => onEditChange('distance', e.target.value))}
+                  {renderFormField('Scope', 'scope', editForm.scope, (e) => onEditChange('scope', e.target.value))}
+                  {renderFormField('Subscope', 'subscope', editForm.subscope, (e) => onEditChange('subscope', e.target.value))}
+                  {renderFormField('PO Model', 'po_model', editForm.po_model, (e) => onEditChange('po_model', e.target.value))}
                   <div className="form-field">
                     <label>Project</label>
                     <select
@@ -738,50 +925,12 @@ export default function ODBOQItems() {
                 </div>
               </div>
 
-              {/* SRAN Quantities */}
-              <div className="form-section">
-                <h3 className="section-title">SRAN Quantities</h3>
-                <div className="form-grid">
-                  {renderNumericField('New SRAN', 'new_sran', editForm.new_sran, (e) => onEditChange('new_sran', e.target.value))}
-                  {renderNumericField('SRAN Exp 1cc L800', 'sran_exp_1cc_l800', editForm.sran_exp_1cc_l800, (e) => onEditChange('sran_exp_1cc_l800', e.target.value))}
-                  {renderNumericField('SRAN Exp 1cc L1800', 'sran_exp_1cc_l1800', editForm.sran_exp_1cc_l1800, (e) => onEditChange('sran_exp_1cc_l1800', e.target.value))}
-                  {renderNumericField('SRAN Exp 2cc L800+L1800', 'sran_exp_2cc_l800_l1800', editForm.sran_exp_2cc_l800_l1800, (e) => onEditChange('sran_exp_2cc_l800_l1800', e.target.value))}
-                  {renderNumericField('SRAN Exp 2cc L1800+L2100', 'sran_exp_2cc_l1800_l2100', editForm.sran_exp_2cc_l1800_l2100, (e) => onEditChange('sran_exp_2cc_l1800_l2100', e.target.value))}
-                  {renderNumericField('SRAN Exp 2cc L800+L2100', 'sran_exp_2cc_l800_l2100', editForm.sran_exp_2cc_l800_l2100, (e) => onEditChange('sran_exp_2cc_l800_l2100', e.target.value))}
-                </div>
-              </div>
-
-              {/* 5G Quantities */}
-              <div className="form-section">
-                <h3 className="section-title">5G Quantities</h3>
-                <div className="form-grid">
-                  {renderNumericField('New 5G n78', 'new_5g_n78', editForm.new_5g_n78, (e) => onEditChange('new_5g_n78', e.target.value))}
-                  {renderNumericField('5G Exp 3CC', 'exp_5g_3cc', editForm.exp_5g_3cc, (e) => onEditChange('exp_5g_3cc', e.target.value))}
-                  {renderNumericField('5G n41 Reuse', 'exp_5g_n41_reuse', editForm.exp_5g_n41_reuse, (e) => onEditChange('exp_5g_n41_reuse', e.target.value))}
-                  {renderNumericField('5G 3CC Ontop', 'exp_5g_3cc_ontop', editForm.exp_5g_3cc_ontop, (e) => onEditChange('exp_5g_3cc_ontop', e.target.value))}
-                  {renderNumericField('5G Band Swap', 'exp_5g_band_swap', editForm.exp_5g_band_swap, (e) => onEditChange('exp_5g_band_swap', e.target.value))}
-                </div>
-              </div>
-
-              {/* NR FDD & Other */}
-              <div className="form-section">
-                <h3 className="section-title">NR FDD & Other Quantities</h3>
-                <div className="form-grid">
-                  {renderNumericField('NR FDD Activation', 'nr_fdd_model1_activation', editForm.nr_fdd_model1_activation, (e) => onEditChange('nr_fdd_model1_activation', e.target.value))}
-                  {renderNumericField('NR FDD TDRA', 'nr_fdd_model1_tdra', editForm.nr_fdd_model1_tdra, (e) => onEditChange('nr_fdd_model1_tdra', e.target.value))}
-                  {renderNumericField('NR FDD 2025', 'nr_fdd_model1_2025', editForm.nr_fdd_model1_2025, (e) => onEditChange('nr_fdd_model1_2025', e.target.value))}
-                  {renderNumericField('Antenna IPAA', 'antenna_cutover_ipaa', editForm.antenna_cutover_ipaa, (e) => onEditChange('antenna_cutover_ipaa', e.target.value))}
-                  {renderNumericField('Total Qty', 'total_qty', editForm.total_qty, (e) => onEditChange('total_qty', e.target.value))}
-                </div>
-              </div>
-
-              {/* Form Actions */}
               <div className="form-actions">
-                <button type="button" className="btn-cancel" onClick={closeModal}>
+                <button type="button" className="btn-cancel" onClick={closeEditModal}>
                   Cancel
                 </button>
-                <button className="btn-submit" onClick={handleUpdate} disabled={updating}>
-                  {updating ? 'Updating...' : 'Update Item'}
+                <button className="btn-submit" onClick={handleUpdateSite} disabled={updating}>
+                  {updating ? 'Updating...' : 'Update Site'}
                 </button>
               </div>
             </div>
@@ -792,22 +941,122 @@ export default function ODBOQItems() {
       {/* Delete All Confirmation Modal */}
       <DeleteConfirmationModal
         show={showDeleteAllModal}
-        onConfirm={confirmDeleteAllBOQItems}
-        onCancel={cancelDeleteAllBOQItems}
-        title="Delete All BOQ Items for Project"
+        onConfirm={confirmDeleteAllSites}
+        onCancel={cancelDeleteAllSites}
+        title="Delete All Sites for Project"
         itemName={selectedProject ? getSelectedProjectName() : ''}
-        warningText="Are you sure you want to delete ALL BOQ items for project"
+        warningText="Are you sure you want to delete ALL sites for project"
         additionalInfo="This will permanently delete all related data from the following tables:"
-        affectedItems={['OD BOQ Items - All items for this project']}
-        confirmButtonText="Delete All Items"
+        affectedItems={[
+          'OD BOQ Sites - All sites for this project',
+          'OD BOQ Site-Product Records - All quantity records for these sites'
+        ]}
+        confirmButtonText="Delete All Sites"
         loading={deleteAllLoading}
       />
+
+      {/* Product Add/Edit Modal */}
+      {showProductForm && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowProductForm(false)}>
+          <div className="modal-container" style={{ maxWidth: '700px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">{editingProduct ? `Edit Product: ${editingProduct.description}` : 'Create New Product'}</h2>
+              <button className="modal-close" onClick={() => setShowProductForm(false)} type="button">✕</button>
+            </div>
+
+            <form className="modal-form" onSubmit={handleSaveProduct}>
+              <div className="form-section">
+                <h3 className="section-title">Product Information</h3>
+                <div className="form-grid">
+                  <div className="form-field full-width">
+                    <label>Description *</label>
+                    <input
+                      type="text"
+                      name="description"
+                      value={productFormData.description}
+                      onChange={handleProductFormChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Line Number</label>
+                    <input
+                      type="text"
+                      name="line_number"
+                      value={productFormData.line_number}
+                      onChange={handleProductFormChange}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Code</label>
+                    <input
+                      type="text"
+                      name="code"
+                      value={productFormData.code}
+                      onChange={handleProductFormChange}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Category</label>
+                    <input
+                      type="text"
+                      name="category"
+                      value={productFormData.category}
+                      onChange={handleProductFormChange}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Total PO QTY *</label>
+                    <input
+                      type="number"
+                      name="total_po_qty"
+                      value={productFormData.total_po_qty}
+                      onChange={handleProductFormChange}
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Consumed in {consumedYear}</label>
+                    <input
+                      type="number"
+                      name="consumed_in_year"
+                      value={productFormData.consumed_in_year}
+                      onChange={handleProductFormChange}
+                      step="0.01"
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Remaining in PO</label>
+                    <input
+                      type="number"
+                      name="remaining_in_po"
+                      value={productFormData.remaining_in_po}
+                      onChange={handleProductFormChange}
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowProductForm(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit">
+                  {editingProduct ? 'Update Product' : 'Create Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Help/Info Modal */}
       <HelpModal
         show={showHelpModal}
         onClose={() => setShowHelpModal(false)}
-        title="OD BOQ Items Management - User Guide"
+        title="OD BOQ Site Management - User Guide"
         sections={helpSections}
         closeButtonText="Got it!"
       />

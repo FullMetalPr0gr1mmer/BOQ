@@ -9,6 +9,7 @@ It includes pagination, search, admin control, and CSV upload functionality.
 import json
 import csv
 import os
+import logging
 from io import StringIO, BytesIO
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, Request, Form
 from fastapi.responses import StreamingResponse
@@ -19,10 +20,25 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from datetime import datetime
 
+# Configure logging
+logger = logging.getLogger(__name__)
+
 from APIs.Core import get_db, get_current_user
 from Models.Admin.User import User, UserProjectAccess
 from Models.Admin.AuditLog import AuditLog
-from Models.DU.OD_BOQ_Item import ODBOQItem, LEVEL1_CATEGORIES, QUANTITY_FIELDS
+# TODO: Update to use new OD_BOQ structure (OD_BOQ_Site, OD_BOQ_Product, OD_BOQ_Site_Product)
+# from Models.DU.OD_BOQ_Item import ODBOQItem, LEVEL1_CATEGORIES, QUANTITY_FIELDS
+# Temporary workaround - these functions need refactoring for new structure
+LEVEL1_CATEGORIES = {}
+QUANTITY_FIELDS = []
+
+def _raise_boq_migration_error():
+    """Temporary helper - BOQ functions need updating for new 3-table structure"""
+    raise HTTPException(
+        status_code=501,
+        detail="BOQ generation temporarily unavailable. System is being migrated to new OD BOQ structure (3-table design). Please contact admin."
+    )
+
 from Models.DU.CustomerPO import CustomerPO
 
 # Import model using importlib since filename starts with number
@@ -760,12 +776,11 @@ def generate_boq_for_rollout_entry(
     """
     Generate BOQ for a specific rollout sheet entry.
 
-    Steps:
-    1. Get the rollout sheet entry by ID to retrieve the scope
-    2. Map scope to the corresponding column in OD_BOQ_Item
-    3. Filter OD_BOQ_Item by project_id and get rows where that column value > 0
-    4. Match descriptions with CustomerPO (exact match) to get line, item_job, quantity, price
-    5. Return CSV-formatted string
+    New logic using 3-table OD BOQ structure:
+    1. Get the rollout sheet entry by ID to retrieve the site_id
+    2. Query OD_BOQ_Site_Product for products where qty_per_site > 0 for that site
+    3. Match descriptions with CustomerPO (exact match) to get line, item_job, quantity, price
+    4. Return CSV-formatted string
     """
     # Get the rollout sheet entry
     entry = db.query(_5G_Rollout_Sheet).filter(_5G_Rollout_Sheet.id == entry_id).first()
@@ -786,58 +801,69 @@ def generate_boq_for_rollout_entry(
                 detail="You do not have access to this rollout sheet entry."
             )
 
-    # Get the scope and map it to the column
-    scope = entry.scope
-    if not scope:
+    # Get the site_id from the entry
+    site_id = entry.site_id
+    if not site_id:
         raise HTTPException(
             status_code=400,
-            detail="This rollout entry has no scope defined. Cannot generate BOQ."
+            detail="This rollout entry has no site_id defined. Cannot generate BOQ."
         )
 
-    scope_column = get_scope_column(scope)
-    if not scope_column:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Could not map scope '{scope}' to any BOQ column. Available scopes: {', '.join(set(LEVEL1_CATEGORIES.values()))}"
-        )
+    # Import the new OD BOQ models
+    from Models.DU.OD_BOQ_Site import ODBOQSite
+    from Models.DU.OD_BOQ_Product import ODBOQProduct
+    from Models.DU.OD_BOQ_Site_Product import ODBOQSiteProduct
 
-    # Query OD_BOQ_Item for items with non-zero values in the scope column
-    boq_items = db.query(ODBOQItem).filter(
-        ODBOQItem.project_id == entry.project_id
+    # Query OD_BOQ_Site_Product joined with OD_BOQ_Product for this site
+    # Filter where qty_per_site > 0
+    site_products = db.query(
+        ODBOQSiteProduct,
+        ODBOQProduct
+    ).join(
+        ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
+    ).filter(
+        ODBOQSiteProduct.site_id == site_id,
+        ODBOQSiteProduct.qty_per_site > 0
     ).all()
 
-    # Filter items where the scope column value is not null/zero
+    if not site_products:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No BOQ products found with qty_per_site > 0 for site '{site_id}'."
+        )
+
+    # Build filtered items from site products
     filtered_items = []
-    for item in boq_items:
-        qty_value = getattr(item, scope_column, None)
-        if qty_value is not None and qty_value != 0:
-            # Override quantity based on category (service type)
-            category_lower = (item.category or '').lower()
-            description_lower = (item.description or '').lower()
+    for sp, product in site_products:
+        qty_value = sp.qty_per_site
 
-            if category_lower == 'hw':
-                # Hardware -> quantity = 1
-                final_qty = 1
-            elif category_lower == 'sw':
-                # Software -> quantity = 3
-                final_qty = 3
-            elif category_lower == 'service':
-                # Service -> quantity = 1, except if contains 'DU breaker' then 2
-                if 'dc breaker' in description_lower:
-                    final_qty = 2
-                else:
-                    final_qty = 1
+        # Override quantity based on category (service type)
+        category_lower = (product.category or '').lower()
+        description_lower = (product.description or '').lower()
+
+        if category_lower == 'hw':
+            # Hardware -> quantity = 1
+            final_qty = 1
+        elif category_lower == 'sw':
+            # Software -> quantity = 3
+            final_qty = 3
+        elif category_lower == 'service':
+            # Service -> quantity = 1, except if contains 'dc breaker' then 2
+            if 'dc breaker' in description_lower:
+                final_qty = 2
             else:
-                # If category doesn't match, use original quantity
-                final_qty = qty_value
+                final_qty = 1
+        else:
+            # If category doesn't match, use original quantity
+            final_qty = qty_value
 
-            filtered_items.append({
-                'description': item.description,
-                'uom': item.uom,
-                'category': item.category,
-                'bu': item.bu,
-                'boq_qty': final_qty
-            })
+        filtered_items.append({
+            'description': product.description,
+            'uom': product.code,  # Using code as UOM placeholder (adjust if needed)
+            'category': product.category,
+            # 'bu': '',  # BU not in new structure, leaving empty
+            'boq_qty': final_qty
+        })
 
     if not filtered_items:
         raise HTTPException(
@@ -878,7 +904,7 @@ def generate_boq_for_rollout_entry(
             'Item/Job': safe_value(po_info.get('item_job')),
             'Description': safe_value(desc),
             'Category': safe_value(item['category']),
-            'BU': safe_value(item['bu']),
+            # 'BU': safe_value(item['bu']),
             'UOM': safe_value(item['uom']),
             'BOQ Qty': safe_value(item['boq_qty']),
             'PO Qty': safe_value(po_info.get('po_qty')),
@@ -900,12 +926,14 @@ def generate_boq_for_rollout_entry(
     # Add metadata header rows (3 rows)
     csv_lines.append(f'" "," "," "," ",DU BOQ," "," "," "," ",')
     csv_lines.append(f'BPO Number:,{project_po}," "," "," ",Date:,{current_date}," "," "')
-    csv_lines.append(f'Scope Description:,{scope}," "," "," ",Site Classification,{entry.sps_category or "N/A"}," "," "')
+    csv_lines.append(f'Scope Description:,{entry.scope}," "," "," ",Site Classification,{entry.sps_category or "N/A"}," "," "')
     csv_lines.append(f'Vendor:,Nokia," "," "," ",Site ID:,{entry.site_id}," "," "')
     csv_lines.append(f'" "," "," "," "," "," "," "," "," ",') # Empty row separator
 
     # Add data table headers
-    csv_headers = ['Line', 'Item/Job', 'Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'PO Qty', 'Price']
+    csv_headers = ['Line', 'Item/Job', 'Description', 'Category',
+    #  'BU', 
+    'UOM', 'BOQ Qty', 'PO Qty', 'Price']
     csv_lines.append(','.join(csv_headers))
 
     # Add data rows
@@ -1020,77 +1048,74 @@ def bulk_generate_boq(
                     failed += 1
                     continue
 
-            # Get the scope and map it to the column
-            scope = entry.scope
-            if not scope:
+            # Get the site_id from the entry
+            if not site_id:
                 results.append({
                     "entry_id": entry_id,
-                    "site_id": entry.site_id,
-                    "scope": None,
-                    "error": "No scope defined for this entry",
+                    "site_id": site_id or "N/A",
+                    "scope": entry.scope,
+                    "error": "No site_id defined for this entry",
                     "success": False
                 })
                 failed += 1
                 continue
 
-            # Map scope to column (use local helper function)
-            scope_column = get_scope_column(scope)
+            # Import the new OD BOQ models
+            from Models.DU.OD_BOQ_Site import ODBOQSite
+            from Models.DU.OD_BOQ_Product import ODBOQProduct
+            from Models.DU.OD_BOQ_Site_Product import ODBOQSiteProduct
 
-            if not scope_column:
-                results.append({
-                    "entry_id": entry_id,
-                    "site_id": entry.site_id,
-                    "scope": scope,
-                    "error": f"Could not map scope '{scope}' to any BOQ column",
-                    "success": False
-                })
-                failed += 1
-                continue
-
-            # Query OD_BOQ_Item for items with non-zero values in the scope column
-            boq_items = db.query(ODBOQItem).filter(
-                ODBOQItem.project_id == entry.project_id
+            # Query OD_BOQ_Site_Product joined with OD_BOQ_Product for this site
+            # Filter where qty_per_site > 0
+            site_products = db.query(
+                ODBOQSiteProduct,
+                ODBOQProduct
+            ).join(
+                ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
+            ).filter(
+                ODBOQSiteProduct.site_id == site_id,
+                ODBOQSiteProduct.qty_per_site > 0
             ).all()
 
-            # Filter items where the scope column value is not null/zero
+            # Build filtered items from site products
             filtered_items = []
-            for item in boq_items:
-                qty_value = getattr(item, scope_column, None)
-                if qty_value is not None and qty_value != 0:
-                    # Override quantity based on category (service type)
-                    category_lower = (item.category or '').lower()
-                    description_lower = (item.description or '').lower()
+            for sp, product in site_products:
+                qty_value = sp.qty_per_site
 
-                    if category_lower == 'hw':
-                        # Hardware -> quantity = 1
-                        final_qty = 1
-                    elif category_lower == 'sw':
-                        # Software -> quantity = 3
-                        final_qty = 3
-                    elif category_lower == 'service':
-                        # Service -> quantity = 1, except if contains 'dc breaker' then 2
-                        if 'dc breaker' in description_lower:
-                            final_qty = 2
-                        else:
-                            final_qty = 1
+                # Override quantity based on category (service type)
+                category_lower = (product.category or '').lower()
+                description_lower = (product.description or '').lower()
+
+                if category_lower == 'hw':
+                    # Hardware -> quantity = 1
+                    final_qty = 1
+                elif category_lower == 'sw':
+                    # Software -> quantity = 3
+                    final_qty = 3
+                elif category_lower == 'service':
+                    # Service -> quantity = 1, except if contains 'dc breaker' then 2
+                    if 'dc breaker' in description_lower:
+                        final_qty = 2
                     else:
-                        # If category doesn't match, use original quantity
-                        final_qty = qty_value
+                        final_qty = 1
+                else:
+                    # If category doesn't match, use original quantity
+                    final_qty = qty_value
 
-                    filtered_items.append({
-                        'description': item.description,
-                        'uom': item.uom,
-                        'category': item.category,
-                        'bu': item.bu,
-                        'boq_qty': final_qty
-                    })
+                filtered_items.append({
+                    'description': product.description,
+                    'uom': product.code,  # Using code as UOM placeholder (adjust if needed)
+                    'category': product.category,
+                    # 'bu': '',  # BU not in new structure, leaving empty
+                    'boq_qty': final_qty
+                })
 
             if not filtered_items:
                 results.append({
                     "entry_id": entry_id,
-                    "site_id": entry.site_id,
-                    "scope": scope,
-                    "error": f"No BOQ items found with non-zero quantities for scope '{scope}'",
+                    "site_id": site_id,
+                    "scope": entry.scope,
+                    "error": f"No BOQ products found with qty_per_site > 0 for site '{site_id}'",
                     "success": False
                 })
                 failed += 1
@@ -1129,7 +1154,7 @@ def bulk_generate_boq(
                     'Item/Job': safe_value(po_info.get('item_job')),
                     'Description': safe_value(desc),
                     'Category': safe_value(item['category']),
-                    'BU': safe_value(item['bu']),
+                    # 'BU': safe_value(item['bu']),
                     'UOM': safe_value(item['uom']),
                     'BOQ Qty': safe_value(item['boq_qty']),
                     'PO Qty': safe_value(po_info.get('po_qty')),
@@ -1149,14 +1174,14 @@ def bulk_generate_boq(
             csv_lines = []
 
             # Add metadata header rows (3 rows)
-            csv_lines.append(f'" "," "," "," ",DU BOQ," "," "," "," ",')
-            csv_lines.append(f'BPO Number:,{project_po}," "," "," ",Date:,{current_date}," "," "')
-            csv_lines.append(f'Scope Description:,{scope}," "," "," ",Site Classification,{entry.sps_category or "N/A"}," "," "')
-            csv_lines.append(f'Vendor:,Nokia," "," "," ",Site ID:,{entry.site_id}," "," "')
+            csv_lines.append(f'" "," "," "," ",DU BOQ," "," "," ",')
+            csv_lines.append(f'BPO Number:,{project_po}," "," "," ",Date:,{current_date}," "')
+            csv_lines.append(f'Scope Description:,{entry.scope}," "," "," ",Site Classification,{entry.sps_category or "N/A"}," "')
+            csv_lines.append(f'Vendor:,Nokia," "," "," ",Site ID:,{entry.site_id}," "')
             csv_lines.append(f'" "," "," "," "," "," "," "," "," ",') # Empty row separator
 
             # Add data table headers
-            csv_headers = ['Line', 'Item/Job', 'Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'PO Qty', 'Price']
+            csv_headers = ['Line', 'Item/Job', 'Description', 'Category', 'UOM', 'BOQ Qty', 'PO Qty', 'Price']
             csv_lines.append(','.join(csv_headers))
 
             # Add data rows
@@ -1179,7 +1204,7 @@ def bulk_generate_boq(
             results.append({
                 "entry_id": entry_id,
                 "site_id": entry.site_id,
-                "scope": scope,
+                "scope": entry.scope,
                 "csv_content": csv_content,
                 "success": True
             })
@@ -1211,59 +1236,82 @@ def bulk_generate_boq(
 def generate_boq_data_for_entry(entry_id: int, db: Session):
     """
     Generate BOQ data for a single rollout entry.
-    Returns a dictionary with entry metadata and BOQ items.
+    Returns a dictionary with entry metadata and BOQ items, or a dict with 'error' key if generation fails.
+    Uses new 3-table OD BOQ structure.
     """
     # Get the rollout sheet entry
     entry = db.query(_5G_Rollout_Sheet).filter(_5G_Rollout_Sheet.id == entry_id).first()
 
     if not entry:
-        return None
+        error_msg = f"Rollout sheet entry {entry_id} not found"
+        logger.warning(error_msg)
+        return {'error': error_msg}
 
-    # Get the scope and map it to the column
-    scope = entry.scope
-    if not scope:
-        return None
+    # Get the site_id from the entry
+    site_id = entry.site_id
+    if not site_id:
+        error_msg = f"Entry {entry_id} has no site_id defined"
+        logger.warning(error_msg)
+        return {'error': error_msg}
 
-    scope_column = get_scope_column(scope)
-    if not scope_column:
-        return None
+    # Import the new OD BOQ models
+    from Models.DU.OD_BOQ_Site import ODBOQSite
+    from Models.DU.OD_BOQ_Product import ODBOQProduct
+    from Models.DU.OD_BOQ_Site_Product import ODBOQSiteProduct
 
-    # Query OD_BOQ_Item for items with non-zero values in the scope column
-    boq_items = db.query(ODBOQItem).filter(
-        ODBOQItem.project_id == entry.project_id
+    # Note: We don't require the site to exist in OD_BOQ_Sites table
+    # as long as it has products in the site_product table.
+    # The OD_BOQ_Sites table is optional metadata.
+
+    # Query OD_BOQ_Site_Product joined with OD_BOQ_Product for this site
+    # Filter where qty_per_site > 0
+    site_products = db.query(
+        ODBOQSiteProduct,
+        ODBOQProduct
+    ).join(
+        ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
+    ).filter(
+        ODBOQSiteProduct.site_id == site_id,
+        ODBOQSiteProduct.qty_per_site > 0
     ).all()
 
-    # Filter items where the scope column value is not null/zero
+    # Build filtered items from site products
     filtered_items = []
-    for item in boq_items:
-        qty_value = getattr(item, scope_column, None)
-        if qty_value is not None and qty_value != 0:
-            # Override quantity based on category (service type)
-            category_lower = (item.category or '').lower()
-            description_lower = (item.description or '').lower()
+    for sp, product in site_products:
+        qty_value = sp.qty_per_site
 
-            if category_lower == 'hw':
-                final_qty = 1
-            elif category_lower == 'sw':
-                final_qty = 3
-            elif category_lower == 'service':
-                if 'dc breaker' in description_lower:
-                    final_qty = 2
-                else:
-                    final_qty = 1
+        # Override quantity based on category (service type)
+        category_lower = (product.category or '').lower()
+        description_lower = (product.description or '').lower()
+
+        if category_lower == 'hw':
+            final_qty = 1
+        elif category_lower == 'sw':
+            final_qty = 3
+        elif category_lower == 'service':
+            if 'dc breaker' in description_lower:
+                final_qty = 2
             else:
-                final_qty = qty_value
+                final_qty = 1
+        else:
+            final_qty = qty_value
 
-            filtered_items.append({
-                'description': item.description,
-                'uom': item.uom,
-                'category': item.category,
-                'bu': item.bu,
-                'boq_qty': final_qty
-            })
+        filtered_items.append({
+            'description': product.description,
+            'uom': product.code,  # Using code as UOM placeholder (adjust if needed)
+            'category': product.category,
+            # 'bu': '',  # BU not in new structure, leaving empty
+            'boq_qty': final_qty
+        })
 
     if not filtered_items:
-        return None
+        # Check if site has ANY products (even with qty = 0)
+        total_products = db.query(ODBOQSiteProduct).filter(
+            ODBOQSiteProduct.site_id == site_id
+        ).count()
+        error_msg = f"Site {site_id} (entry {entry_id}) has {total_products} total products, but none with qty_per_site > 0"
+        logger.warning(error_msg)
+        return {'error': error_msg}
 
     # Get all CustomerPO items for this project for matching
     customer_po_items = db.query(CustomerPO).filter(
@@ -1289,7 +1337,7 @@ def generate_boq_data_for_entry(entry_id: int, db: Session):
 
         result_data.append({
             'line': po_info.get('line'),
-            'bu': item['bu'],
+            # 'bu': item['bu'],
             'item_job': po_info.get('item_job'),  # ERP Item Code
             'description': desc,
             'budget_line': item['category'],  # Budget line from category
@@ -1308,7 +1356,7 @@ def generate_boq_data_for_entry(entry_id: int, db: Session):
     return {
         'entry_id': entry.id,
         'site_id': entry.site_id,
-        'scope': scope,
+        'scope': entry.scope,  # Keep scope from entry for reference
         'project_po': project_po,
         'sps_category': entry.sps_category or 'N/A',
         'data': result_data
@@ -1448,11 +1496,11 @@ def create_excel_from_template(boq_entries: List[dict], template_path: str, is_b
             if template_border:
                 cell.border = template_border
 
-            # Col 3 (C): BU
-            cell = ws.cell(row=row_num, column=3)
-            cell.value = item.get('bu')
-            if template_border:
-                cell.border = template_border
+            # # Col 3 (C): BU
+            # cell = ws.cell(row=row_num, column=3)
+            # cell.value = item.get('bu')
+            # if template_border:
+            #     cell.border = template_border
 
             # Col 4 (D): ERP Item Code
             cell = ws.cell(row=row_num, column=4)
@@ -1584,10 +1632,10 @@ def create_excel_from_template(boq_entries: List[dict], template_path: str, is_b
             if template_border:
                 cell.border = template_border
 
-            cell = ws.cell(row=row_num, column=3)
-            cell.value = item.get('bu')
-            if template_border:
-                cell.border = template_border
+            # cell = ws.cell(row=row_num, column=3)
+            # cell.value = item.get('bu')
+            # if template_border:
+            #     cell.border = template_border
 
             cell = ws.cell(row=row_num, column=4)
             cell.value = item.get('item_job')
@@ -1706,10 +1754,12 @@ async def download_single_boq_excel(
     # Generate BOQ data
     boq_data = generate_boq_data_for_entry(entry_id, db)
 
-    if not boq_data:
+    if not boq_data or 'error' in boq_data:
+        error_detail = boq_data.get('error', 'Unknown error occurred') if boq_data else 'No BOQ data available'
+        logger.error(f"Failed to generate BOQ for entry {entry_id}: {error_detail}")
         raise HTTPException(
             status_code=400,
-            detail="Could not generate BOQ for this entry. Check that scope is defined and BOQ items exist."
+            detail=f"Could not generate BOQ for this entry. {error_detail}"
         )
 
     # Get template path
@@ -1797,18 +1847,31 @@ async def bulk_download_boq_excel(
             # Generate BOQ data
             boq_data = generate_boq_data_for_entry(entry_id, db)
 
-            if boq_data:
+            if boq_data and 'error' not in boq_data:
                 boq_entries.append(boq_data)
             else:
-                failed_entries.append({"entry_id": entry_id, "reason": "No BOQ data available"})
+                error_reason = boq_data.get('error', 'No BOQ data available') if boq_data else 'No BOQ data available'
+                failed_entries.append({"entry_id": entry_id, "reason": error_reason})
 
         except Exception as e:
             failed_entries.append({"entry_id": entry_id, "reason": str(e)})
 
+    # If no BOQs could be generated at all, raise an error
     if not boq_entries:
+        # Get site IDs from failed entries for better error message
+        failed_sites = []
+        for fail in failed_entries:
+            try:
+                entry = db.query(_5G_Rollout_Sheet).filter(_5G_Rollout_Sheet.id == fail['entry_id']).first()
+                if entry and entry.site_id:
+                    failed_sites.append(entry.site_id)
+            except:
+                pass
+
+        sites_list = ', '.join(failed_sites) if failed_sites else 'all requested sites'
         raise HTTPException(
             status_code=400,
-            detail=f"Could not generate BOQ for any of the selected entries. Failures: {failed_entries}"
+            detail=f"Failed to generate BOQs for all selected sites: {sites_list}"
         )
 
     # Get template path
@@ -1829,13 +1892,35 @@ async def bulk_download_boq_excel(
             detail="Failed to generate Excel file"
         )
 
-    # Return as downloadable file
-    filename = f"BOQ_Bulk_{len(boq_entries)}_sites_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    # Build response headers
+    headers = {
+        "Content-Disposition": f"attachment; filename=BOQ_Bulk_{len(boq_entries)}_of_{len(entry_ids)}_sites_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    }
+
+    # If some sites failed, add a warning header with failed site IDs
+    if failed_entries:
+        failed_sites = []
+        for fail in failed_entries:
+            try:
+                entry = db.query(_5G_Rollout_Sheet).filter(_5G_Rollout_Sheet.id == fail['entry_id']).first()
+                if entry and entry.site_id:
+                    failed_sites.append(entry.site_id)
+            except:
+                pass
+
+        if failed_sites:
+            # Add custom header with failed sites (max 200 chars to avoid header size limits)
+            failed_sites_str = ', '.join(failed_sites[:10])  # Limit to first 10 sites
+            if len(failed_sites) > 10:
+                failed_sites_str += f' and {len(failed_sites) - 10} more'
+            headers["X-BOQ-Failed-Sites"] = failed_sites_str
+            headers["X-BOQ-Failed-Count"] = str(len(failed_sites))
+            headers["X-BOQ-Success-Count"] = str(len(boq_entries))
 
     return StreamingResponse(
         excel_file,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers=headers
     )
 
 
@@ -1895,8 +1980,8 @@ def parse_csv_data_to_boq_format(csv_data: List[List[str]], site_id: str, entry_
         if 'line' in header_lower and 'site' not in header_lower:  # Match 'Line' or 'BPO Line' but not 'Site ID'
             if 'line' not in header_mapping:  # Only map the first line column
                 header_mapping['line'] = idx
-        elif 'bu' == header_lower or header_lower.startswith('bu ') or header_lower.endswith(' bu'):
-            header_mapping['bu'] = idx
+        # elif 'bu' == header_lower or header_lower.startswith('bu ') or header_lower.endswith(' bu'):
+        #     header_mapping['bu'] = idx
         elif 'item/job' in header_lower or 'erp' in header_lower or 'item code' in header_lower:
             header_mapping['item_job'] = idx
         elif 'description' in header_lower and 'scope' not in header_lower:
@@ -1956,7 +2041,7 @@ def parse_csv_data_to_boq_format(csv_data: List[List[str]], site_id: str, entry_
 
         result_data.append({
             'line': line_num,
-            'bu': get_value('bu'),
+            # 'bu': get_value('bu'),
             'item_job': get_value('item_job'),
             'description': get_value('description'),
             'budget_line': get_value('budget_line'),
@@ -2153,10 +2238,21 @@ async def bulk_download_boq_excel_from_csv(
         except Exception as e:
             failed_entries.append({"entry_id": boq_item.get('entry_id'), "reason": str(e)})
 
+    # If no BOQs could be parsed at all, raise an error
     if not parsed_boq_entries:
+        # Get site IDs from failed entries for better error message
+        failed_sites = []
+        for fail in failed_entries:
+            if 'site_id' in boq_data_list[0]:  # Get site_id from original request
+                for item in boq_data_list:
+                    if item.get('entry_id') == fail['entry_id']:
+                        failed_sites.append(item.get('site_id', 'Unknown'))
+                        break
+
+        sites_list = ', '.join(failed_sites) if failed_sites else 'all requested sites'
         raise HTTPException(
             status_code=400,
-            detail=f"Could not parse any BOQ data. Failures: {failed_entries}"
+            detail=f"Failed to generate BOQs for all selected sites: {sites_list}"
         )
 
     # Get template path
@@ -2177,11 +2273,32 @@ async def bulk_download_boq_excel_from_csv(
             detail="Failed to generate Excel file"
         )
 
-    # Return as downloadable file
-    filename = f"BOQ_Bulk_{len(parsed_boq_entries)}_sites_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    # Build response headers
+    total_requested = len(boq_data_list)
+    headers = {
+        "Content-Disposition": f"attachment; filename=BOQ_Bulk_{len(parsed_boq_entries)}_of_{total_requested}_sites_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    }
+
+    # If some sites failed, add warning headers
+    if failed_entries:
+        failed_sites = []
+        for fail in failed_entries:
+            for item in boq_data_list:
+                if item.get('entry_id') == fail['entry_id']:
+                    failed_sites.append(item.get('site_id', 'Unknown'))
+                    break
+
+        if failed_sites:
+            # Add custom header with failed sites (max 200 chars to avoid header size limits)
+            failed_sites_str = ', '.join(failed_sites[:10])  # Limit to first 10 sites
+            if len(failed_sites) > 10:
+                failed_sites_str += f' and {len(failed_sites) - 10} more'
+            headers["X-BOQ-Failed-Sites"] = failed_sites_str
+            headers["X-BOQ-Failed-Count"] = str(len(failed_sites))
+            headers["X-BOQ-Success-Count"] = str(len(parsed_boq_entries))
 
     return StreamingResponse(
         excel_file,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers=headers
     )

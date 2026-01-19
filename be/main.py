@@ -92,7 +92,7 @@ rollout_route_module = importlib.import_module("APIs.DU.5G_Rollout_Sheet_Route")
 rolloutSheetRoute = rollout_route_module.rolloutSheetRoute
 du_project_route_module = importlib.import_module("APIs.DU.DU_ProjectRoute")
 DUProjectRoute = du_project_route_module.DUProjectRoute
-from APIs.DU.OD_BOQ_ItemRoute import odBOQItemRoute
+from APIs.DU.OD_BOQ_Route import odBOQRoute
 from APIs.DU.CustomerPORoute import customerPORoute
 
 # NDPD (Network Deployment Planning Data) API imports
@@ -110,7 +110,9 @@ from Models.BOQ.POReport import POReport
 # Import DU models so SQLAlchemy recognizes them
 du_project_model = importlib.import_module("Models.DU.DU_Project")
 rollout_sheet_model = importlib.import_module("Models.DU.5G_Rollout_Sheet")
-from Models.DU.OD_BOQ_Item import ODBOQItem
+from Models.DU.OD_BOQ_Site import ODBOQSite
+from Models.DU.OD_BOQ_Product import ODBOQProduct
+from Models.DU.OD_BOQ_Site_Product import ODBOQSiteProduct
 from Models.DU.CustomerPO import CustomerPO
 
 # Import NDPD models so SQLAlchemy recognizes them
@@ -180,7 +182,7 @@ app.include_router(document_router)     # AI document management and RAG
 # DU (Digital Transformation) Management
 app.include_router(DUProjectRoute)      # DU Project management
 app.include_router(rolloutSheetRoute)   # 5G Rollout Sheet management
-app.include_router(odBOQItemRoute)      # OD BOQ Items management
+app.include_router(odBOQRoute)          # OD BOQ management (Sites, Products, Site-Products)
 app.include_router(customerPORoute)     # Customer PO management
 
 # NDPD (Network Deployment Planning Data) Management

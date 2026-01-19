@@ -523,6 +523,11 @@ export default function RolloutSheet() {
         body: JSON.stringify({ entry_ids: entryIds })
       });
 
+      console.log('Bulk BOQ Response:', response);
+      console.log('Total results:', response.results.length);
+      console.log('Successful:', response.successful);
+      console.log('Failed:', response.failed);
+
       const successfulBoqs = response.results
         .filter(r => r.success)
         .map(r => ({
@@ -599,6 +604,11 @@ export default function RolloutSheet() {
         throw new Error(errorMessage);
       }
 
+      // Check for partial success (some sites failed)
+      const failedCount = response.headers.get('X-BOQ-Failed-Count');
+      const successCount = response.headers.get('X-BOQ-Success-Count');
+      const failedSites = response.headers.get('X-BOQ-Failed-Sites');
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -609,7 +619,13 @@ export default function RolloutSheet() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      setTransient(setSuccess, `Bulk Excel BOQ for ${selectedRows.size} sites downloaded successfully.`);
+      // Show appropriate message based on success/failure
+      if (failedCount && parseInt(failedCount) > 0) {
+        const warningMsg = `Downloaded BOQ for ${successCount} sites successfully. ${failedCount} sites failed: ${failedSites}`;
+        setTransient(setError, warningMsg);
+      } else {
+        setTransient(setSuccess, `Bulk Excel BOQ for ${selectedRows.size} sites downloaded successfully.`);
+      }
       setSelectedRows(new Set());
       setSelectAll(false);
     } catch (err) {
@@ -841,6 +857,11 @@ export default function RolloutSheet() {
         throw new Error(errorMessage);
       }
 
+      // Check for partial success (some sites failed)
+      const failedCount = response.headers.get('X-BOQ-Failed-Count');
+      const successCount = response.headers.get('X-BOQ-Success-Count');
+      const failedSites = response.headers.get('X-BOQ-Failed-Sites');
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -851,7 +872,13 @@ export default function RolloutSheet() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      setTransient(setSuccess, `Bulk Excel BOQ for ${bulkBoqData.length} sites downloaded successfully.`);
+      // Show appropriate message based on success/failure
+      if (failedCount && parseInt(failedCount) > 0) {
+        const warningMsg = `Downloaded BOQ for ${successCount} sites successfully. ${failedCount} sites failed: ${failedSites}`;
+        setTransient(setError, warningMsg);
+      } else {
+        setTransient(setSuccess, `Bulk Excel BOQ for ${bulkBoqData.length} sites downloaded successfully.`);
+      }
     } catch (err) {
       setTransient(setError, err.message);
     }

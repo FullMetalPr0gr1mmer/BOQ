@@ -256,42 +256,6 @@ export function downloadDURolloutSheetUploadTemplate() {
 }
 
 /**
- * DU OD BOQ Items Upload CSV Template
- * Headers: All OD BOQ item fields
- */
-export function downloadDUODBOQItemsUploadTemplate() {
-  const headers = [
-    'CAT',
-    'BU',
-    'Category',
-    'Description',
-    'UoM',
-    'New SRAN',
-    'SRAN Exp 1cc L800',
-    'SRAN Exp 1cc L1800',
-    'SRAN Exp 2cc L800+L1800',
-    'SRAN Exp 2cc L1800+L2100',
-    'SRAN Exp 2cc L800+L2100',
-    'New 5G n78',
-    '5G Exp 3CC',
-    '5G n41 Reuse',
-    '5G 3CC Ontop',
-    '5G Band Swap',
-    'NR FDD Activation',
-    'NR FDD TDRA',
-    'NR FDD 2025',
-    'Antenna IPAA',
-    'Total Qty'
-  ];
-
-  const sampleRows = [
-    ['OD', 'BU001', 'Hardware', 'Sample Item Description', 'EA', '10', '5', '3', '2', '1', '1', '8', '4', '2', '1', '1', '3', '2', '1', '5', '50']
-  ];
-
-  downloadCSVTemplate(headers, 'du_od_boq_items_upload_template', sampleRows);
-}
-
-/**
  * DU Customer PO Upload CSV Template
  * Headers: All Customer PO fields
  */
@@ -345,6 +309,5 @@ export const CSV_TEMPLATES = {
   RAN_INVENTORY_UPLOAD: downloadRANInventoryUploadTemplate,
   RAN_ANTENNA_SERIALS_UPLOAD: downloadRANAntennaSerialsUploadTemplate,
   DU_ROLLOUT_SHEET_UPLOAD: downloadDURolloutSheetUploadTemplate,
-  DU_OD_BOQ_ITEMS_UPLOAD: downloadDUODBOQItemsUploadTemplate,
   DU_CUSTOMER_PO_UPLOAD: downloadDUCustomerPOUploadTemplate
 };
