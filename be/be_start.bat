@@ -1,1 +1,1 @@
-.venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8003
+.venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8003 --timeout-keep-alive 600 --timeout-graceful-shutdown 30

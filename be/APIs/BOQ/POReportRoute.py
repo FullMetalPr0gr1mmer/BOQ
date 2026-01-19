@@ -219,6 +219,10 @@ async def upload_csv(
         # Normalize CSV headers by stripping spaces
         normalized_mapping = {k.strip(): v for k, v in csv_to_db_mapping.items()}
 
+        # Process in batches to avoid timeouts
+        BATCH_SIZE = 500
+        batch_count = 0
+
         for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 to account for header row
             total_rows += 1
 
@@ -242,13 +246,23 @@ async def upload_csv(
                 new_record = POReport(**record_data)
                 db.add(new_record)
                 successful_rows += 1
+                batch_count += 1
+
+                # Commit in batches to avoid timeout
+                if batch_count >= BATCH_SIZE:
+                    db.commit()
+                    batch_count = 0
 
             except Exception as e:
                 failed_rows += 1
                 errors.append(f"Row {row_num}: {str(e)}")
+                # Don't let one bad row stop the whole process
+                db.rollback()
+                batch_count = 0
 
-        # Commit all records
-        db.commit()
+        # Commit any remaining records
+        if batch_count > 0:
+            db.commit()
 
         return POReportUploadResponse(
             message=f"CSV upload completed. {successful_rows} records imported successfully.",

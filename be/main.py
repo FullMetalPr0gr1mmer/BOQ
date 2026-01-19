@@ -195,4 +195,11 @@ if __name__ == "__main__":
     # Start the development server
     # Host: 127.0.0.1 (localhost only)
     # Port: 8003
-    uvicorn.run(app, host="127.0.0.1", port=8003)
+    # Timeout: 600 seconds (10 minutes) for large file uploads
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=8003,
+        timeout_keep_alive=600,
+        timeout_notify=600
+    )

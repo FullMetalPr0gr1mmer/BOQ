@@ -56,7 +56,14 @@ environment = os.getenv('ENVIRONMENT', 'development').lower()
 # Create SQLAlchemy engine
 # echo=True enables SQL query logging for debugging (only in development)
 # Disabled in production for better performance and cleaner logs
-engine = create_engine(db_url, echo=(environment == 'development'))
+# pool_pre_ping=True: Verify connections are alive before using them
+# pool_recycle=3600: Recycle connections after 1 hour to avoid stale connections
+engine = create_engine(
+    db_url,
+    echo=(environment == 'development'),
+    pool_pre_ping=True,
+    pool_recycle=3600
+)
 
 # Create session factory
 # autoflush=False: Manual control over when changes are flushed to database
