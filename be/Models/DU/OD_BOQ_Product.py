@@ -21,6 +21,7 @@ class ODBOQProduct(Base):
     line_number = Column(String(50), nullable=True)  # Row 2: #Line
     code = Column(String(50), nullable=True, index=True)  # Row 3: #Code
     category = Column(String(100), nullable=True, index=True)  # Row 4: Hardware/SW/Service
+    bu = Column(String(100), nullable=True, index=True)  # Business Unit (e.g., "Product", "Services")
 
     # Inventory tracking
     total_po_qty = Column(Float, nullable=True)  # Row 5: Total PO QTY

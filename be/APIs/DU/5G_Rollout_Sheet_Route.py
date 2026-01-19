@@ -861,7 +861,7 @@ def generate_boq_for_rollout_entry(
             'description': product.description,
             'uom': product.code,  # Using code as UOM placeholder (adjust if needed)
             'category': product.category,
-            # 'bu': '',  # BU not in new structure, leaving empty
+            'bu': product.bu,  # Business Unit from product catalog
             'boq_qty': final_qty
         })
 
@@ -904,7 +904,7 @@ def generate_boq_for_rollout_entry(
             'Item/Job': safe_value(po_info.get('item_job')),
             'Description': safe_value(desc),
             'Category': safe_value(item['category']),
-            # 'BU': safe_value(item['bu']),
+            'BU': safe_value(item['bu']),
             'UOM': safe_value(item['uom']),
             'BOQ Qty': safe_value(item['boq_qty']),
             'PO Qty': safe_value(po_info.get('po_qty')),
@@ -931,9 +931,7 @@ def generate_boq_for_rollout_entry(
     csv_lines.append(f'" "," "," "," "," "," "," "," "," ",') # Empty row separator
 
     # Add data table headers
-    csv_headers = ['Line', 'Item/Job', 'Description', 'Category',
-    #  'BU', 
-    'UOM', 'BOQ Qty', 'PO Qty', 'Price']
+    csv_headers = ['Line', 'Item/Job', 'Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'PO Qty', 'Price']
     csv_lines.append(','.join(csv_headers))
 
     # Add data rows
@@ -1106,7 +1104,7 @@ def bulk_generate_boq(
                     'description': product.description,
                     'uom': product.code,  # Using code as UOM placeholder (adjust if needed)
                     'category': product.category,
-                    # 'bu': '',  # BU not in new structure, leaving empty
+                    'bu': product.bu,  # Business Unit from product catalog
                     'boq_qty': final_qty
                 })
 
@@ -1154,7 +1152,7 @@ def bulk_generate_boq(
                     'Item/Job': safe_value(po_info.get('item_job')),
                     'Description': safe_value(desc),
                     'Category': safe_value(item['category']),
-                    # 'BU': safe_value(item['bu']),
+                    'BU': safe_value(item['bu']),
                     'UOM': safe_value(item['uom']),
                     'BOQ Qty': safe_value(item['boq_qty']),
                     'PO Qty': safe_value(po_info.get('po_qty')),
@@ -1174,14 +1172,14 @@ def bulk_generate_boq(
             csv_lines = []
 
             # Add metadata header rows (3 rows)
-            csv_lines.append(f'" "," "," "," ",DU BOQ," "," "," ",')
-            csv_lines.append(f'BPO Number:,{project_po}," "," "," ",Date:,{current_date}," "')
-            csv_lines.append(f'Scope Description:,{entry.scope}," "," "," ",Site Classification,{entry.sps_category or "N/A"}," "')
-            csv_lines.append(f'Vendor:,Nokia," "," "," ",Site ID:,{entry.site_id}," "')
+            csv_lines.append(f'" "," "," "," ",DU BOQ," "," "," "," ",')
+            csv_lines.append(f'BPO Number:,{project_po}," "," "," ",Date:,{current_date}," "," "')
+            csv_lines.append(f'Scope Description:,{entry.scope}," "," "," ",Site Classification,{entry.sps_category or "N/A"}," "," "')
+            csv_lines.append(f'Vendor:,Nokia," "," "," ",Site ID:,{entry.site_id}," "," "')
             csv_lines.append(f'" "," "," "," "," "," "," "," "," ",') # Empty row separator
 
             # Add data table headers
-            csv_headers = ['Line', 'Item/Job', 'Description', 'Category', 'UOM', 'BOQ Qty', 'PO Qty', 'Price']
+            csv_headers = ['Line', 'Item/Job', 'Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'PO Qty', 'Price']
             csv_lines.append(','.join(csv_headers))
 
             # Add data rows
@@ -1300,7 +1298,7 @@ def generate_boq_data_for_entry(entry_id: int, db: Session):
             'description': product.description,
             'uom': product.code,  # Using code as UOM placeholder (adjust if needed)
             'category': product.category,
-            # 'bu': '',  # BU not in new structure, leaving empty
+            'bu': product.bu,  # Business Unit from product catalog
             'boq_qty': final_qty
         })
 
@@ -1337,7 +1335,7 @@ def generate_boq_data_for_entry(entry_id: int, db: Session):
 
         result_data.append({
             'line': po_info.get('line'),
-            # 'bu': item['bu'],
+            'bu': item['bu'],
             'item_job': po_info.get('item_job'),  # ERP Item Code
             'description': desc,
             'budget_line': item['category'],  # Budget line from category
@@ -1496,11 +1494,11 @@ def create_excel_from_template(boq_entries: List[dict], template_path: str, is_b
             if template_border:
                 cell.border = template_border
 
-            # # Col 3 (C): BU
-            # cell = ws.cell(row=row_num, column=3)
-            # cell.value = item.get('bu')
-            # if template_border:
-            #     cell.border = template_border
+            # Col 3 (C): BU
+            cell = ws.cell(row=row_num, column=3)
+            cell.value = item.get('bu')
+            if template_border:
+                cell.border = template_border
 
             # Col 4 (D): ERP Item Code
             cell = ws.cell(row=row_num, column=4)
@@ -1632,10 +1630,10 @@ def create_excel_from_template(boq_entries: List[dict], template_path: str, is_b
             if template_border:
                 cell.border = template_border
 
-            # cell = ws.cell(row=row_num, column=3)
-            # cell.value = item.get('bu')
-            # if template_border:
-            #     cell.border = template_border
+            cell = ws.cell(row=row_num, column=3)
+            cell.value = item.get('bu')
+            if template_border:
+                cell.border = template_border
 
             cell = ws.cell(row=row_num, column=4)
             cell.value = item.get('item_job')
@@ -1980,8 +1978,8 @@ def parse_csv_data_to_boq_format(csv_data: List[List[str]], site_id: str, entry_
         if 'line' in header_lower and 'site' not in header_lower:  # Match 'Line' or 'BPO Line' but not 'Site ID'
             if 'line' not in header_mapping:  # Only map the first line column
                 header_mapping['line'] = idx
-        # elif 'bu' == header_lower or header_lower.startswith('bu ') or header_lower.endswith(' bu'):
-        #     header_mapping['bu'] = idx
+        elif 'bu' == header_lower or header_lower.startswith('bu ') or header_lower.endswith(' bu'):
+            header_mapping['bu'] = idx
         elif 'item/job' in header_lower or 'erp' in header_lower or 'item code' in header_lower:
             header_mapping['item_job'] = idx
         elif 'description' in header_lower and 'scope' not in header_lower:
@@ -2041,7 +2039,7 @@ def parse_csv_data_to_boq_format(csv_data: List[List[str]], site_id: str, entry_
 
         result_data.append({
             'line': line_num,
-            # 'bu': get_value('bu'),
+            'bu': get_value('bu'),
             'item_job': get_value('item_job'),
             'description': get_value('description'),
             'budget_line': get_value('budget_line'),
