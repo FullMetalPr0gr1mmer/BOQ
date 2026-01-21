@@ -30,20 +30,25 @@ def check_project_access(current_user: User, project: Project, db: Session, requ
     Returns:
         bool: True if user has access, False otherwise
     """
-    # Senior admin has all permissions
+    # Senior admin has all permissions to all projects
     if current_user.role.name == "senior_admin":
         return True
 
-    # For other roles, check UserProjectAccess
+    # Admin has all permissions but only to projects they have access to
+    # Check UserProjectAccess for both admin and other roles
     access = db.query(UserProjectAccess).filter(
         UserProjectAccess.user_id == current_user.id,
-        UserProjectAccess.project_id == project.pid_po  # Assuming project_id stores pid_po
+        UserProjectAccess.project_id == project.pid_po
     ).first()
 
     if not access:
         return False
 
-    # Check permission levels
+    # Admin with any access level gets full permissions (same as senior_admin) for their projects
+    if current_user.role.name == "admin":
+        return True
+
+    # For non-admin users, check permission levels
     permission_hierarchy = {
         "view": ["view", "edit", "all"],
         "edit": ["edit", "all"],

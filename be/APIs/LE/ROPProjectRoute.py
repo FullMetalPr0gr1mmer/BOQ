@@ -32,21 +32,28 @@ def check_rop_project_access(
         current_user: User,
         project: ROPProject,
         db: Session, required_permission: str = "view"):
-
-
+    """
+    Helper function to check if user has access to a ROP project with required permission level.
+    """
+    # Senior admin has all permissions to all projects
     if current_user.role.name == "senior_admin":
         return True
 
-    # For other roles, check UserProjectAccess
+    # Admin has all permissions but only to projects they have access to
+    # Check UserProjectAccess for both admin and other roles
     access = db.query(UserProjectAccess).filter(and_(
         UserProjectAccess.user_id == current_user.id,
         UserProjectAccess.Ropproject_id == project.pid_po
-    )  ).first()
+    )).first()
 
     if not access:
         return False
 
-    # Check permission levels
+    # Admin with any access level gets full permissions (same as senior_admin) for their projects
+    if current_user.role.name == "admin":
+        return True
+
+    # For non-admin users, check permission levels
     permission_hierarchy = {
         "view": ["view", "edit", "all"],
         "edit": ["edit", "all"],

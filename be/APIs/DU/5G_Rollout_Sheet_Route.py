@@ -103,7 +103,8 @@ def get_client_ip(request: Request) -> str:
 
 def check_admin_access(current_user: User, required_permission: str = "view"):
     """
-    Check if user has admin access with required permission level.
+    Check if user has general admin access with required permission level.
+    Note: For project-specific access, use check_rollout_project_access instead.
 
     Args:
         current_user: The current user
@@ -116,7 +117,7 @@ def check_admin_access(current_user: User, required_permission: str = "view"):
     if current_user.role.name == "senior_admin":
         return True
 
-    # Admin has edit and view permissions
+    # Admin has edit and view permissions (but not "all" for project-specific operations)
     if current_user.role.name == "admin":
         if required_permission in ["view", "edit"]:
             return True
@@ -128,24 +129,66 @@ def check_admin_access(current_user: User, required_permission: str = "view"):
     return False
 
 
+def check_rollout_project_access(current_user: User, project_id: str, db: Session, required_permission: str = "view"):
+    """
+    Check if user has access to a specific DU project for rollout operations.
+
+    Args:
+        current_user: The current user
+        project_id: The DU project ID (pid_po)
+        db: Database session
+        required_permission: Required permission level ("view", "edit", "all")
+
+    Returns:
+        bool: True if user has access, False otherwise
+    """
+    # Senior admin has all permissions to all projects
+    if current_user.role.name == "senior_admin":
+        return True
+
+    # Check UserProjectAccess for both admin and other roles
+    access = db.query(UserProjectAccess).filter(
+        UserProjectAccess.user_id == current_user.id,
+        UserProjectAccess.DUproject_id == project_id
+    ).first()
+
+    if not access:
+        return False
+
+    # Admin with any access level gets full permissions (same as senior_admin) for their projects
+    if current_user.role.name == "admin":
+        return True
+
+    # For non-admin users, check permission levels
+    permission_hierarchy = {
+        "view": ["view", "edit", "all"],
+        "edit": ["edit", "all"],
+        "all": ["all"]
+    }
+
+    return access.permission_level in permission_hierarchy.get(required_permission, [])
+
+
 def filter_rollout_by_user_access(current_user: User, query, db: Session):
     """
-    Filter rollout sheet query based on user's project access.
+    Filter rollout sheet query based on user's DU project access.
     Senior admins can see all records.
+    Admin users can see records for projects they have access to.
     """
     if current_user.role.name == "senior_admin":
         return query
 
-    # Get accessible project IDs for non-senior admins
+    # Get accessible DU project IDs for admin and other users
     user_accesses = db.query(UserProjectAccess).filter(
-        UserProjectAccess.user_id == current_user.id
+        UserProjectAccess.user_id == current_user.id,
+        UserProjectAccess.DUproject_id.isnot(None)
     ).all()
 
     if not user_accesses:
         # User has no project access, return empty query
         return query.filter(_5G_Rollout_Sheet.id == -1)
 
-    accessible_project_ids = [access.project_id for access in user_accesses]
+    accessible_project_ids = [access.DUproject_id for access in user_accesses]
 
     # Filter by accessible projects
     return query.filter(_5G_Rollout_Sheet.project_id.in_(accessible_project_ids))
@@ -375,17 +418,11 @@ def get_rollout_sheet_by_id(
         raise HTTPException(status_code=404, detail="Rollout sheet entry not found")
 
     # Check if user has access to this entry's project
-    if current_user.role.name != "senior_admin" and entry.project_id:
-        user_access = db.query(UserProjectAccess).filter(
-            UserProjectAccess.user_id == current_user.id,
-            UserProjectAccess.project_id == entry.project_id
-        ).first()
-
-        if not user_access:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have access to this rollout sheet entry."
-            )
+    if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "view"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this rollout sheet entry."
+        )
 
     return entry
 
@@ -465,19 +502,25 @@ async def delete_rollout_sheet(
 ):
     """
     Delete a 5G Rollout Sheet entry.
-    Requires 'all' permission (senior_admin only).
+    Requires 'all' permission - senior_admin for all projects, or admin with access to the specific project.
     """
-    # Check permission - only senior_admin can delete
-    if not check_admin_access(current_user, "all"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to delete rollout sheet entries. Contact the Senior Admin."
-        )
-
     entry = db.query(_5G_Rollout_Sheet).filter(_5G_Rollout_Sheet.id == entry_id).first()
 
     if not entry:
         raise HTTPException(status_code=404, detail="Rollout sheet entry not found")
+
+    # Check permission - senior_admin or admin with project access can delete
+    if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "all"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete this rollout sheet entry."
+        )
+    elif not entry.project_id and not check_admin_access(current_user, "all"):
+        # Entry without project requires senior_admin
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete rollout sheet entries without a project."
+        )
 
     try:
         # Store data for audit log before deletion
@@ -677,13 +720,13 @@ async def delete_all_rollout_sheets_for_project(
 ):
     """
     Delete all 5G Rollout Sheet entries for a specific project.
-    Requires 'all' permission (senior_admin only).
+    Requires 'all' permission - senior_admin for all projects, or admin with access to the specific project.
     """
-    # Check permission - only senior_admin can delete
-    if not check_admin_access(current_user, "all"):
+    # Check permission - senior_admin or admin with project access can delete
+    if not check_rollout_project_access(current_user, project_id, db, "all"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to delete rollout sheet entries. Contact the Senior Admin."
+            detail="You are not authorized to delete rollout sheet entries for this project."
         )
 
     try:
@@ -789,17 +832,11 @@ def generate_boq_for_rollout_entry(
         raise HTTPException(status_code=404, detail="Rollout sheet entry not found")
 
     # Check if user has access to this entry's project
-    if current_user.role.name != "senior_admin" and entry.project_id:
-        user_access = db.query(UserProjectAccess).filter(
-            UserProjectAccess.user_id == current_user.id,
-            UserProjectAccess.project_id == entry.project_id
-        ).first()
-
-        if not user_access:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have access to this rollout sheet entry."
-            )
+    if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "view"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this rollout sheet entry."
+        )
 
     # Get the site_id from the entry
     site_id = entry.site_id
@@ -1029,22 +1066,16 @@ def bulk_generate_boq(
             site_id = entry.site_id
 
             # Check if user has access to this entry's project
-            if current_user.role.name != "senior_admin" and entry.project_id:
-                user_access = db.query(UserProjectAccess).filter(
-                    UserProjectAccess.user_id == current_user.id,
-                    UserProjectAccess.project_id == entry.project_id
-                ).first()
-
-                if not user_access:
-                    results.append({
-                        "entry_id": entry_id,
-                        "site_id": entry.site_id,
-                        "scope": entry.scope,
-                        "error": "Access denied to this project",
-                        "success": False
-                    })
-                    failed += 1
-                    continue
+            if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "view"):
+                results.append({
+                    "entry_id": entry_id,
+                    "site_id": entry.site_id,
+                    "scope": entry.scope,
+                    "error": "Access denied to this project",
+                    "success": False
+                })
+                failed += 1
+                continue
 
             # Get the site_id from the entry
             if not site_id:
@@ -1737,17 +1768,11 @@ async def download_single_boq_excel(
         raise HTTPException(status_code=404, detail="Rollout sheet entry not found")
 
     # Check if user has access to this entry's project
-    if current_user.role.name != "senior_admin" and entry.project_id:
-        user_access = db.query(UserProjectAccess).filter(
-            UserProjectAccess.user_id == current_user.id,
-            UserProjectAccess.project_id == entry.project_id
-        ).first()
-
-        if not user_access:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have access to this rollout sheet entry."
-            )
+    if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "view"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this rollout sheet entry."
+        )
 
     # Generate BOQ data
     boq_data = generate_boq_data_for_entry(entry_id, db)
@@ -1832,15 +1857,9 @@ async def bulk_download_boq_excel(
                 continue
 
             # Check if user has access to this entry's project
-            if current_user.role.name != "senior_admin" and entry.project_id:
-                user_access = db.query(UserProjectAccess).filter(
-                    UserProjectAccess.user_id == current_user.id,
-                    UserProjectAccess.project_id == entry.project_id
-                ).first()
-
-                if not user_access:
-                    failed_entries.append({"entry_id": entry_id, "reason": "Access denied"})
-                    continue
+            if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "view"):
+                failed_entries.append({"entry_id": entry_id, "reason": "Access denied"})
+                continue
 
             # Generate BOQ data
             boq_data = generate_boq_data_for_entry(entry_id, db)
@@ -2105,17 +2124,12 @@ async def download_boq_excel_from_csv(
     if not entry:
         raise HTTPException(status_code=404, detail="Rollout sheet entry not found")
 
-    if current_user.role.name != "senior_admin" and entry.project_id:
-        user_access = db.query(UserProjectAccess).filter(
-            UserProjectAccess.user_id == current_user.id,
-            UserProjectAccess.project_id == entry.project_id
-        ).first()
-
-        if not user_access:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have access to this rollout sheet entry."
-            )
+    # Check if user has access to this entry's project
+    if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "view"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this rollout sheet entry."
+        )
 
     # Parse CSV data and convert to BOQ format
     boq_data = parse_csv_data_to_boq_format(csv_data, site_id, entry_id, db)
@@ -2212,15 +2226,10 @@ async def bulk_download_boq_excel_from_csv(
                 failed_entries.append({"entry_id": entry_id, "reason": "Entry not found"})
                 continue
 
-            if current_user.role.name != "senior_admin" and entry.project_id:
-                user_access = db.query(UserProjectAccess).filter(
-                    UserProjectAccess.user_id == current_user.id,
-                    UserProjectAccess.project_id == entry.project_id
-                ).first()
-
-                if not user_access:
-                    failed_entries.append({"entry_id": entry_id, "reason": "Access denied"})
-                    continue
+            # Check if user has access to this entry's project
+            if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "view"):
+                failed_entries.append({"entry_id": entry_id, "reason": "Access denied"})
+                continue
 
             # Parse CSV data
             boq_data = parse_csv_data_to_boq_format(csv_data, site_id, entry_id, db)

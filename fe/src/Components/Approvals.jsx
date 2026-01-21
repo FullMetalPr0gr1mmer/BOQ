@@ -1129,10 +1129,9 @@ export default function Approvals() {
                 <div className="form-field">
                   <label>InService Date *</label>
                   <input
-                    type="text"
+                    type="date"
                     value={inserviceDate}
                     onChange={(e) => setInserviceDate(e.target.value)}
-                    placeholder="Enter InService Date..."
                     required
                     style={{
                       width: '100%',

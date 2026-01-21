@@ -13,12 +13,16 @@ Features:
 
 import json
 import csv
+import logging
 import pandas as pd
 from io import StringIO
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, Request, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import Optional, List
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 from APIs.Core import get_db, get_current_user
 from Models.DU.CustomerPO import (
@@ -89,12 +93,15 @@ def get_client_ip(request: Request) -> str:
 
 
 def check_du_project_access(current_user: User, project: DUProject, db: Session, required_permission: str = "view"):
-    """Check if user has access to a DU project with required permission level."""
-    # Senior admin has all permissions
+    """
+    Helper function to check if user has access to a DU project with required permission level.
+    """
+    # Senior admin has all permissions to all projects
     if current_user.role.name == "senior_admin":
         return True
 
-    # For other roles, check UserProjectAccess
+    # Admin has all permissions but only to projects they have access to
+    # Check UserProjectAccess for both admin and other roles
     access = db.query(UserProjectAccess).filter(
         UserProjectAccess.user_id == current_user.id,
         UserProjectAccess.DUproject_id == project.pid_po
@@ -103,7 +110,11 @@ def check_du_project_access(current_user: User, project: DUProject, db: Session,
     if not access:
         return False
 
-    # Check permission levels
+    # Admin with any access level gets full permissions (same as senior_admin) for their projects
+    if current_user.role.name == "admin":
+        return True
+
+    # For non-admin users, check permission levels
     permission_hierarchy = {
         "view": ["view", "edit", "all"],
         "edit": ["edit", "all"],
@@ -119,7 +130,7 @@ def get_user_accessible_du_projects(current_user: User, db: Session):
     if current_user.role.name == "senior_admin":
         return db.query(DUProject).all()
 
-    # For other users, get projects they have access to
+    # For admin and other users, get projects they have access to
     user_accesses = db.query(UserProjectAccess).filter(
         UserProjectAccess.user_id == current_user.id,
         UserProjectAccess.DUproject_id.isnot(None)
@@ -542,18 +553,23 @@ async def upload_customer_po_csv(
     - project_id: DU Project ID to associate items with
     - skip_header_rows: Number of header rows to skip (default: 4)
     """
+    logger.info(f"User {current_user.username} uploading Customer PO CSV: {file.filename} for project {project_id}")
+
     # Check project exists and user has access
     project = db.query(DUProject).filter(DUProject.pid_po == project_id).first()
     if not project:
+        logger.warning(f"CSV upload attempted for non-existent project: {project_id}")
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not check_du_project_access(current_user, project, db, "edit"):
+        logger.warning(f"User {current_user.username} denied permission to upload to project {project_id}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to upload items to this project."
         )
 
     if not file.filename.endswith('.csv'):
+        logger.warning(f"Invalid file type uploaded: {file.filename}")
         raise HTTPException(status_code=400, detail="File must be a CSV")
 
     try:
@@ -643,6 +659,8 @@ async def upload_customer_po_csv(
 
         db.commit()
 
+        logger.info(f"Customer PO CSV upload completed: {inserted_count} inserted, {updated_count} updated, {skipped_count} skipped for project {project_id}")
+
         # Create audit log
         await create_audit_log(
             db=db,
@@ -670,6 +688,7 @@ async def upload_customer_po_csv(
 
     except Exception as e:
         db.rollback()
+        logger.error(f"Error processing Customer PO CSV for project {project_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing CSV: {str(e)}"
@@ -688,11 +707,15 @@ async def delete_all_customer_po_items(
         current_user: User = Depends(get_current_user)
 ):
     """Delete all Customer PO items for a project."""
+    logger.info(f"User {current_user.username} attempting to delete all Customer PO items for project {project_id}")
+
     project = db.query(DUProject).filter(DUProject.pid_po == project_id).first()
     if not project:
+        logger.warning(f"Bulk delete attempted for non-existent project: {project_id}")
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not check_du_project_access(current_user, project, db, "all"):
+        logger.warning(f"User {current_user.username} denied permission to bulk delete for project {project_id}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to delete items for this project."
@@ -703,7 +726,10 @@ async def delete_all_customer_po_items(
         item_count = db.query(CustomerPO).filter(CustomerPO.project_id == project_id).count()
 
         if item_count == 0:
+            logger.info(f"No Customer PO items found to delete for project {project_id}")
             raise HTTPException(status_code=404, detail="No Customer PO items found for this project")
+
+        logger.info(f"Deleting {item_count} Customer PO items for project {project_id}")
 
         # Delete all items
         deleted_count = db.query(CustomerPO).filter(
@@ -711,6 +737,8 @@ async def delete_all_customer_po_items(
         ).delete(synchronize_session=False)
 
         db.commit()
+
+        logger.info(f"Successfully deleted {deleted_count} Customer PO items for project {project_id} by user {current_user.username}")
 
         # Create audit log
         await create_audit_log(
@@ -734,6 +762,7 @@ async def delete_all_customer_po_items(
         raise
     except Exception as e:
         db.rollback()
+        logger.error(f"Error deleting Customer PO items for project {project_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting Customer PO items: {str(e)}"

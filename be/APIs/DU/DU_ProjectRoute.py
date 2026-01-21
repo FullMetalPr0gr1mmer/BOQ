@@ -6,14 +6,20 @@ This module provides CRUD operations for managing DU (Digital Transformation) Pr
 It includes pagination, search, admin control, and cascading PO updates.
 """
 
-from typing import List
+import logging
+import json
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from APIs.Core import get_db, get_current_user
 from Models.Admin.User import UserProjectAccess, User
+from Models.Admin.AuditLog import AuditLog
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Import model using importlib since we need to reference it dynamically
 import importlib
@@ -41,6 +47,41 @@ DUProjectRoute = APIRouter(prefix="/du-projects", tags=["DU Projects"])
 # HELPER FUNCTIONS
 # ===========================
 
+async def create_audit_log(
+        db: Session,
+        user_id: int,
+        action: str,
+        resource_type: str,
+        resource_id: Optional[str] = None,
+        resource_name: Optional[str] = None,
+        details: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+):
+    """Create an audit log entry."""
+    audit_log = AuditLog(
+        user_id=user_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        resource_name=resource_name,
+        details=details,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+    db.add(audit_log)
+    db.commit()
+    return audit_log
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 def check_du_project_access(current_user: User, project: DUProject, db: Session, required_permission: str = "view"):
     """
     Helper function to check if user has access to a DU project with required permission level.
@@ -54,11 +95,12 @@ def check_du_project_access(current_user: User, project: DUProject, db: Session,
     Returns:
         bool: True if user has access, False otherwise
     """
-    # Senior admin has all permissions
+    # Senior admin has all permissions to all projects
     if current_user.role.name == "senior_admin":
         return True
 
-    # For other roles, check UserProjectAccess
+    # Admin has all permissions but only to projects they have access to
+    # Check UserProjectAccess for both admin and other roles
     access = db.query(UserProjectAccess).filter(and_(
         UserProjectAccess.user_id == current_user.id,
         UserProjectAccess.DUproject_id == project.pid_po
@@ -67,7 +109,11 @@ def check_du_project_access(current_user: User, project: DUProject, db: Session,
     if not access:
         return False
 
-    # Check permission levels
+    # Admin with any access level gets full permissions (same as senior_admin) for their projects
+    if current_user.role.name == "admin":
+        return True
+
+    # For non-admin users, check permission levels
     permission_hierarchy = {
         "view": ["view", "edit", "all"],
         "edit": ["edit", "all"],
@@ -115,16 +161,20 @@ def get_user_accessible_du_projects(current_user: User, db: Session) -> List[DUP
 # ===========================
 
 @DUProjectRoute.post("", response_model=DUProjectOut)
-def add_du_project(
+async def add_du_project(
         project_data: CreateDUProject,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
     Create a new DU project. Only senior_admin can create projects.
     """
+    logger.info(f"User {current_user.username} attempting to create DU project: {project_data.pid + project_data.po}")
+
     # Only senior_admin can create projects
     if current_user.role.name != "senior_admin":
+        logger.warning(f"User {current_user.username} (role: {current_user.role.name}) denied permission to create DU project")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to perform this action. Contact the Senior Admin."
@@ -133,6 +183,7 @@ def add_du_project(
     pid_po = project_data.pid + project_data.po
     existing_project = db.query(DUProject).filter(DUProject.pid_po == pid_po).first()
     if existing_project:
+        logger.warning(f"Attempt to create duplicate DU project: {pid_po}")
         raise HTTPException(status_code=400, detail="DU Project already exists")
 
     try:
@@ -145,9 +196,28 @@ def add_du_project(
         db.add(new_project_db)
         db.commit()
         db.refresh(new_project_db)
+        logger.info(f"DU project created successfully: {pid_po} by user {current_user.username}")
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="create_du_project",
+            resource_type="du_project",
+            resource_id=pid_po,
+            resource_name=project_data.project_name,
+            details=json.dumps({
+                "pid": project_data.pid,
+                "po": project_data.po
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return new_project_db
     except Exception as e:
         db.rollback()
+        logger.error(f"Error creating DU project {pid_po}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating DU project: {str(e)}"
@@ -173,8 +243,11 @@ def get_du_projects(
         limit: Maximum number of records to return
         search: Search term to filter by project name, pid, or po
     """
+    logger.info(f"User {current_user.username} (ID: {current_user.id}) requesting DU projects - skip: {skip}, limit: {limit}, search: '{search}'")
+
     try:
         accessible_projects = get_user_accessible_du_projects(current_user, db)
+        logger.debug(f"User {current_user.username} has access to {len(accessible_projects)} DU projects")
 
         # Apply search filter if provided
         if search.strip():
@@ -186,14 +259,17 @@ def get_du_projects(
                     search_lower in (p.po or "").lower() or
                     search_lower in (p.pid_po or "").lower())
             ]
+            logger.debug(f"After search filter: {len(accessible_projects)} projects match")
 
         total = len(accessible_projects)
 
         # Apply pagination
         paginated_projects = accessible_projects[skip:skip + limit]
 
+        logger.info(f"Returning {len(paginated_projects)} DU projects out of {total} total for user {current_user.username}")
         return DUProjectPagination(records=paginated_projects, total=total)
     except Exception as e:
+        logger.error(f"Error retrieving DU projects for user {current_user.username}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving DU projects: {str(e)}"
@@ -283,9 +359,10 @@ def get_du_project(
 
 
 @DUProjectRoute.put("/{pid_po}", response_model=DUProjectOut)
-def update_du_project(
+async def update_du_project(
         pid_po: str,
         update_data: UpdateDUProject,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -307,11 +384,29 @@ def update_du_project(
 
     # Update the project
     try:
+        old_name = project.project_name
         if update_data.project_name:
             project.project_name = update_data.project_name
 
         db.commit()
         db.refresh(project)
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update_du_project",
+            resource_type="du_project",
+            resource_id=pid_po,
+            resource_name=project.project_name,
+            details=json.dumps({
+                "old_name": old_name,
+                "new_name": update_data.project_name
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return project
     except Exception as e:
         db.rollback()
@@ -322,8 +417,9 @@ def update_du_project(
 
 
 @DUProjectRoute.delete("/{pid_po}")
-def delete_du_project(
+async def delete_du_project(
         pid_po: str,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -334,12 +430,16 @@ def delete_du_project(
 
     Note: This will also delete all related 5G Rollout Sheet entries.
     """
+    logger.info(f"User {current_user.username} attempting to delete DU project: {pid_po}")
+
     project = db.query(DUProject).filter(DUProject.pid_po == pid_po).first()
     if not project:
+        logger.warning(f"Attempt to delete non-existent DU project: {pid_po}")
         raise HTTPException(status_code=404, detail="DU Project not found")
 
     # Check if user has "all" permission (required for deletion)
     if not check_du_project_access(current_user, project, db, "all"):
+        logger.warning(f"User {current_user.username} denied permission to delete DU project: {pid_po}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to delete this DU project. Contact the Senior Admin."
@@ -347,10 +447,14 @@ def delete_du_project(
 
     # Delete the project and related data
     try:
+        project_name = project.project_name
+
         # Count related records for response
         rollout_count = db.query(_5G_Rollout_Sheet).filter(
             _5G_Rollout_Sheet.project_id == pid_po
         ).count()
+
+        logger.info(f"Deleting DU project {pid_po} with {rollout_count} related rollout sheet entries")
 
         # Delete related 5G Rollout Sheet entries first
         db.query(_5G_Rollout_Sheet).filter(
@@ -361,12 +465,30 @@ def delete_du_project(
         db.delete(project)
         db.commit()
 
+        logger.info(f"DU project {pid_po} deleted successfully by user {current_user.username}")
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="delete_du_project",
+            resource_type="du_project",
+            resource_id=pid_po,
+            resource_name=project_name,
+            details=json.dumps({
+                "deleted_rollout_sheets": rollout_count
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {
             "message": f"DU Project '{pid_po}' deleted successfully",
             "deleted_rollout_sheets": rollout_count
         }
     except Exception as e:
         db.rollback()
+        logger.error(f"Error deleting DU project {pid_po}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting DU project: {str(e)}"
@@ -374,9 +496,10 @@ def delete_du_project(
 
 
 @DUProjectRoute.put("/{old_pid_po}/update-po", response_model=UpdatePOResponse)
-def update_project_purchase_order(
+async def update_project_purchase_order(
         old_pid_po: str,
         update_data: UpdatePOSchema,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -475,6 +598,26 @@ def update_project_purchase_order(
 
         # Calculate total records updated
         total_records_updated = sum(affected_tables.values())
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update_du_project_po",
+            resource_type="du_project",
+            resource_id=new_pid_po,
+            resource_name=project.project_name,
+            details=json.dumps({
+                "old_pid_po": old_pid_po,
+                "new_pid_po": new_pid_po,
+                "old_po": project.po,
+                "new_po": new_po,
+                "affected_tables": affected_tables,
+                "total_records_updated": total_records_updated
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return UpdatePOResponse(
             old_pid_po=old_pid_po,

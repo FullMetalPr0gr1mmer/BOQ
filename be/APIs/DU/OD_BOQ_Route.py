@@ -16,12 +16,16 @@ Features:
 
 import json
 import csv
+import logging
 import pandas as pd
 from io import StringIO
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, Request, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import Optional, List, Dict, Any
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 from APIs.Core import get_db, get_current_user
 from Models.DU.OD_BOQ_Site import ODBOQSite
@@ -84,10 +88,15 @@ def get_client_ip(request: Request) -> str:
 
 
 def check_du_project_access(current_user: User, project: DUProject, db: Session, required_permission: str = "view"):
-    """Check if user has access to a DU project with required permission level."""
+    """
+    Helper function to check if user has access to a DU project with required permission level.
+    """
+    # Senior admin has all permissions to all projects
     if current_user.role.name == "senior_admin":
         return True
 
+    # Admin has all permissions but only to projects they have access to
+    # Check UserProjectAccess for both admin and other roles
     access = db.query(UserProjectAccess).filter(
         UserProjectAccess.user_id == current_user.id,
         UserProjectAccess.DUproject_id == project.pid_po
@@ -96,6 +105,11 @@ def check_du_project_access(current_user: User, project: DUProject, db: Session,
     if not access:
         return False
 
+    # Admin with any access level gets full permissions (same as senior_admin) for their projects
+    if current_user.role.name == "admin":
+        return True
+
+    # For non-admin users, check permission levels
     permission_hierarchy = {
         "view": ["view", "edit", "all"],
         "edit": ["edit", "all"],
@@ -107,9 +121,11 @@ def check_du_project_access(current_user: User, project: DUProject, db: Session,
 
 def get_user_accessible_du_projects(current_user: User, db: Session):
     """Get all DU projects that the current user has access to."""
+    # Senior admin can see all projects
     if current_user.role.name == "senior_admin":
         return db.query(DUProject).all()
 
+    # For admin and other users, get projects they have access to
     user_accesses = db.query(UserProjectAccess).filter(
         UserProjectAccess.user_id == current_user.id,
         UserProjectAccess.DUproject_id.isnot(None)
@@ -672,18 +688,23 @@ async def upload_csv(
     - Products (rows 1-7, columns H onwards)
     - Site-Products (junction with quantities)
     """
+    logger.info(f"User {current_user.username} uploading OD BOQ CSV: {file.filename} for project {project_id}, consumed_year: {consumed_year}")
+
     # Check project access
     project = db.query(DUProject).filter(DUProject.pid_po == project_id).first()
     if not project:
+        logger.warning(f"OD BOQ CSV upload attempted for non-existent project: {project_id}")
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not check_du_project_access(current_user, project, db, "edit"):
+        logger.warning(f"User {current_user.username} denied permission to upload OD BOQ for project {project_id}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to upload to this project."
         )
 
     if not file.filename.endswith('.csv'):
+        logger.warning(f"Invalid file type uploaded for OD BOQ: {file.filename}")
         raise HTTPException(status_code=400, detail="File must be a CSV")
 
     try:
@@ -826,6 +847,8 @@ async def upload_csv(
 
         db.commit()
 
+        logger.info(f"OD BOQ CSV upload completed: {sites_inserted} sites inserted, {sites_updated} updated, {products_inserted} products inserted, {products_updated} updated, {site_products_inserted} site-products inserted for project {project_id}")
+
         # Create audit log
         await create_audit_log(
             db=db,
@@ -858,6 +881,7 @@ async def upload_csv(
 
     except Exception as e:
         db.rollback()
+        logger.error(f"Error processing OD BOQ CSV for project {project_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing CSV: {str(e)}"

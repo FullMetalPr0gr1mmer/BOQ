@@ -24,8 +24,25 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/approvals", tags=["Approvals"])
 
-UPLOAD_DIR = Path("uploads/approvals")
+# Use absolute path based on the backend directory location
+# Go up from APIs/BOQ/ApprovalRoute.py to the be/ directory
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+UPLOAD_DIR = BASE_DIR / "uploads" / "approvals"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def resolve_file_path(file_path_str: str) -> Path:
+    """
+    Resolve file path, handling both absolute and relative paths.
+    For backward compatibility with old relative paths stored in database.
+    """
+    file_path = Path(file_path_str)
+
+    # If path doesn't exist and is relative, try making it relative to BASE_DIR
+    if not file_path.exists() and not file_path.is_absolute():
+        file_path = BASE_DIR / file_path_str
+
+    return file_path
 
 
 @router.post("/upload", response_model=ApprovalResponse)
@@ -357,9 +374,13 @@ async def approve_item(
             triggering_filename = f"{timestamp}_triggering_{approval.filename}"
             triggering_file_path = UPLOAD_DIR / triggering_filename
 
-            source_path = Path(approval.file_path)
+            # Resolve file path (handles both absolute and relative paths)
+            source_path = resolve_file_path(approval.file_path)
+
+            # Final check
             if not source_path.exists():
-                raise Exception(f"Source BOQ file not found: {source_path}")
+                logger.error(f"Source BOQ file not found: {approval.file_path} -> {source_path}")
+                raise Exception(f"Source BOQ file not found. Please ensure the file exists at: {approval.file_path}")
 
             # Read BOQ CSV data and extract metadata
             boq_data = []
@@ -736,14 +757,20 @@ async def delete_approval(
 
     try:
         # Delete CSV file
-        csv_file_path = Path(approval.file_path)
+        csv_file_path = resolve_file_path(approval.file_path)
         if csv_file_path.exists():
             csv_file_path.unlink()
 
         # Delete template file
-        template_file_path = Path(approval.template_file_path)
+        template_file_path = resolve_file_path(approval.template_file_path)
         if template_file_path.exists():
             template_file_path.unlink()
+
+        # Delete triggering file if it exists
+        if approval.triggering_file_path:
+            triggering_file_path = resolve_file_path(approval.triggering_file_path)
+            if triggering_file_path.exists():
+                triggering_file_path.unlink()
 
         db.delete(approval)
         db.commit()
@@ -774,7 +801,7 @@ async def download_approval_file(
     if not approval:
         raise HTTPException(status_code=404, detail="Approval not found")
 
-    file_path = Path(approval.file_path)
+    file_path = resolve_file_path(approval.file_path)
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -798,7 +825,7 @@ async def download_approval_template(
     if not approval:
         raise HTTPException(status_code=404, detail="Approval not found")
 
-    template_path = Path(approval.template_file_path)
+    template_path = resolve_file_path(approval.template_file_path)
     if not template_path.exists():
         raise HTTPException(status_code=404, detail="Template file not found")
 
@@ -833,7 +860,7 @@ async def download_triggering_csv(
             detail="Triggering file not yet generated. Approve the item first."
         )
 
-    triggering_path = Path(approval.triggering_file_path)
+    triggering_path = resolve_file_path(approval.triggering_file_path)
     if not triggering_path.exists():
         raise HTTPException(status_code=404, detail="Triggering file not found")
 
