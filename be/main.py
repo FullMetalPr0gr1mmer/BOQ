@@ -69,6 +69,7 @@ from APIs.BOQ.ApprovalRoute import router as approval_router
 from APIs.BOQ.LevelsRoute import levelsRouter
 from APIs.BOQ.ProjectRoute import projectRoute
 from APIs.BOQ.POReportRoute import POReportRouter
+from APIs.BOQ.PriceBookRoute import router as price_book_router
 
 # LE (Latest Estimate/ROP) API imports
 from APIs.LE.ROPLvl1Route import ROPLvl1router
@@ -94,9 +95,13 @@ du_project_route_module = importlib.import_module("APIs.DU.DU_ProjectRoute")
 DUProjectRoute = du_project_route_module.DUProjectRoute
 from APIs.DU.OD_BOQ_Route import odBOQRoute
 from APIs.DU.CustomerPORoute import customerPORoute
+from APIs.DU.DU_RPA_Logistics_Route import duRPALogisticsRoute
 
 # NDPD (Network Deployment Planning Data) API imports
 from APIs.NDPD.NDPDRoute import NDPDRoute
+
+# Exchange Rate
+from APIs.ExchangeRateRoute import exchangeRateRoute
 
 # Import AI models so SQLAlchemy recognizes them
 from Models.AI import Document, DocumentChunk, ChatHistory, AIAction
@@ -107,6 +112,9 @@ from Models.BOQ.Approval import Approval
 # Import POReport model
 from Models.BOQ.POReport import POReport
 
+# Import PriceBook model
+from Models.BOQ.PriceBook import PriceBook
+
 # Import DU models so SQLAlchemy recognizes them
 du_project_model = importlib.import_module("Models.DU.DU_Project")
 rollout_sheet_model = importlib.import_module("Models.DU.5G_Rollout_Sheet")
@@ -114,6 +122,7 @@ from Models.DU.OD_BOQ_Site import ODBOQSite
 from Models.DU.OD_BOQ_Product import ODBOQProduct
 from Models.DU.OD_BOQ_Site_Product import ODBOQSiteProduct
 from Models.DU.CustomerPO import CustomerPO
+from Models.DU.DU_RPA_Logistics import DURPAProject, DURPADescription, DURPAInvoice, DURPAInvoiceItem
 
 # Import NDPD models so SQLAlchemy recognizes them
 from Models.NDPD.NDPDData import NDPDData
@@ -161,6 +170,7 @@ app.include_router(DismantlingRouter)    # Dismantling operations
 app.include_router(lld_router)      # Low Level Design operations
 app.include_router(approval_router) # Approval workflow management
 app.include_router(POReportRouter)  # PO Report management
+app.include_router(price_book_router) # Price Book management
 
 # RAN (Radio Access Network) Management
 app.include_router(RANProjectRoute) # RAN project management
@@ -184,9 +194,13 @@ app.include_router(DUProjectRoute)      # DU Project management
 app.include_router(rolloutSheetRoute)   # 5G Rollout Sheet management
 app.include_router(odBOQRoute)          # OD BOQ management (Sites, Products, Site-Products)
 app.include_router(customerPORoute)     # Customer PO management
+app.include_router(duRPALogisticsRoute) # DU RPA Logistics management
 
 # NDPD (Network Deployment Planning Data) Management
 app.include_router(NDPDRoute)           # NDPD data management
+
+# Exchange Rate
+app.include_router(exchangeRateRoute)   # USD/AED live exchange rate
 
 # app.include_router(pma)    # Project Management Assistant (PMA) routes
 
@@ -200,6 +214,5 @@ if __name__ == "__main__":
         app,
         host="127.0.0.1",
         port=8003,
-        timeout_keep_alive=600,
-        timeout_notify=600
+        timeout_keep_alive=600
     )

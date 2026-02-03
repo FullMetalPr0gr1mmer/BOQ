@@ -542,11 +542,11 @@
   background: #3ab5e8;
 }
 
-/* Nested Table */
-.nested-table {
+/* Nested Table - Scoped to project-container */
+.project-container .nested-table {
   width: 100%;
-  min-width: 1000px;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 0.8rem;
   background: white;
   margin: 0 !important;
@@ -555,51 +555,50 @@
   overflow: hidden;
 }
 
-.nested-table thead {
+.project-container .nested-table thead {
   background: linear-gradient(135deg, #5bcefa 0%, #3ab5e8 100%);
 }
 
-.nested-table th {
-  padding: 0.75rem 0.6rem;
+.project-container .nested-table th {
+  padding: 0.35rem 0.4rem;
   text-align: center;
   font-weight: 600;
   color: #124191;
   text-transform: uppercase;
   font-size: 0.7rem;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   white-space: nowrap;
   border-bottom: none;
 }
 
-.nested-table th:first-child {
+.project-container .nested-table th:first-child {
   border-top-left-radius: 8px;
 }
 
-.nested-table th:last-child {
+.project-container .nested-table th:last-child {
   border-top-right-radius: 8px;
 }
 
-.nested-table tbody tr {
+.project-container .nested-table tbody tr {
   border-bottom: 1px solid #e5e7eb;
   transition: background-color 0.15s ease;
 }
 
-.nested-table tbody tr:hover {
+.project-container .nested-table tbody tr:hover {
   background: #f9fafb;
 }
 
-.nested-table tbody tr:last-child {
+.project-container .nested-table tbody tr:last-child {
   border-bottom: none;
 }
 
-.nested-table td {
-  padding: 0.75rem 0.6rem;
+.project-container .nested-table td {
+  padding: 0.3rem 0.4rem;
   text-align: center;
   color: #374151;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
 }
 
 .no-data {

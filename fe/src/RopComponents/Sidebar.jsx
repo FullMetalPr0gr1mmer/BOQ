@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FaSignOutAlt, FaTimes, FaClipboardList, FaChevronDown, FaChevronRight, FaUser, FaCheckCircle, FaFileAlt } from 'react-icons/fa';
 import { FaProjectDiagram, FaMapMarkerAlt, FaBox, FaLayerGroup, FaCubes, FaFile, FaRobot, FaNetworkWired, FaBroadcastTower, FaAnchor, FaMobileAlt, FaDatabase } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -49,7 +49,8 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
         onClose();
     };
 
-    const sections = [
+    // OPTIMIZED: Memoize sections array to prevent re-creation on every render
+    const sections = useMemo(() => [
         {
             key: 'boq',
             title: 'MW BOQ',
@@ -105,8 +106,16 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
             items: [
                 { label: 'NDPD Records', path: '/ndpd-data', icon: <FaDatabase /> }
             ]
+        },
+        {
+            key: 'du-logistics',
+            title: 'DU Logistics',
+            icon: <FaClipboardList />,
+            items: [
+                { label: 'Projects', path: '/projects', icon: <FaClipboardList /> }
+            ]
         }
-    ];
+    ], []); // Empty deps - sections are static
 
     return (
         <>
@@ -215,6 +224,13 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                                 >
                                     <span className="nav-icon"><FaFileAlt /></span>
                                     PO Report
+                                </button>
+                                <button
+                                    className="nav-item"
+                                    onClick={() => handleNavigation('/price-book', null)}
+                                >
+                                    <span className="nav-icon"><FaFileAlt /></span>
+                                    Price Book
                                 </button>
                             </div>
                         )}

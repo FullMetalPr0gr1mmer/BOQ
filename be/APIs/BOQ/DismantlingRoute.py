@@ -12,6 +12,7 @@ from APIs.BOQ.ProjectRoute import get_user_accessible_projects, get_project_for_
 from APIs.Core import get_db, get_current_user
 from Models.Admin.User import User
 from Models.BOQ.Dismantling import Dismantling
+from utils.file_validation import validate_csv_file  # SECURITY: File upload validation
 
 from Schemas.BOQ.DismantlingSchema import DismantlingCreate, DismantlingUpdate, DismantlingOut, DismantlingPagination
 
@@ -270,6 +271,10 @@ async def upload_csv(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to upload dismantling records for this project."
         )
+
+    # SECURITY: Validate file size and type
+    await validate_csv_file(file, max_size=50 * 1024 * 1024)  # 50 MB limit
+
     content = await file.read()
     csv_reader = csv.reader(StringIO(content.decode("utf-8")))
 
@@ -288,7 +293,8 @@ async def upload_csv(
         raise HTTPException(status_code=400,
                             detail=f"Missing required CSV column: {e}. Required columns are: nokia_link_id, nec_dismantling_link_id, no_of_dismantling, comments")
 
-    inserted_count = 0
+    # OPTIMIZED: Build list for bulk insert instead of adding one by one
+    bulk_data = []
 
     for row in csv_reader:
         if not row:
@@ -299,16 +305,18 @@ async def upload_csv(
         except (ValueError, IndexError):
             continue
 
-        obj_in = DismantlingCreate(
-            nokia_link_id=row[nokia_link_id_index].strip() if nokia_link_id_index < len(row) else "",
-            nec_dismantling_link_id=row[nec_dismantling_link_id_index].strip() if nec_dismantling_link_id_index < len(row) else "",
-            no_of_dismantling=no_of_dismantling,
-            comments=row[comments_index].strip() if comments_index < len(row) else None,
-            pid_po=pid_po  # Use the form parameter for all records
-        )
-        db_obj = Dismantling(**obj_in.dict())
-        db.add(db_obj)
-        inserted_count += 1
+        bulk_data.append({
+            'nokia_link_id': row[nokia_link_id_index].strip() if nokia_link_id_index < len(row) else "",
+            'nec_dismantling_link_id': row[nec_dismantling_link_id_index].strip() if nec_dismantling_link_id_index < len(row) else "",
+            'no_of_dismantling': no_of_dismantling,
+            'comments': row[comments_index].strip() if comments_index < len(row) and row[comments_index].strip() else None,
+            'pid_po': pid_po  # Use the form parameter for all records
+        })
+
+    # OPTIMIZED: Single bulk insert instead of N individual inserts
+    inserted_count = len(bulk_data)
+    if bulk_data:
+        db.bulk_insert_mappings(Dismantling, bulk_data)
 
     db.commit()
 

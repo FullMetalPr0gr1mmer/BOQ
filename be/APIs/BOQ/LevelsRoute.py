@@ -28,8 +28,19 @@ def create_lvl1_entry(data: Lvl1Create, db: Session = Depends(get_db)):
     return lvl1
 
 @levelsRouter.get("/get-lvl1")
-def get_all_lvl1(db: Session = Depends(get_db)):
-    entries = db.query(Lvl1).all()
+def get_all_lvl1(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all Level 1 entries with pagination.
+
+    OPTIMIZED: Added pagination (skip/limit) to prevent loading unlimited records.
+    """
+    # OPTIMIZED: Added offset and limit for pagination
+    # MSSQL requires ORDER BY when using OFFSET/LIMIT
+    entries = db.query(Lvl1).order_by(Lvl1.id).offset(skip).limit(limit).all()
     return [
         Lvl1Out(
             id=entry.id,

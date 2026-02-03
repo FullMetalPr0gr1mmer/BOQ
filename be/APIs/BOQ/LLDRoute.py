@@ -13,6 +13,9 @@ from Schemas.BOQ.LLDSchema import LLDCreate, LLDOut, LLDListOut
 from Models.Admin.User import User, UserProjectAccess
 from Models.BOQ.Project import Project
 
+# File validation utility
+from utils.file_validation import validate_csv_file
+
 
 lld_router = APIRouter(prefix="/lld", tags=["LLD"])
 
@@ -179,12 +182,17 @@ def delete_lld(
 
 # ---------------- CSV Upload ----------------
 @lld_router.post("/upload-csv")
-def upload_csv(
+async def upload_csv(
     project_id: str = Query(..., description="The Project ID (pid_po) to associate the LLD records with."),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Upload CSV file to create LLD records for a project.
+
+    OPTIMIZED: Added async for file validation and 50MB size limit for security.
+    """
     # 1. Authorization Check
     project = db.query(Project).filter(Project.pid_po == project_id).first()
     if not project:
@@ -197,8 +205,8 @@ def upload_csv(
         )
 
     # 2. Process CSV File
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a .csv file.")
+    # OPTIMIZED: Validate CSV file size and extension (50 MB limit)
+    await validate_csv_file(file, max_size=50 * 1024 * 1024)
 
     try:
         content = file.file.read().decode("utf-8-sig")

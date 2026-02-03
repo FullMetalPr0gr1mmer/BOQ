@@ -644,6 +644,9 @@ async def upload_rollout_sheet_csv(
         inserted_count = 0
         updated_count = 0
 
+        # OPTIMIZED: Collect all entries first, then bulk insert new ones
+        entries_to_process = []
+
         for row in csv_reader:
             # Map CSV columns to model fields
             entry_data = {}
@@ -660,11 +663,21 @@ async def upload_rollout_sheet_csv(
             if not entry_data.get('site_id'):
                 continue
 
-            # Check if entry exists (by site_id and project_id)
-            existing_entry = db.query(_5G_Rollout_Sheet).filter(
-                _5G_Rollout_Sheet.site_id == entry_data['site_id'],
-                _5G_Rollout_Sheet.project_id == entry_data.get('project_id')
-            ).first()
+            entries_to_process.append(entry_data)
+
+        # OPTIMIZED: Query all existing entries at once to avoid N queries
+        site_ids = [e['site_id'] for e in entries_to_process]
+        existing_entries = db.query(_5G_Rollout_Sheet).filter(
+            _5G_Rollout_Sheet.site_id.in_(site_ids)
+        ).all()
+        existing_map = {(e.site_id, e.project_id): e for e in existing_entries}
+
+        # OPTIMIZED: Separate new entries for bulk insert
+        bulk_data = []
+
+        for entry_data in entries_to_process:
+            key = (entry_data['site_id'], entry_data.get('project_id'))
+            existing_entry = existing_map.get(key)
 
             if existing_entry:
                 # Update existing entry
@@ -673,10 +686,13 @@ async def upload_rollout_sheet_csv(
                         setattr(existing_entry, field, value)
                 updated_count += 1
             else:
-                # Create new entry
-                new_entry = _5G_Rollout_Sheet(**entry_data)
-                db.add(new_entry)
+                # OPTIMIZED: Add to bulk list instead of individual db.add()
+                bulk_data.append(entry_data)
                 inserted_count += 1
+
+        # OPTIMIZED: Single bulk insert for new entries
+        if bulk_data:
+            db.bulk_insert_mappings(_5G_Rollout_Sheet, bulk_data)
 
         db.commit()
 

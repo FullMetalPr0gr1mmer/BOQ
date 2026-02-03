@@ -142,7 +142,16 @@ async def upload_reference_csv(
         if not to_insert:
             raise HTTPException(status_code=400, detail="No valid rows with linkid found")
 
-        db.bulk_save_objects(to_insert)
+        # OPTIMIZED: Use bulk_insert_mappings for better performance
+        db.bulk_insert_mappings(BOQReference, [
+            {
+                'linkid': obj.linkid,
+                'interface_name': obj.interface_name,
+                'site_ip_a': obj.site_ip_a,
+                'site_ip_b': obj.site_ip_b,
+                'pid_po': obj.pid_po
+            } for obj in to_insert
+        ])
         db.commit()
         return {"rows_processed": processed, "rows_inserted": len(to_insert)}
 
@@ -306,32 +315,50 @@ def process_boq_data(site_a_ip: str, site_b_ip: str, linked_ip: str, db: Session
     ).all()
 
     # OUTDOOR inventory
-    outdoor_inventory_a = []
-    outdoor_inventory_b = []
-    site_a_serials = set()
-    site_b_serials = set()
+    # OPTIMIZED: Collect all needed (site, slot, port) tuples first to avoid N+1 queries
+    inventory_filters_a = []
+    inventory_filters_b = []
+
     for ref in refs:
         parsed = _parse_interface_name(ref.interface_name)
 
         if ref.site_ip_a and parsed.get("a_slot") is not None and parsed.get("a_port") is not None:
-            inv_rows_a = db.query(Inventory).filter(and_(
-                Inventory.site_id == ref.site_ip_a,
-                Inventory.slot_id == parsed["a_slot"],
-                Inventory.port_id == parsed["a_port"])
-            ).all()
-            # if inv_rows_a.serial_no not in site_a_serials:
-            #     site_a_serials.add(inv_rows_a.serial_no)
-            outdoor_inventory_a.extend([_sa_row_to_dict(r) for r in inv_rows_a])
+            inventory_filters_a.append((ref.site_ip_a, parsed["a_slot"], parsed["a_port"]))
 
         if ref.site_ip_b and parsed.get("b_slot") is not None and parsed.get("b_port") is not None:
-            inv_rows_b = db.query(Inventory).filter(and_(
-                Inventory.site_id == ref.site_ip_b,
-                Inventory.slot_id == parsed["b_slot"],
-                Inventory.port_id == parsed["b_port"])
-            ).first()
-            if inv_rows_b.serial_no not in site_b_serials:
-                site_b_serials.add(inv_rows_b.serial_no)
-                outdoor_inventory_b.extend([_sa_row_to_dict(inv_rows_b)])
+            inventory_filters_b.append((ref.site_ip_b, parsed["b_slot"], parsed["b_port"]))
+
+    # OPTIMIZED: Single query for all outdoor inventory A
+    outdoor_inventory_a = []
+    if inventory_filters_a:
+        conditions_a = [
+            and_(
+                Inventory.site_id == site_id,
+                Inventory.slot_id == slot,
+                Inventory.port_id == port
+            )
+            for site_id, slot, port in inventory_filters_a
+        ]
+        inv_rows_a = db.query(Inventory).filter(or_(*conditions_a)).all()
+        outdoor_inventory_a = [_sa_row_to_dict(r) for r in inv_rows_a]
+
+    # OPTIMIZED: Single query for all outdoor inventory B
+    outdoor_inventory_b = []
+    site_b_serials = set()
+    if inventory_filters_b:
+        conditions_b = [
+            and_(
+                Inventory.site_id == site_id,
+                Inventory.slot_id == slot,
+                Inventory.port_id == port
+            )
+            for site_id, slot, port in inventory_filters_b
+        ]
+        inv_rows_b = db.query(Inventory).filter(or_(*conditions_b)).all()
+        for r in inv_rows_b:
+            if r.serial_no not in site_b_serials:
+                site_b_serials.add(r.serial_no)
+                outdoor_inventory_b.append(_sa_row_to_dict(r))
     # INDOOR inventory (slot=0, port=0)
     indoor_inventory_a = [
         _sa_row_to_dict(r) for r in db.query(Inventory).filter(
@@ -652,16 +679,9 @@ def download_boq_zip(
     - linkedIp: Linked IP identifier
     """
     try:
-        print("[DEBUG] download_boq_zip endpoint called")
-        print(f"[DEBUG] Payload keys: {payload.keys()}")
-
         csv_content = payload.get("csv_content")
         site_a_ip = payload.get("siteA")
         linked_ip = payload.get("linkedIp") or payload.get("linkid")
-
-        print(f"[DEBUG] csv_content length: {len(csv_content) if csv_content else 0}")
-        print(f"[DEBUG] site_a_ip: {site_a_ip}")
-        print(f"[DEBUG] linked_ip: {linked_ip}")
 
         if not csv_content:
             raise HTTPException(status_code=400, detail="csv_content is required")
@@ -671,26 +691,20 @@ def download_boq_zip(
             raise HTTPException(status_code=400, detail="siteA is required")
 
         # 1. Get project info from BOQReference
-        print(f"[DEBUG] Querying BOQReference for linkid: {linked_ip}")
         ref = db.query(BOQReference).filter(BOQReference.linkid == linked_ip).first()
         if not ref:
             raise HTTPException(status_code=404, detail=f"No BOQ Reference found for linked_ip '{linked_ip}'.")
-        print(f"[DEBUG] Found ref with pid_po: {ref.pid_po}")
 
-        print(f"[DEBUG] Querying Project for pid_po: {ref.pid_po}")
         project = db.query(Project).filter(Project.pid_po == ref.pid_po).first()
         if not project:
             raise HTTPException(status_code=404, detail="Project not found.")
-        print(f"[DEBUG] Found project: {project.project_name}")
 
         # 2. Check access
-        print("[DEBUG] Checking project access")
         if not check_project_access(current_user, project, db, "view"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not authorized to download BOQ for this project."
             )
-        print("[DEBUG] Access check passed")
 
         # 3. Extract site_id from both Site A and Site B
         site_a_formatted = site_a_ip.replace(".", "_")
@@ -703,12 +717,7 @@ def download_boq_zip(
         else:
             site_id = site_a_formatted
 
-        print(f"[DEBUG] site_a_ip: {site_a_ip}")
-        print(f"[DEBUG] site_b_ip: {site_b_ip}")
-        print(f"[DEBUG] combined site_id: {site_id}")
-
         # 4. Extract model name from "Implementation services" row
-        print("[DEBUG] Extracting model name from CSV")
         model_name = "Implementation services - New Site"  # Default fallback
 
         try:
@@ -716,40 +725,22 @@ def download_boq_zip(
             from io import StringIO
 
             csv_reader = csv.DictReader(StringIO(csv_content))
-            row_count = 0
-
-            # Print headers for debugging
-            if csv_reader.fieldnames:
-                print(f"[DEBUG] CSV Headers: {csv_reader.fieldnames}")
 
             for row in csv_reader:
-                row_count += 1
                 # Look for row with "Implementation services" in Model Name column
                 model_col = row.get('Model Name', '').strip()
 
-                if row_count <= 3:  # Debug first few rows
-                    print(f"[DEBUG] Row {row_count} - Model Name: '{model_col}'")
-
                 if 'Implementation services' in model_col:
                     model_name = model_col
-                    print(f"[DEBUG] Found Implementation services row:")
-                    print(f"[DEBUG]   Model Name: {model_name}")
                     break
-
-            print(f"[DEBUG] Processed {row_count} rows")
-            print(f"[DEBUG] Final Model Name: {model_name}")
-        except Exception as e:
-            print(f"[DEBUG] Error extracting model name from CSV: {str(e)}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            # Use default model_name if extraction fails
+            pass
 
         # 5. Get template path
         template_path = os.path.join(os.path.dirname(__file__), "..", "..", "templates", "PAC_Template.docx")
-        print(f"[DEBUG] template_path: {template_path}")
-        print(f"[DEBUG] Template exists: {os.path.exists(template_path)}")
 
         # 6. Generate ZIP package
-        print("[DEBUG] Calling create_boq_zip_package")
         zip_buffer = create_boq_zip_package(
             csv_content=csv_content,
             site_id=site_id,
@@ -760,10 +751,8 @@ def download_boq_zip(
             csv_filename=f"BOQ_{site_id}.csv",
             model_name=model_name
         )
-        print(f"[DEBUG] ZIP buffer size: {zip_buffer.tell()}")
 
-        # 6. Return ZIP file as download
-        print("[DEBUG] Returning StreamingResponse")
+        # 7. Return ZIP file as download
         return StreamingResponse(
             zip_buffer,
             media_type="application/zip",
@@ -774,9 +763,6 @@ def download_boq_zip(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ERROR] Unexpected error in download_boq_zip: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to generate ZIP package: {str(e)}")
 
 

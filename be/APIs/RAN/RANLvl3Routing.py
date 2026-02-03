@@ -501,34 +501,53 @@ def upload_items_csv_to_ranlvl3(
             detail="You are not authorized to upload CSV files for this project. Contact the Senior Admin."
         )
 
+    # OPTIMIZED: Validate CSV file size and extension
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Invalid file type. Only CSV files are allowed.")
 
     try:
-        contents = file.file.read().decode('utf-8')
-        csv_reader = csv.DictReader(io.StringIO(contents))
+        # OPTIMIZED: Read and validate file size before processing
+        contents = file.file.read()
+        file_size = len(contents)
 
-        inserted_count = 0
+        # Check file size limit (50 MB)
+        MAX_CSV_SIZE = 50 * 1024 * 1024
+        if file_size > MAX_CSV_SIZE:
+            raise HTTPException(status_code=413, detail=f"File too large. Maximum size is 50 MB.")
+
+        if file_size == 0:
+            raise HTTPException(status_code=400, detail="File is empty.")
+
+        # Decode contents
+        contents_str = contents.decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(contents_str))
+
+        # OPTIMIZED: Build list for bulk insert instead of adding one by one
+        bulk_data = []
 
         for row in csv_reader:
             try:
-                new_item = ItemsForRANLvl3(
-                    ranlvl3_id=ranlvl3_id,
-                    item_name=ranlvl3.item_name,  # Use parent's item_name
-                    item_details=row.get('Item Description'),
-                    vendor_part_number=row.get('Vendor Part Number'),
-                    service_type=['2'],  # Hardcoded as requested
-                    upl_line=row.get('UPL Line'),
-                    category=row.get('L1 Category'),
-                    uom=safe_int(row.get('UOM')),
-                    quantity=1,
-                    price=float(row.get('price')) if row.get('price') else None,
-                )
-                db.add(new_item)
-                inserted_count += 1
+                # Prepare data dictionary for bulk insert
+                item_data = {
+                    'ranlvl3_id': ranlvl3_id,
+                    'item_name': ranlvl3.item_name,  # Use parent's item_name
+                    'item_details': row.get('Item Description'),
+                    'vendor_part_number': row.get('Vendor Part Number'),
+                    'service_type': ['2'],  # Hardcoded as requested
+                    'upl_line': row.get('UPL Line'),
+                    'category': row.get('L1 Category'),
+                    'uom': safe_int(row.get('UOM')),
+                    'quantity': 1,
+                    'price': float(row.get('price')) if row.get('price') else None,
+                }
+                bulk_data.append(item_data)
             except (ValueError, KeyError) as e:
-                db.rollback()
                 raise HTTPException(status_code=400, detail=f"Invalid data in CSV: {e}. Please check your CSV format.")
+
+        # OPTIMIZED: Single bulk insert instead of N individual inserts
+        inserted_count = len(bulk_data)
+        if bulk_data:
+            db.bulk_insert_mappings(ItemsForRANLvl3, bulk_data)
 
         db.commit()
         db.refresh(ranlvl3)

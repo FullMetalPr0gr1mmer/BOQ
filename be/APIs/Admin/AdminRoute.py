@@ -1,10 +1,13 @@
 # routes/adminRoute.py
 import json
+import logging
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 from APIs.Core import get_current_user, get_db
+
+logger = logging.getLogger(__name__)
 from Models.Admin.AuditLog import AuditLog
 from Models.Admin.User import User, UserProjectAccess, Role
 from Models.BOQ.Project import Project
@@ -21,7 +24,7 @@ from Schemas.Admin.AccessSchema import (
     ApprovalStageAccessUpdate,
     ApprovalStageAccessResponse
 )
-from Schemas.Admin.LogSchema import AuditLogResponse
+from Schemas.Admin.LogSchema import AuditLogResponse, PaginatedAuditLogResponse
 from Schemas.Admin.UserSchema import UserRoleUpdateResponse, UserRoleUpdateRequest
 
 adminRoute = APIRouter(prefix="/audit-logs",tags=["Admin"])
@@ -228,13 +231,25 @@ async def grant_project_access(
 
     # 6. Create audit log
     try:
+        # Determine which project variable to use based on section
+        if access_data.section == 1:
+            project_name = project.project_name
+        elif access_data.section == 2:
+            project_name = ran_project.project_name
+        elif access_data.section == 3:
+            project_name = rop_project.project_name
+        elif access_data.section == 4:
+            project_name = du_project.project_name
+        else:
+            project_name = "Unknown Project"
+
         await create_audit_log(
             db=db,
             user_id=current_user.id,
             action="grant_access",
             resource_type="project_access",
             resource_id=access_data.project_id,
-            resource_name=project.project_name,
+            resource_name=project_name,
             details=json.dumps({
                 "target_user": target_user.username,
                 "permission_level": access_data.permission_level
@@ -243,7 +258,7 @@ async def grant_project_access(
             user_agent=request.headers.get("User-Agent")
         )
     except Exception as e:
-        print(f"Failed to create audit log: {e}")
+        logger.error(f"Failed to create audit log: {e}")
         # Continue without failing the main operation
 
     return new_access
@@ -324,7 +339,7 @@ async def update_project_access(
             user_agent=request.headers.get("User-Agent")
         )
     except Exception as e:
-        print(f"Failed to create audit log: {e}")
+        logger.error(f"Failed to create audit log: {e}")
 
     return access_record
 
@@ -383,7 +398,7 @@ async def revoke_project_access(
             user_agent=request.headers.get("User-Agent")
         )
     except Exception as e:
-        print(f"Failed to create audit log: {e}")
+        logger.error(f"Failed to create audit log: {e}")
 
     return {"message": "Project access revoked successfully"}
 
@@ -405,24 +420,43 @@ async def get_all_users_with_projects(
             detail="You do not have permission to view this information"
         )
 
-    # Get all users with their roles
+    # OPTIMIZED: Get all users with their roles
     users = db.query(User).join(Role).all()
+
+    # OPTIMIZED: Fetch ALL UserProjectAccess records in one query
+    all_accesses = db.query(UserProjectAccess).all()
+
+    # OPTIMIZED: Group accesses by user_id for O(1) lookup
+    accesses_by_user = {}
+    for access in all_accesses:
+        if access.user_id not in accesses_by_user:
+            accesses_by_user[access.user_id] = []
+        accesses_by_user[access.user_id].append(access)
+
+    # OPTIMIZED: Collect all unique project IDs to batch fetch
+    project_ids = set(a.project_id for a in all_accesses if a.project_id)
+    ran_project_ids = set(a.Ranproject_id for a in all_accesses if a.Ranproject_id)
+    rop_project_ids = set(a.Ropproject_id for a in all_accesses if a.Ropproject_id)
+    du_project_ids = set(a.DUproject_id for a in all_accesses if a.DUproject_id)
+
+    # OPTIMIZED: Batch fetch all projects in 4 queries instead of N*4 queries
+    projects_map = {p.pid_po: p for p in db.query(Project).filter(Project.pid_po.in_(project_ids)).all()} if project_ids else {}
+    ran_projects_map = {p.pid_po: p for p in db.query(RanProject).filter(RanProject.pid_po.in_(ran_project_ids)).all()} if ran_project_ids else {}
+    rop_projects_map = {p.pid_po: p for p in db.query(ROPProject).filter(ROPProject.pid_po.in_(rop_project_ids)).all()} if rop_project_ids else {}
+    du_projects_map = {p.pid_po: p for p in db.query(DUProject).filter(DUProject.pid_po.in_(du_project_ids)).all()} if du_project_ids else {}
 
     result = []
     for user in users:
-        # Get user's project access
-        user_accesses = db.query(UserProjectAccess).filter(
-            UserProjectAccess.user_id == user.id
-        ).all()
-
-
+        # OPTIMIZED: O(1) lookup instead of query
+        user_accesses = accesses_by_user.get(user.id, [])
 
         projects = []
         for access in user_accesses:
-            project = db.query(Project).filter(Project.pid_po == access.project_id).first()
-            ran_project= db.query(RanProject).filter(RanProject.pid_po == access.Ranproject_id).first()
-            rop_project= db.query(ROPProject).filter(ROPProject.pid_po == access.Ropproject_id).first()
-            du_project = db.query(DUProject).filter(DUProject.pid_po == access.DUproject_id).first()
+            # OPTIMIZED: O(1) dictionary lookup instead of 4 queries per access
+            project = projects_map.get(access.project_id)
+            ran_project = ran_projects_map.get(access.Ranproject_id)
+            rop_project = rop_projects_map.get(access.Ropproject_id)
+            du_project = du_projects_map.get(access.DUproject_id)
 
             if project:
                 projects.append({
@@ -488,17 +522,30 @@ async def get_user_projects(
             detail="User not found"
         )
 
-    # Get user's project access
+    # OPTIMIZED: Get user's project access
     user_accesses = db.query(UserProjectAccess).filter(
         UserProjectAccess.user_id == user.id
     ).all()
 
+    # OPTIMIZED: Collect unique project IDs from this user's accesses
+    project_ids = set(a.project_id for a in user_accesses if a.project_id)
+    ran_project_ids = set(a.Ranproject_id for a in user_accesses if a.Ranproject_id)
+    rop_project_ids = set(a.Ropproject_id for a in user_accesses if a.Ropproject_id)
+    du_project_ids = set(a.DUproject_id for a in user_accesses if a.DUproject_id)
+
+    # OPTIMIZED: Batch fetch all projects in 4 queries instead of N*4 queries
+    projects_map = {p.pid_po: p for p in db.query(Project).filter(Project.pid_po.in_(project_ids)).all()} if project_ids else {}
+    ran_projects_map = {p.pid_po: p for p in db.query(RanProject).filter(RanProject.pid_po.in_(ran_project_ids)).all()} if ran_project_ids else {}
+    rop_projects_map = {p.pid_po: p for p in db.query(ROPProject).filter(ROPProject.pid_po.in_(rop_project_ids)).all()} if rop_project_ids else {}
+    du_projects_map = {p.pid_po: p for p in db.query(DUProject).filter(DUProject.pid_po.in_(du_project_ids)).all()} if du_project_ids else {}
+
     projects = []
     for access in user_accesses:
-        project = db.query(Project).filter(Project.pid_po == access.project_id).first()
-        ran_project = db.query(RanProject).filter(RanProject.pid_po == access.Ranproject_id).first()
-        rop_project = db.query(ROPProject).filter(ROPProject.pid_po == access.Ropproject_id).first()
-        du_project = db.query(DUProject).filter(DUProject.pid_po == access.DUproject_id).first()
+        # OPTIMIZED: O(1) dictionary lookup instead of 4 queries per access
+        project = projects_map.get(access.project_id)
+        ran_project = ran_projects_map.get(access.Ranproject_id)
+        rop_project = rop_projects_map.get(access.Ropproject_id)
+        du_project = du_projects_map.get(access.DUproject_id)
 
         if project:
             projects.append({
@@ -545,17 +592,22 @@ async def get_user_projects(
 # AUDIT LOG MANAGEMENT
 # ===========================
 
-@adminRoute.get("", response_model=List[AuditLogResponse])
+@adminRoute.get("", response_model=PaginatedAuditLogResponse)
 async def get_audit_logs(
     skip: int = 0,
     limit: int = 100,
     user_id: Optional[int] = None,
     action: Optional[str] = None,
     resource_type: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get audit logs. Only senior_admin can access this."""
+    """
+    Get audit logs with pagination. Only senior_admin can access this.
+
+    OPTIMIZED: Returns total count for proper pagination + server-side search filtering.
+    """
 
     if current_user.role.name != "senior_admin":
         raise HTTPException(
@@ -564,8 +616,8 @@ async def get_audit_logs(
         )
 
     try:
-        # Build query
-        query = db.query(AuditLog).join(User)
+        # Build query with eager loading to prevent N+1
+        query = db.query(AuditLog).join(User).join(Role)
 
         # Apply filters
         if user_id:
@@ -575,7 +627,22 @@ async def get_audit_logs(
         if resource_type:
             query = query.filter(AuditLog.resource_type == resource_type)
 
-        # Order by timestamp descending (newest first)
+        # OPTIMIZED: Server-side search filtering
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                or_(
+                    User.username.ilike(search_term),
+                    AuditLog.action.ilike(search_term),
+                    AuditLog.resource_name.ilike(search_term),
+                    AuditLog.resource_type.ilike(search_term)
+                )
+            )
+
+        # OPTIMIZED: Get total count before pagination
+        total_count = query.count()
+
+        # Order by timestamp descending (newest first) and apply pagination
         audit_logs = query.order_by(desc(AuditLog.timestamp)).offset(skip).limit(limit).all()
 
         # Format response
@@ -600,12 +667,23 @@ async def get_audit_logs(
                 }
             })
 
-        return result
+        # OPTIMIZED: Return paginated response with total count
+        return {
+            "records": result,
+            "total": total_count,
+            "skip": skip,
+            "limit": limit
+        }
 
     except Exception as e:
-        print(f"Error fetching audit logs: {e}")
-        # Return empty list if there's an error
-        return []
+        logger.error(f"Error fetching audit logs: {e}")
+        # Return empty paginated response if there's an error
+        return {
+            "records": [],
+            "total": 0,
+            "skip": skip,
+            "limit": limit
+        }
 
 
 @adminRoute.get("/actions")
@@ -626,7 +704,7 @@ async def get_available_actions(
         actions = db.query(AuditLog.action).distinct().all()
         return {"actions": [action[0] for action in actions if action[0]]}
     except Exception as e:
-        print(f"Error fetching actions: {e}")
+        logger.error(f"Error fetching actions: {e}")
         return {"actions": []}
 
 
@@ -648,7 +726,7 @@ async def get_available_resource_types(
         resource_types = db.query(AuditLog.resource_type).distinct().all()
         return {"resource_types": [rt[0] for rt in resource_types if rt[0]]}
     except Exception as e:
-        print(f"Error fetching resource types: {e}")
+        logger.error(f"Error fetching resource types: {e}")
         return {"resource_types": []}
 
 
@@ -669,7 +747,7 @@ async def get_all_roles(
         roles = db.query(Role).all()
         return {"roles": [{"id": role.id, "name": role.name} for role in roles]}
     except Exception as e:
-        print(f"Error fetching roles: {e}")
+        logger.error(f"Error fetching roles: {e}")
         return {"roles": []}
 
 
@@ -737,7 +815,7 @@ async def update_user_role(
             user_agent=request.headers.get("User-Agent")
         )
     except Exception as e:
-        print(f"Failed to create audit log: {e}")
+        logger.error(f"Failed to create audit log: {e}")
 
     return UserRoleUpdateResponse(
         id=target_user.id,
@@ -806,7 +884,7 @@ async def update_approval_stage_access(
             user_agent=request.headers.get("User-Agent")
         )
     except Exception as e:
-        print(f"Failed to create audit log: {e}")
+        logger.error(f"Failed to create audit log: {e}")
 
     return ApprovalStageAccessResponse(
         id=target_user.id,

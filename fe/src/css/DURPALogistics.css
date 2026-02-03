@@ -1,0 +1,315 @@
+/* ==========================================
+   DU RPA Logistics - Dedicated Table Styles
+   Isolated from other components
+   ========================================== */
+
+/* Main Table Wrapper */
+.inventory-container .data-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow-x: auto;
+  overflow-y: visible;
+  margin-bottom: 1.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.inventory-container .data-table-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+.inventory-container .data-table-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 0 0 12px 12px;
+}
+
+.inventory-container .data-table-wrapper::-webkit-scrollbar-thumb {
+  background: #124191;
+  border-radius: 10px;
+  border: 2px solid #f1f5f9;
+}
+
+.inventory-container .data-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #0d3270;
+}
+
+/* Main Data Table */
+.inventory-container .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  table-layout: auto;
+}
+
+.inventory-container .data-table thead {
+  background: linear-gradient(135deg, #124191 0%, #1a5fc4 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.inventory-container .data-table th {
+  padding: 1rem 0.75rem !important;
+  text-align: center !important;
+  font-weight: 600 !important;
+  color: white !important;
+  text-transform: uppercase;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.5px;
+  white-space: nowrap !important;
+  background: transparent !important;
+}
+
+.inventory-container .data-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.15s ease;
+}
+
+.inventory-container .data-table tbody tr.parent-row:hover {
+  background: #f9fafb;
+}
+
+.inventory-container .data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.inventory-container .data-table td {
+  padding: 0.9rem 0.75rem !important;
+  text-align: center !important;
+  color: #374151 !important;
+  white-space: nowrap !important;
+  background: transparent !important;
+}
+
+/* Allow overflow for actions column */
+.inventory-container .data-table td:last-child {
+  overflow: visible;
+  position: relative;
+}
+
+/* Expanded Row */
+.inventory-container .expanded-row {
+  background: white !important;
+}
+
+.inventory-container .expanded-row > td {
+  padding: 0 !important;
+  margin: 0 !important;
+  border-top: none;
+  overflow: hidden !important;
+  max-width: none !important;
+}
+
+/* Expand Button */
+.inventory-container .expand-btn {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #124191;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inventory-container .expand-btn:hover {
+  background: #0d3270;
+  transform: scale(1.1);
+}
+
+/* Nested Items Container */
+.inventory-container .nested-items-container {
+  padding: 0.75rem 1rem;
+  background: white;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.inventory-container .nested-items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding: 0 0 0.5rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.inventory-container .nested-items-title {
+  margin: 0;
+  color: #124191;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.inventory-container .nested-items-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Nested Table Wrapper */
+.inventory-container .nested-table-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 8px;
+  box-shadow: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.inventory-container .nested-table-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.inventory-container .nested-table-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.inventory-container .nested-table-wrapper::-webkit-scrollbar-thumb {
+  background: #5bcefa;
+  border-radius: 8px;
+}
+
+.inventory-container .nested-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #3ab5e8;
+}
+
+/* Nested Table */
+.inventory-container .nested-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  background: white;
+  margin: 0;
+  padding: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  table-layout: auto;
+}
+
+.inventory-container .nested-table thead {
+  background: linear-gradient(135deg, #5bcefa 0%, #3ab5e8 100%);
+}
+
+.inventory-container .nested-table th {
+  padding: 0.5rem 0.6rem !important;
+  text-align: center !important;
+  font-weight: 600 !important;
+  color: #124191 !important;
+  text-transform: uppercase;
+  font-size: 0.7rem !important;
+  letter-spacing: 0.3px;
+  white-space: nowrap !important;
+  border-bottom: none;
+  background: transparent !important;
+}
+
+.inventory-container .nested-table th:first-child {
+  border-top-left-radius: 8px;
+}
+
+.inventory-container .nested-table th:last-child {
+  border-top-right-radius: 8px;
+}
+
+.inventory-container .nested-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.15s ease;
+}
+
+.inventory-container .nested-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.inventory-container .nested-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.inventory-container .nested-table td {
+  padding: 0.5rem 0.6rem !important;
+  text-align: center !important;
+  color: #374151 !important;
+  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  background: transparent !important;
+}
+
+/* No Data Message */
+.inventory-container .no-data {
+  text-align: center !important;
+  padding: 2rem !important;
+  color: #9ca3af !important;
+  font-style: italic;
+}
+
+/* Action Buttons in Tables */
+.inventory-container .action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.inventory-container .btn-action {
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.inventory-container .btn-action.btn-edit:hover {
+  background: #dbeafe;
+  transform: scale(1.1);
+}
+
+.inventory-container .btn-action.btn-delete:hover {
+  background: #fee2e2;
+  transform: scale(1.1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .inventory-container .data-table-wrapper,
+  .inventory-container .nested-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .inventory-container .data-table {
+    min-width: 800px;
+  }
+
+  .inventory-container .nested-table {
+    min-width: 600px;
+  }
+
+  .inventory-container .nested-items-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inventory-container .nested-items-actions {
+    justify-content: stretch;
+  }
+
+  .inventory-container .nested-items-actions .btn-secondary {
+    flex: 1;
+  }
+}

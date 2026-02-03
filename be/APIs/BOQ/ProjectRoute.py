@@ -178,9 +178,6 @@ def update_project(
     - senior_admin: Can update any project
     - Users with "edit" or "all" permission: Can update projects they have access to
     """
-    print('///////////////////////////////////////////////////')
-    print(update_data)
-
     project = db.query(Project).filter(Project.pid_po == pid_po).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

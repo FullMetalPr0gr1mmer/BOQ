@@ -2,7 +2,7 @@
 Approval Workflow API Routes
 """
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 import os
 import shutil
@@ -14,10 +14,12 @@ from Schemas.BOQ.ApprovalSchema import (
     ApprovalResponse,
     ApprovalListResponse,
     ApprovalReject,
-    ApprovalApprove
+    ApprovalApprove,
+    BulkLogisticsDownload
 )
 from APIs.Core import get_current_user, get_db
 from Models.Admin.User import User
+from utils.file_validation import validate_csv_file, validate_document_file
 from Models.BOQ.Approval import Approval
 
 logger = logging.getLogger(__name__)
@@ -54,28 +56,22 @@ async def upload_approval(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload PAC files (CSV + Word template) for approval workflow"""
+    """
+    Upload PAC files (CSV + Word template) for approval workflow.
+
+    OPTIMIZED: Added file size validation (50MB for CSV, 10MB for template) to prevent DoS attacks.
+    """
     if project_type not in ["Zain MW BOQ", "Zain Ran BOQ"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="project_type must be 'Zain MW BOQ' or 'Zain Ran BOQ'"
         )
 
-    # Validate CSV file
-    csv_ext = Path(csv_file.filename).suffix.lower()
-    if csv_ext != '.csv':
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="PAC data file must be a CSV file (.csv)"
-        )
+    # OPTIMIZED: Validate CSV file size and extension
+    await validate_csv_file(csv_file, max_size=50 * 1024 * 1024)  # 50 MB limit
 
-    # Validate Word template file
-    template_ext = Path(template_file.filename).suffix.lower()
-    if template_ext not in ['.doc', '.docx']:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="PAC template must be a Word file (.doc or .docx)"
-        )
+    # OPTIMIZED: Validate Word template file size and extension
+    await validate_document_file(template_file, allowed_extensions=['.doc', '.docx'], max_size=10 * 1024 * 1024)  # 10 MB limit
 
     try:
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
@@ -123,6 +119,8 @@ async def upload_approval(
             notes=approval.notes,
             uploaded_by=approval.uploaded_by,
             uploader_name=current_user.username,
+            triggering_file_path=approval.triggering_file_path,
+            logistics_file_path=approval.logistics_file_path,
             created_at=approval.created_at,
             updated_at=approval.updated_at
         )
@@ -186,11 +184,13 @@ async def list_approvals(
         query = query.filter(Approval.project_id == project_id)
 
     total = query.count()
-    items = query.order_by(Approval.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    # OPTIMIZED: Eager load uploader relationship to prevent N+1 queries
+    items = query.options(joinedload(Approval.uploader)).order_by(Approval.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
     response_items = []
     for item in items:
-        uploader = db.query(User).filter(User.id == item.uploaded_by).first()
+        # OPTIMIZED: Use preloaded relationship instead of querying database
         response_items.append(ApprovalResponse(
             id=item.id,
             filename=item.filename,
@@ -213,8 +213,9 @@ async def list_approvals(
             epac_req=item.epac_req,
             inservice_date=item.inservice_date,
             triggering_file_path=item.triggering_file_path,
+            logistics_file_path=item.logistics_file_path,
             uploaded_by=item.uploaded_by,
-            uploader_name=uploader.username if uploader else None,
+            uploader_name=item.uploader.username if item.uploader else None,  # OPTIMIZED: Use preloaded relationship
             created_at=item.created_at,
             updated_at=item.updated_at
         ))
@@ -233,12 +234,20 @@ async def get_approval(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get single approval by ID"""
-    approval = db.query(Approval).filter(Approval.id == approval_id).first()
+    """
+    Get single approval by ID.
+
+    OPTIMIZED: Uses eager loading to prevent N+1 query (2 queries → 1 query).
+    """
+    # OPTIMIZED: Eager load uploader to prevent separate query
+    approval = db.query(Approval).options(
+        joinedload(Approval.uploader)
+    ).filter(Approval.id == approval_id).first()
+
     if not approval:
         raise HTTPException(status_code=404, detail="Approval not found")
 
-    uploader = db.query(User).filter(User.id == approval.uploaded_by).first()
+    uploader = approval.uploader  # Already loaded via joinedload
 
     return ApprovalResponse(
         id=approval.id,
@@ -262,6 +271,7 @@ async def get_approval(
         epac_req=approval.epac_req,
         inservice_date=approval.inservice_date,
         triggering_file_path=approval.triggering_file_path,
+        logistics_file_path=approval.logistics_file_path,
         uploaded_by=approval.uploaded_by,
         uploader_name=uploader.username if uploader else None,
         created_at=approval.created_at,
@@ -322,37 +332,50 @@ async def approve_item(
                 detail="InService Date is required"
             )
 
-        # Function to lookup SMP in PO Report and get SO#
-        def lookup_smp_so_number(smp_id: str, description_keyword: str) -> str:
-            """Lookup SMP ID in PO Report and return SO#"""
-            po_records = db.query(POReport).filter(POReport.smp_id == smp_id).all()
+        # OPTIMIZED: Batch query for all SMP IDs to prevent N+1 queries (3 queries → 1 query)
+        # Collect all SMP IDs that need to be looked up
+        smp_ids_to_lookup = [approval_data.planning_smp_id, approval_data.implementation_smp_id]
+        if is_mw and approval_data.dismantling_smp_id:
+            smp_ids_to_lookup.append(approval_data.dismantling_smp_id)
 
-            if not po_records:
+        # Single batch query for all SMPs
+        po_records = db.query(POReport).filter(POReport.smp_id.in_(smp_ids_to_lookup)).all()
+
+        # Build lookup map: SMP ID -> list of PO records
+        smp_po_map = {}
+        for record in po_records:
+            if record.smp_id not in smp_po_map:
+                smp_po_map[record.smp_id] = []
+            smp_po_map[record.smp_id].append(record)
+
+        # Helper function to extract SO# from cached records
+        def lookup_smp_so_number_from_cache(smp_id: str, description_keyword: str) -> str:
+            """Lookup SO# from pre-fetched PO records"""
+            records = smp_po_map.get(smp_id, [])
+
+            if not records:
                 return "N/A"
 
             # First, try to find a record with matching description keyword
-            for record in po_records:
+            for record in records:
                 if record.material_des and description_keyword.lower() in record.material_des.lower():
                     return record.so_number or "N/A"
 
             # If no match found by description, return SO# from first record with that SMP ID
-            # This handles cases where the SMP exists but description doesn't match keyword
-            for record in po_records:
+            for record in records:
                 if record.so_number:
                     return record.so_number
 
             return "N/A"
 
-        # Lookup Planning services SMP
-        planning_so = lookup_smp_so_number(approval_data.planning_smp_id, "Planning services")
-
-        # Lookup Implementation services SMP
-        implementation_so = lookup_smp_so_number(approval_data.implementation_smp_id, "Implementation services")
+        # Lookup all SMPs using the cached data
+        planning_so = lookup_smp_so_number_from_cache(approval_data.planning_smp_id, "Planning services")
+        implementation_so = lookup_smp_so_number_from_cache(approval_data.implementation_smp_id, "Implementation services")
 
         # Lookup Dismantling services SMP (MW only)
         dismantling_so = "N/A"
         if is_mw and approval_data.dismantling_smp_id:
-            dismantling_so = lookup_smp_so_number(approval_data.dismantling_smp_id, "Dismantling")
+            dismantling_so = lookup_smp_so_number_from_cache(approval_data.dismantling_smp_id, "Dismantling")
 
         # Save all SMP IDs and SO# values to approval record
         approval.planning_smp_id = approval_data.planning_smp_id
@@ -682,6 +705,107 @@ async def approve_item(
         }
 
     elif approval.stage == 'triggering':
+        # Generate logistics CSV from triggering CSV + PriceBook lookups
+        from Models.BOQ.PriceBook import PriceBook
+
+        try:
+            if not approval.triggering_file_path:
+                raise Exception("Triggering file path not set on approval record")
+
+            triggering_path = resolve_file_path(approval.triggering_file_path)
+            if not triggering_path.exists():
+                raise Exception(f"Triggering file not found at: {approval.triggering_file_path}")
+
+            with open(triggering_path, 'r', encoding='utf-8', newline='') as f:
+                reader = csv.reader(f)
+                triggering_rows = list(reader)
+
+            if len(triggering_rows) < 2:
+                raise Exception("Triggering CSV has no data rows")
+
+            headers = triggering_rows[0]
+            data_rows = triggering_rows[1:]
+
+            # Get actual PO number from the Project/RanProject model
+            # pid_po is a combined key — PriceBook.po_number stores only the PO part
+            po_number = None
+            is_ran = 'Ran' in approval.project_type or 'RAN' in approval.project_type
+            if is_ran:
+                from Models.RAN.RANProject import RanProject
+                project = db.query(RanProject).filter(RanProject.pid_po == approval.project_id).first()
+                if project:
+                    po_number = project.po
+            else:
+                from Models.BOQ.Project import Project
+                project = db.query(Project).filter(Project.pid_po == approval.project_id).first()
+                if project:
+                    po_number = project.po
+
+            # Fallback: extract from triggering CSV "Project Name" column → "{name} PO:{po}"
+            if not po_number:
+                first_project_name = data_rows[0][0].strip() if data_rows[0] else ''
+                if ' PO:' in first_project_name:
+                    po_number = first_project_name.split(' PO:', 1)[1].strip()
+
+            logger.info(f"Logistics CSV generation: approval={approval_id}, project_id={approval.project_id}, po_number={po_number}")
+
+            # Query PriceBook by PO, build lookup: normalized merge key → (unit_price, fv_unit_price)
+            price_lookup = {}
+            if po_number:
+                pb_records = db.query(
+                    PriceBook.merge_poline_uplline,
+                    PriceBook.unit_price_sar_after_special_discount,
+                    PriceBook.fv_unit_price_after_descope
+                ).filter(PriceBook.po_number == po_number).all()
+
+                for rec in pb_records:
+                    if rec.merge_poline_uplline:
+                        price_lookup[rec.merge_poline_uplline.strip()] = (
+                            rec.unit_price_sar_after_special_discount or '',
+                            rec.fv_unit_price_after_descope or ''
+                        )
+
+            # Find "Merge POLine#UPLLine#" column index in triggering CSV
+            merge_col_idx = None
+            for i, h in enumerate(headers):
+                if 'Merge POLine#UPLLine#' in h:
+                    merge_col_idx = i
+                    break
+
+            # Write logistics CSV: triggering columns + 2 price columns
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            logistics_filename = f"{timestamp}_logistics_{approval.filename}"
+            logistics_file_path = UPLOAD_DIR / logistics_filename
+
+            logistics_headers = headers + [
+                'Unit Price(SAR) after Special Discount for this project only (% on), not applicable for future reference',
+                'FV Unit Price after Descope'
+            ]
+
+            with open(logistics_file_path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(logistics_headers)
+
+                for row in data_rows:
+                    unit_price_val = ''
+                    fv_price_val = ''
+                    if merge_col_idx is not None and merge_col_idx < len(row):
+                        # Normalize: triggering uses "x\y", PriceBook uses "x_y"
+                        normalized_key = row[merge_col_idx].strip().replace('\\', '_')
+                        if normalized_key in price_lookup:
+                            unit_price_val, fv_price_val = price_lookup[normalized_key]
+                    writer.writerow(row + [unit_price_val, fv_price_val])
+
+            approval.logistics_file_path = str(logistics_file_path)
+            logger.info(f"Generated logistics CSV for approval {approval_id}, PO={po_number}, PriceBook matches={len(price_lookup)}")
+
+        except Exception as e:
+            logger.error(f"Error generating logistics CSV for approval {approval_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error generating logistics CSV: {str(e)}"
+            )
+
         # Move from triggering to logistics stage
         approval.stage = 'logistics'
         approval.status = 'pending_logistics'
@@ -771,6 +895,12 @@ async def delete_approval(
             triggering_file_path = resolve_file_path(approval.triggering_file_path)
             if triggering_file_path.exists():
                 triggering_file_path.unlink()
+
+        # Delete logistics file if it exists
+        if approval.logistics_file_path:
+            logistics_file_path = resolve_file_path(approval.logistics_file_path)
+            if logistics_file_path.exists():
+                logistics_file_path.unlink()
 
         db.delete(approval)
         db.commit()
@@ -874,21 +1004,121 @@ async def download_triggering_csv(
     )
 
 
-@router.get("/projects/{project_type}")
-async def get_projects_by_type(
-    project_type: str,
+@router.get("/download-logistics/{approval_id}")
+async def download_logistics_csv(
+    approval_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get projects list based on project type (MW or RAN)"""
+    """Download logistics CSV file"""
+    from fastapi.responses import FileResponse
+
+    approval = db.query(Approval).filter(Approval.id == approval_id).first()
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval not found")
+
+    if not approval.logistics_file_path:
+        raise HTTPException(
+            status_code=404,
+            detail="Logistics file not yet generated. Approve the triggering item first."
+        )
+
+    logistics_path = resolve_file_path(approval.logistics_file_path)
+    if not logistics_path.exists():
+        raise HTTPException(status_code=404, detail="Logistics file not found")
+
+    return FileResponse(
+        path=str(logistics_path),
+        filename=logistics_path.name,
+        media_type='text/csv'
+    )
+
+
+@router.post("/bulk-download-logistics")
+async def bulk_download_logistics(
+    body: BulkLogisticsDownload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Download multiple logistics CSVs combined into a single CSV"""
+    import csv as csv_mod
+    import io
+    from fastapi.responses import StreamingResponse
+
+    if not body.approval_ids:
+        raise HTTPException(status_code=400, detail="No approval IDs provided")
+
+    approvals = db.query(Approval).filter(Approval.id.in_(body.approval_ids)).all()
+    if not approvals:
+        raise HTTPException(status_code=404, detail="No matching approvals found")
+
+    combined_rows = []
+    header = None
+
+    for approval in approvals:
+        if not approval.logistics_file_path:
+            continue
+
+        logistics_path = resolve_file_path(approval.logistics_file_path)
+        if not logistics_path.exists():
+            continue
+
+        with open(logistics_path, 'r', encoding='utf-8', newline='') as f:
+            reader = csv_mod.reader(f)
+            rows = list(reader)
+
+        if len(rows) < 2:
+            continue
+
+        if header is None:
+            header = rows[0]
+
+        combined_rows.extend(rows[1:])
+
+    if header is None:
+        raise HTTPException(status_code=404, detail="No logistics files found for selected approvals")
+
+    # Write combined CSV to in-memory buffer
+    output = io.StringIO()
+    writer = csv_mod.writer(output)
+    writer.writerow(header)
+    writer.writerows(combined_rows)
+
+    output.seek(0)
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+
+    return StreamingResponse(
+        output,
+        media_type='text/csv',
+        headers={"Content-Disposition": f"attachment; filename={timestamp}_bulk_logistics.csv"}
+    )
+
+
+@router.get("/projects/{project_type}")
+async def get_projects_by_type(
+    project_type: str,
+    skip: int = 0,
+    limit: int = 1000,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get projects list based on project type (MW or RAN) with pagination.
+
+    OPTIMIZED: Added pagination (skip/limit) to prevent returning thousands of projects at once.
+    """
     from Models.BOQ.Project import Project
     from Models.RAN.RANProject import RanProject
 
     if project_type == "Zain MW BOQ":
-        projects = db.query(Project.pid_po, Project.project_name).all()
+        # OPTIMIZED: Added pagination to prevent loading all projects
+        # MSSQL requires ORDER BY when using OFFSET/LIMIT
+        projects = db.query(Project.pid_po, Project.project_name).order_by(Project.pid_po).offset(skip).limit(limit).all()
         return [{"id": p.pid_po, "name": p.project_name} for p in projects]
     elif project_type == "Zain Ran BOQ":
-        projects = db.query(RanProject.pid_po, RanProject.project_name).all()
+        # OPTIMIZED: Added pagination to prevent loading all projects
+        # MSSQL requires ORDER BY when using OFFSET/LIMIT
+        projects = db.query(RanProject.pid_po, RanProject.project_name).order_by(RanProject.pid_po).offset(skip).limit(limit).all()
         return [{"id": p.pid_po, "name": p.project_name} for p in projects]
     else:
         raise HTTPException(

@@ -487,7 +487,6 @@ async def ask_question(
     try:
         # Get document IDs for filtering
         document_ids = request.document_ids
-        print(document_ids,4*20)
         if request.project_id and not document_ids:
             docs = db.query(Document.id).filter(
                 Document.project_id == request.project_id,

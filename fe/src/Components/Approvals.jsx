@@ -30,6 +30,9 @@ export default function Approvals() {
   const [pendingCount, setPendingCount] = useState(0);
   const [rejectedCount, setRejectedCount] = useState(0);
 
+  // Bulk selection state (logistics tab)
+  const [selectedRows, setSelectedRows] = useState(new Set());
+
   // Rejection modal state
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingItem, setRejectingItem] = useState(null);
@@ -60,6 +63,7 @@ export default function Approvals() {
   const templateInputRef = useRef(null);
 
   const fetchAbort = useRef(null);
+  const searchDebounceTimer = useRef(null); // OPTIMIZED: Debounce timer for search
 
   const projectTypes = [
     { value: 'Zain MW BOQ', label: 'Zain MW BOQ' },
@@ -123,13 +127,38 @@ export default function Approvals() {
     setFilterProjectType('');
     setProjects([]);
     setSelectedProject('');
+    setSelectedRows(new Set());
     fetchApprovals(1, activeTab, '', '');
   }, [activeTab]);
 
+  // Reset selection when rows change
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [rows]);
+
+  // OPTIMIZED: Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimer.current) {
+        clearTimeout(searchDebounceTimer.current);
+      }
+    };
+  }, []);
+
+  // OPTIMIZED: Debounced search to reduce API calls
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
-    fetchApprovals(1, activeTab, value, filterProjectType, selectedProject);
+
+    // Clear existing timer
+    if (searchDebounceTimer.current) {
+      clearTimeout(searchDebounceTimer.current);
+    }
+
+    // Set new timer
+    searchDebounceTimer.current = setTimeout(() => {
+      fetchApprovals(1, activeTab, value, filterProjectType, selectedProject);
+    }, 300); // 300ms debounce
   };
 
   const fetchProjects = async (projectType) => {
@@ -485,6 +514,69 @@ export default function Approvals() {
     }
   };
 
+  const handleDownloadLogistics = async (row) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/approvals/download-logistics/${row.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Download failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `logistics_${row.filename}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to download logistics CSV');
+    }
+  };
+
+  const handleBulkDownloadLogistics = async () => {
+    if (selectedRows.size === 0) return;
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/approvals/bulk-download-logistics`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ approval_ids: Array.from(selectedRows) }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Bulk download failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      // Extract filename from Content-Disposition if available
+      const disposition = response.headers.get('Content-Disposition');
+      const filename = disposition
+        ? disposition.split('filename=')[1]?.replace(/"/g, '') || 'bulk_logistics.csv'
+        : 'bulk_logistics.csv';
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to bulk download logistics CSVs');
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
@@ -511,7 +603,7 @@ export default function Approvals() {
   const totalPages = Math.ceil(total / ROWS_PER_PAGE);
 
   // Define table columns
-  const tableColumns = [
+  const baseColumns = [
     { key: 'filename', label: 'File Name' },
     { key: 'project_type', label: 'Project Type' },
     { key: 'smp_id', label: 'SMP ID', render: (row) => row.smp_id || '-' },
@@ -538,6 +630,44 @@ export default function Approvals() {
     { key: 'uploader_name', label: 'Uploaded By' }
   ];
 
+  // Prepend checkbox column in logistics tab for bulk selection
+  const tableColumns = activeTab === 'logistics'
+    ? [
+        {
+          key: '__select',
+          label: (
+            <input
+              type="checkbox"
+              checked={rows.length > 0 && selectedRows.size === rows.length}
+              onChange={() => {
+                if (selectedRows.size === rows.length) {
+                  setSelectedRows(new Set());
+                } else {
+                  setSelectedRows(new Set(rows.map(r => r.id)));
+                }
+              }}
+              style={{ cursor: 'pointer', accentColor: '#3b82f6' }}
+            />
+          ),
+          render: (row) => (
+            <input
+              type="checkbox"
+              checked={selectedRows.has(row.id)}
+              onChange={() => {
+                setSelectedRows(prev => {
+                  const next = new Set(prev);
+                  next.has(row.id) ? next.delete(row.id) : next.add(row.id);
+                  return next;
+                });
+              }}
+              style={{ cursor: 'pointer', accentColor: '#3b82f6' }}
+            />
+          )
+        },
+        ...baseColumns
+      ]
+    : baseColumns;
+
   // Define actions based on active tab
   const getTableActions = () => {
     const actions = [
@@ -561,14 +691,27 @@ export default function Approvals() {
       }
     ];
 
-    // Add triggering BOQ download button if available
-    actions.push({
-      icon: '📥',
-      onClick: handleDownloadTriggering,
-      title: 'Download Triggering BOQ',
-      className: 'btn-secondary',
-      condition: (row) => !!row.triggering_file_path
-    });
+    // Add triggering BOQ download button only in triggering tab
+    if (activeTab === 'triggering') {
+      actions.push({
+        icon: '📥',
+        onClick: handleDownloadTriggering,
+        title: 'Download Triggering BOQ',
+        className: 'btn-secondary',
+        condition: (row) => !!row.triggering_file_path
+      });
+    }
+
+    // Add logistics BOQ download button only in logistics tab
+    if (activeTab === 'logistics') {
+      actions.push({
+        icon: '🚛',
+        onClick: handleDownloadLogistics,
+        title: 'Download Logistics BOQ',
+        className: 'btn-secondary',
+        condition: (row) => !!row.logistics_file_path
+      });
+    }
 
     actions.push({
       icon: '✅',
@@ -618,6 +761,17 @@ export default function Approvals() {
           infoTooltip="Learn about the workflow"
         />
         <div className="header-actions">
+          {activeTab === 'logistics' && (
+            <button
+              className={`btn-primary ${selectedRows.size === 0 ? 'disabled' : ''}`}
+              onClick={handleBulkDownloadLogistics}
+              disabled={selectedRows.size === 0}
+              title={selectedRows.size === 0 ? 'Select items first' : `Download ${selectedRows.size} logistics CSV(s)`}
+            >
+              <span className="btn-icon">📦</span>
+              Bulk Download ({selectedRows.size})
+            </button>
+          )}
           {activeTab === 'approval' && (
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <label className={`btn-secondary ${uploading ? 'disabled' : ''}`}>

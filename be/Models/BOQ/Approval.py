@@ -35,6 +35,7 @@ class Approval(Base):
     inservice_date = Column(String(200), nullable=True)  # InService Date value
 
     triggering_file_path = Column(String(500), nullable=True)  # Generated triggering CSV
+    logistics_file_path = Column(String(500), nullable=True)  # Generated logistics CSV
     uploaded_by = Column(Integer, ForeignKey('users.id'), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

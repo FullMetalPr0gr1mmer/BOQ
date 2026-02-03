@@ -33,6 +33,7 @@ class ApprovalResponse(BaseModel):
     inservice_date: Optional[str] = None
 
     triggering_file_path: Optional[str] = None
+    logistics_file_path: Optional[str] = None
     uploaded_by: int
     uploader_name: Optional[str] = None
     created_at: datetime
@@ -69,3 +70,7 @@ class ApprovalUpdate(BaseModel):
     status: Optional[str] = None
     stage: Optional[str] = None
     notes: Optional[str] = None
+
+
+class BulkLogisticsDownload(BaseModel):
+    approval_ids: List[int] = Field(..., description="List of approval IDs to combine")

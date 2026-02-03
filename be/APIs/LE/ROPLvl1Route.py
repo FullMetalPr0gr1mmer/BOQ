@@ -65,23 +65,50 @@ def create_lvl1(
 
 
 @ROPLvl1router.get("/", response_model=List[ROPLvl1Out])
-def get_all_lvl1(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_all_lvl1(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all ROP Level 1 entries with pagination.
+
+    OPTIMIZED: Added pagination (skip/limit) to prevent loading unlimited records.
+    """
     if current_user.role.name == "senior_admin":
-        return db.query(ROPLvl1).all()
+        # OPTIMIZED: Added pagination for senior admin
+        # MSSQL requires ORDER BY when using OFFSET/LIMIT
+        return db.query(ROPLvl1).order_by(ROPLvl1.id).offset(skip).limit(limit).all()
 
     # filter by accessible projects
     accesses = db.query(UserProjectAccess).filter(UserProjectAccess.user_id == current_user.id).all()
     if not accesses:
         return []
     project_ids = [a.project_id for a in accesses]
-    return db.query(ROPLvl1).filter(ROPLvl1.project_id.in_(project_ids)).all()
+    # OPTIMIZED: Added pagination for filtered results
+    # MSSQL requires ORDER BY when using OFFSET/LIMIT
+    return db.query(ROPLvl1).filter(ROPLvl1.project_id.in_(project_ids)).order_by(ROPLvl1.id).offset(skip).limit(limit).all()
 
 
 @ROPLvl1router.get("/by-project/{pid_po}", response_model=List[ROPLvl1Out])
-def get_lvl1_by_project(pid_po: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_lvl1_by_project(
+    pid_po: str,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get ROP Level 1 entries by project with pagination.
+
+    OPTIMIZED: Added pagination (skip/limit) to prevent loading unlimited records.
+    """
     if not check_project_access(current_user, pid_po, db, "view"):
-        raise HTTPException(status_code=403, detail="Not authorized to view this project’s Lvl1")
-    return db.query(ROPLvl1).filter(ROPLvl1.project_id == pid_po).all()
+        raise HTTPException(status_code=403, detail="Not authorized to view this project's Lvl1")
+    # OPTIMIZED: Added pagination
+    # MSSQL requires ORDER BY when using OFFSET/LIMIT
+    return db.query(ROPLvl1).filter(ROPLvl1.project_id == pid_po).order_by(ROPLvl1.id).offset(skip).limit(limit).all()
 
 
 @ROPLvl1router.get("/{id}", response_model=ROPLvl1Out)

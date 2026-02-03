@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/lvl3.css';
+import '../css/Inventory.css';
 import StatsCarousel from './shared/StatsCarousel';
 import FilterBar from './shared/FilterBar';
 import ModalForm, { FormSection, FormField } from './shared/ModalForm';
@@ -58,7 +59,6 @@ export default function Lvl3() {
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState('');
-  const [stats, setStats] = useState({ total_items: 0, total_value: 0, unique_projects: 0 });
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [expandedRowId, setExpandedRowId] = useState(null);
   const [showItemForm, setShowItemForm] = useState(false);
@@ -66,12 +66,37 @@ export default function Lvl3() {
   const [itemFormData, setItemFormData] = useState(initialItemState);
   const [userPermissions, setUserPermissions] = useState({});
   const fetchAbort = useRef(null);
+  const searchDebounceTimer = useRef(null); // OPTIMIZED: Debounce timer for search
+  const lvl3Cache = useRef({ data: null, timestamp: 0, search: '', projectId: '' }); // OPTIMIZED: Cache for lvl3 data
+  const CACHE_DURATION = 30000; // 30 seconds cache
+
+  // OPTIMIZED: Memoize expensive stats calculations to avoid recalculating on every render
+  const stats = useMemo(() => {
+    const filtered = selectedProject ? entries.filter(e => e.project_id === selectedProject) : entries;
+    const totalItems = filtered.length;
+    const totalValue = filtered.reduce((sum, e) => sum + (e.total_price || 0), 0);
+    const uniqueProjects = new Set(entries.map(e => e.project_id)).size;
+
+    return {
+      total_items: totalItems,
+      total_value: totalValue,
+      unique_projects: uniqueProjects
+    };
+  }, [entries, selectedProject]);
 
   useEffect(() => {
     fetchProjects();
     fetchLvl3();
-    fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // OPTIMIZED: Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimer.current) {
+        clearTimeout(searchDebounceTimer.current);
+      }
+    };
   }, []);
 
   const fetchProjects = async () => {
@@ -85,29 +110,21 @@ export default function Lvl3() {
     }
   };
 
-  const fetchStats = async (projectId = '') => {
+  const fetchLvl3 = async (page = 1, search = '', limit = rowsPerPage, projectId = selectedProject, useCache = false) => {
     try {
-      const params = new URLSearchParams();
-      if (projectId) params.append('project_id', projectId);
+      // OPTIMIZED: Check cache first (if enabled and no search/filter changes)
+      if (useCache && lvl3Cache.current.data && !search && lvl3Cache.current.projectId === projectId) {
+        const cacheAge = Date.now() - lvl3Cache.current.timestamp;
+        if (cacheAge < CACHE_DURATION) {
+          const cached = lvl3Cache.current.data;
+          setEntries(cached);
+          setTotal(cached.length);
+          setCurrentPage(page);
+          setLoading(false);
+          return;
+        }
+      }
 
-      // Calculate stats from entries
-      const filtered = projectId ? entries.filter(e => e.project_id === projectId) : entries;
-      const totalItems = filtered.length;
-      const totalValue = filtered.reduce((sum, e) => sum + (e.total_price || 0), 0);
-      const uniqueProjects = new Set(entries.map(e => e.project_id)).size;
-
-      setStats({
-        total_items: totalItems,
-        total_value: totalValue,
-        unique_projects: uniqueProjects
-      });
-    } catch (err) {
-      console.error('Failed to calculate stats:', err);
-    }
-  };
-
-  const fetchLvl3 = async (page = 1, search = '', limit = rowsPerPage, projectId = selectedProject) => {
-    try {
       if (fetchAbort.current) fetchAbort.current.abort();
       const controller = new AbortController();
       fetchAbort.current = controller;
@@ -121,6 +138,16 @@ export default function Lvl3() {
       });
 
       let filtered = data || [];
+
+      // OPTIMIZED: Cache the raw data if no search filter
+      if (!search) {
+        lvl3Cache.current = {
+          data: filtered,
+          timestamp: Date.now(),
+          search: '',
+          projectId: projectId
+        };
+      }
 
       // Apply project filter
       if (projectId) {
@@ -149,7 +176,7 @@ export default function Lvl3() {
       setTotal(filtered.length);
       setEntries(filtered);
       setCurrentPage(page);
-      fetchStats(projectId);
+      // OPTIMIZED: Stats are now calculated automatically via useMemo
     } catch (err) {
       if (err.name !== 'AbortError') {
         setTransient(setError, err.message || 'Failed to fetch entries');
@@ -171,7 +198,15 @@ export default function Lvl3() {
     const v = e.target.value;
     setSearchTerm(v);
     setCurrentPage(1);
-    fetchLvl3(1, v, rowsPerPage, selectedProject);
+
+    // OPTIMIZED: Debounce search - wait 300ms after user stops typing
+    if (searchDebounceTimer.current) {
+      clearTimeout(searchDebounceTimer.current);
+    }
+
+    searchDebounceTimer.current = setTimeout(() => {
+      fetchLvl3(1, v, rowsPerPage, selectedProject);
+    }, 300);
   };
 
   const checkLvl3Permission = async (lvl3Id) => {
@@ -269,6 +304,8 @@ export default function Lvl3() {
       setShowForm(false);
       setFormData(initialLvl3State);
       setEditingEntry(null);
+      // OPTIMIZED: Invalidate cache after modification
+      lvl3Cache.current = { data: null, timestamp: 0, search: '', projectId: '' };
       fetchLvl3(currentPage, searchTerm, rowsPerPage, selectedProject);
     } catch (err) {
       setTransient(setError, err.message);
@@ -288,6 +325,8 @@ export default function Lvl3() {
         method: 'DELETE'
       });
       setTransient(setSuccess, 'Entry deleted!');
+      // OPTIMIZED: Invalidate cache after deletion
+      lvl3Cache.current = { data: null, timestamp: 0, search: '', projectId: '' };
       fetchLvl3(currentPage, searchTerm, rowsPerPage, selectedProject);
     } catch (err) {
       setTransient(setError, err.message);
@@ -358,6 +397,8 @@ export default function Lvl3() {
         method: 'DELETE'
       });
       setTransient(setSuccess, 'Item deleted!');
+      // OPTIMIZED: Invalidate cache after deletion
+      lvl3Cache.current = { data: null, timestamp: 0, search: '', projectId: '' };
       fetchLvl3(currentPage, searchTerm, rowsPerPage, selectedProject);
     } catch (err) {
       setTransient(setError, err.message);
@@ -648,6 +689,10 @@ export default function Lvl3() {
         showClearButton={!!searchTerm}
         onClearSearch={() => {
           setSearchTerm('');
+          // OPTIMIZED: Clear debounce timer on manual clear
+          if (searchDebounceTimer.current) {
+            clearTimeout(searchDebounceTimer.current);
+          }
           fetchLvl3(1, '', rowsPerPage, selectedProject);
         }}
         clearButtonText="Clear Search"
@@ -726,12 +771,14 @@ export default function Lvl3() {
                     </td>
                   </tr>
                   {expandedRowId === entry.id && (
-                    <tr className="expanded-row">
-                      <td colSpan={10}>
-                        <div className="nested-items-container">
-                          <div className="nested-items-header">
-                            <h4 className="nested-items-title">Items for {entry.item_name}</h4>
-                            <div className="nested-items-actions">
+                    <tr>
+                      <td colSpan={11} style={{ padding: 0, background: '#f9fafb' }}>
+                        <div style={{ padding: '1.5rem', borderLeft: '4px solid #124191', width: '100%', boxSizing: 'border-box', background: '#f9fafb' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <h4 style={{ margin: 0, color: '#124191', fontSize: '1rem', fontWeight: '600' }}>
+                              Items for {entry.item_name} ({(entry.items || []).length} items)
+                            </h4>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
                               <button
                                 className="btn-secondary"
                                 onClick={() => handleAddItem(entry.id, entry.item_name)}
@@ -751,31 +798,31 @@ export default function Lvl3() {
                               </label>
                             </div>
                           </div>
-                          <div className="nested-table-wrapper">
-                            <table className="nested-table">
+                          <div style={{ overflowX: 'auto', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', width: '100%' }}>
+                            <table className="inventory-table" style={{ margin: 0, width: '100%', tableLayout: 'auto' }}>
                               <thead>
-                                <tr>
-                                  <th>Item Name</th>
-                                  <th>Details</th>
-                                  <th>Vendor Part #</th>
-                                  <th>Category</th>
-                                  <th>UOM</th>
-                                  <th>UPL Line</th>
-                                  <th>Quantity</th>
-                                  <th>Price</th>
-                                  <th>Service Type</th>
-                                  <th>Actions</th>
+                                <tr style={{ background: 'linear-gradient(135deg, #5bcefa 0%, #3ab5e8 100%)' }}>
+                                  <th style={{ color: '#124191' }}>Item Name</th>
+                                  <th style={{ color: '#124191' }}>Details</th>
+                                  <th style={{ color: '#124191' }}>Vendor Part #</th>
+                                  <th style={{ color: '#124191' }}>Category</th>
+                                  <th style={{ color: '#124191' }}>UOM</th>
+                                  <th style={{ color: '#124191' }}>UPL Line</th>
+                                  <th style={{ color: '#124191' }}>Quantity</th>
+                                  <th style={{ color: '#124191' }}>Price</th>
+                                  <th style={{ color: '#124191' }}>Service Type</th>
+                                  <th style={{ color: '#124191', width: '100px' }}>Actions</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {(entry.items || []).length === 0 ? (
                                   <tr>
-                                    <td colSpan={10} className="no-data">No items found</td>
+                                    <td colSpan={10} style={{ textAlign: 'center', padding: '1.5rem', color: '#9ca3af' }}>No items found</td>
                                   </tr>
                                 ) : (
                                   (entry.items || []).map((item) => (
                                     <tr key={item.id}>
-                                      <td title={item.item_name}>{item.item_name}</td>
+                                      <td title={item.item_name}><strong>{item.item_name}</strong></td>
                                       <td title={item.item_details}>{item.item_details}</td>
                                       <td title={item.vendor_part_number}>{item.vendor_part_number}</td>
                                       <td title={item.category}>{item.category}</td>

@@ -144,13 +144,17 @@ def create_lvl3(
 # ---------- GET ALL ----------
 @router.get("/", response_model=List[Lvl3Out])
 def get_all_lvl3(
+        skip: int = 0,
+        limit: int = 100,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
-    Get all Lvl3 records accessible to the current user.
+    Get all Lvl3 records accessible to the current user with pagination.
     - senior_admin: Can see all Lvl3 records
     - admin/user: Can see only Lvl3 records for projects they have access to
+
+    OPTIMIZED: Added pagination (skip/limit) to prevent memory issues with large datasets.
     """
     try:
         accessible_project_ids = get_user_accessible_projects(current_user, db)
@@ -158,7 +162,12 @@ def get_all_lvl3(
         if not accessible_project_ids:
             return []
 
-        lvl3_records = db.query(Lvl3).filter(Lvl3.project_id.in_(accessible_project_ids)).all()
+        # OPTIMIZED: Added pagination with offset and limit
+        # MSSQL requires ORDER BY when using OFFSET/LIMIT
+        lvl3_records = db.query(Lvl3).filter(
+            Lvl3.project_id.in_(accessible_project_ids)
+        ).order_by(Lvl3.id).offset(skip).limit(limit).all()
+
         return lvl3_records
     except Exception as e:
         raise HTTPException(

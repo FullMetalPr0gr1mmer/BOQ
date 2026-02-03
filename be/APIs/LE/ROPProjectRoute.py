@@ -1,11 +1,14 @@
 import csv
 import io
+import logging
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List
 from sqlalchemy import and_
+
+logger = logging.getLogger(__name__)
 
 from APIs.Core import get_db, get_current_user
 from Models.Admin.User import UserProjectAccess, User
@@ -300,7 +303,7 @@ def delete_project(
     except Exception as e:
 
         db.rollback()
-        print("Commit failed:", type(e), e)
+        logger.error(f"Commit failed: {type(e).__name__}: {e}")
         raise
 
 
@@ -467,7 +470,6 @@ async def upload_csv(
                     product_number=row[3],  # Product Number
                 )
                 create_project(rop_project_data, db=db, current_user=current_user)
-                print(f"Creating ROPProject: {rop_project_data.dict()}")
 
             elif level == 1:
                 rop_lvl1_data = ROPLvl1Create(

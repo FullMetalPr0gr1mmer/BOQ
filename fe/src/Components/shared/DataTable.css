@@ -37,7 +37,7 @@
 /* Table Styles */
 .data-table {
   width: 100%;
-  min-width: 1400px; /* Ensure table is wide enough to require scroll */
+  min-width: max-content; /* Expands for tables with many columns */
   border-collapse: collapse;
   font-size: 0.85rem;
 }
@@ -78,9 +78,6 @@
   text-align: center;
   color: #374151;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 150px;
 }
 
 /* Allow overflow for actions column to show dropdown */

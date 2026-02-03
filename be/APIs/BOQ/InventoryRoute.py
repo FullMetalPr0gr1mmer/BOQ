@@ -1,11 +1,14 @@
 # routes/inventoryRoute.py
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, Request, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional
 import csv
 from io import StringIO
+
+logger = logging.getLogger(__name__)
 
 from APIs.Core import get_db, get_current_user
 from Models.BOQ.Inventory import Inventory
@@ -15,6 +18,7 @@ from Models.Admin.User import User, UserProjectAccess
 from Models.Admin.AuditLog import AuditLog
 from Schemas.BOQ.InventoySchema import CreateInventory, InventoryOut, InventoryPagination, SitesResponse, \
     UploadResponse, SiteOut, AddSite
+from utils.file_validation import validate_csv_file  # SECURITY: File upload validation
 
 inventoryRoute = APIRouter(tags=["Inventory/Sites"])
 
@@ -483,8 +487,8 @@ async def upload_sites_csv(
             detail="You are not authorized to upload sites for this project. Contact the Senior Admin."
         )
 
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="File must be a CSV")
+    # SECURITY: Validate file size and type
+    await validate_csv_file(file, max_size=50 * 1024 * 1024)  # 50 MB limit
 
     try:
         content = await file.read()
@@ -584,18 +588,25 @@ async def upload_sites_csv(
 # Keep the legacy endpoint for backward compatibility
 @inventoryRoute.get("/get-site")
 def get_all_sites_legacy(
+        skip: int = 0,
+        limit: int = 10000,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
-    Legacy endpoint - returns all sites without pagination.
+    Legacy endpoint - returns sites with optional pagination.
     Users can only see sites from projects they have access to.
-    Use /sites for paginated results.
+    Use /sites for better paginated results.
+
+    OPTIMIZED: Added optional pagination (default limit: 10000) for safety while maintaining backward compatibility.
     """
     try:
         query = db.query(Site)
         query = filter_sites_by_user_access(current_user, query, db)
-        sites = query.all()
+
+        # OPTIMIZED: Added pagination with high default limit for backward compatibility
+        # MSSQL requires ORDER BY when using OFFSET/LIMIT
+        sites = query.order_by(Site.site_id).offset(skip).limit(limit).all()
 
         return [
             {
@@ -933,8 +944,8 @@ async def upload_inventory_csv(
             detail="You are not authorized to upload inventory for this project. Contact the Senior Admin."
         )
 
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a CSV file.")
+    # SECURITY: Validate file size and type
+    await validate_csv_file(file, max_size=50 * 1024 * 1024)  # 50 MB limit
 
 
     content = await file.read()
@@ -962,7 +973,8 @@ async def upload_inventory_csv(
         'Aggregated Alarm Status': 'Aggregated_alarm_status'
                 }
 
-    inserted_count = 0
+    # OPTIMIZED: Build list for bulk insert instead of adding one by one
+    bulk_data = []
     try:
         for row in csv_reader:
             # Prepare data using the mapping
@@ -981,14 +993,17 @@ async def upload_inventory_csv(
             # Add project ID from form parameter
             inventory_data['pid_po'] = pid_po
 
-            db_obj = Inventory(**inventory_data)
-            db.add(db_obj)
-            inserted_count += 1
+            bulk_data.append(inventory_data)
+
+        # OPTIMIZED: Single bulk insert instead of N individual inserts
+        inserted_count = len(bulk_data)
+        if bulk_data:
+            db.bulk_insert_mappings(Inventory, bulk_data)
 
         db.commit()
     except Exception as e:
         db.rollback()
-        print(f"Error during CSV upload: {e}")
+        logger.error(f"Error during CSV upload: {e}")
         raise HTTPException(status_code=500, detail=f"An error occurred during CSV processing: {e}")
 
     return {"inserted_count": inserted_count}
@@ -1072,7 +1087,7 @@ async def delete_all_sites_for_project(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error deleting sites: {e}")
+        logger.error(f"Error deleting sites: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete sites: {str(e)}")
 
 
@@ -1141,5 +1156,5 @@ async def delete_all_inventory_for_project(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error deleting inventory: {e}")
+        logger.error(f"Error deleting inventory: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete inventory: {str(e)}")

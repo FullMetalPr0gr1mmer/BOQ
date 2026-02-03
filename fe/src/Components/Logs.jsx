@@ -60,7 +60,7 @@ const apiService = {
   getAuditLogs: async function(filters = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value);
+      if (value !== undefined && value !== '') params.append(key, value);
     });
     const queryString = params.toString() ? `?${params.toString()}` : '';
     return this.apiCall(`/audit-logs${queryString}`);
@@ -120,6 +120,7 @@ const SeniorAdminDashboard = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [logsPerPage, setLogsPerPage] = useState(20);
+  const [totalLogs, setTotalLogs] = useState(0);
 
   // Load data on component mount
   useEffect(() => {
@@ -162,12 +163,26 @@ const SeniorAdminDashboard = () => {
   const loadAuditLogs = async (filters = {}) => {
     try {
       setLoading(true);
+      // OPTIMIZED: Server-side pagination with total count
       const data = await apiService.getAuditLogs({
         ...filters,
         skip: (currentPage - 1) * logsPerPage,
         limit: logsPerPage,
+        search: logSearch || undefined,  // OPTIMIZED: Server-side search
       });
-      setAuditLogs(Array.isArray(data) ? data : []);
+
+      // OPTIMIZED: Handle paginated response format
+      console.log('Audit logs API response:', data);
+      if (data && typeof data === 'object' && 'records' in data) {
+        console.log('Using paginated format - Total:', data.total, 'Records:', data.records?.length);
+        setAuditLogs(Array.isArray(data.records) ? data.records : []);
+        setTotalLogs(data.total || 0);
+      } else {
+        console.log('Using legacy format - Data length:', data?.length);
+        // Fallback for old response format
+        setAuditLogs(Array.isArray(data) ? data : []);
+        setTotalLogs(Array.isArray(data) ? data.length : 0);
+      }
     } catch (error) {
       if (error.message.includes('Unauthorized')) {
         setAuthError(error.message);
@@ -205,14 +220,20 @@ const SeniorAdminDashboard = () => {
     }
   };
 
+  // OPTIMIZED: Debounced log loading for search
   useEffect(() => {
     if (activeTab === 'logs') {
-      loadAuditLogs({
-        action: actionFilter,
-        resource_type: resourceTypeFilter,
-      });
+      // Debounce search by 300ms
+      const debounceTimer = setTimeout(() => {
+        loadAuditLogs({
+          action: actionFilter,
+          resource_type: resourceTypeFilter,
+        });
+      }, logSearch ? 300 : 0); // Only debounce when searching
+
+      return () => clearTimeout(debounceTimer);
     }
-  }, [activeTab, actionFilter, resourceTypeFilter, currentPage]);
+  }, [activeTab, actionFilter, resourceTypeFilter, currentPage, logSearch, logsPerPage]);
 
   const showMessage = (text, type) => {
     setMessage({ text, type });
@@ -335,15 +356,9 @@ const SeniorAdminDashboard = () => {
     (user.role_name && user.role_name.toLowerCase().includes(userSearch.toLowerCase()))
   );
 
-  const filteredLogs = auditLogs.filter(log => {
-    if (!logSearch) return true;
-    const searchTerm = logSearch.toLowerCase();
-    return (
-      (log.user && log.user.username.toLowerCase().includes(searchTerm)) ||
-      (log.action && log.action.toLowerCase().includes(searchTerm)) ||
-      (log.resource_name && log.resource_name.toLowerCase().includes(searchTerm))
-    );
-  });
+  // OPTIMIZED: Server-side search - no client-side filtering needed
+  // All filtering is done on the backend for better performance
+  const filteredLogs = auditLogs;
 
   const formatTimestamp = (timestamp) => {
     return new Date(timestamp).toLocaleString();
@@ -368,6 +383,10 @@ const SeniorAdminDashboard = () => {
     setCurrentPage(1); // Reset to first page
   };
 
+  // OPTIMIZED: Calculate total pages from API's total count, not filtered array length
+  const totalPages = Math.ceil(totalLogs / logsPerPage);
+  console.log('Pagination calculation:', { totalLogs, logsPerPage, totalPages });
+
   // Stats for carousel
   const statCards = activeTab === 'users'
     ? [
@@ -376,8 +395,8 @@ const SeniorAdminDashboard = () => {
         { label: 'Total Projects', value: projects.length },
       ]
     : [
-        { label: 'Total Logs', value: filteredLogs.length },
-        { label: 'Current Page', value: currentPage },
+        { label: 'Total Logs', value: totalLogs },  // OPTIMIZED: Show total from API
+        { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
         {
           label: 'Logs Per Page',
           isEditable: true,
@@ -634,8 +653,6 @@ const SeniorAdminDashboard = () => {
       )
     }
   ];
-
-  const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
 
   return (
     <div className="inventory-container">

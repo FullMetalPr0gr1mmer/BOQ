@@ -43,9 +43,7 @@ async def chat(
         AI response with actions and data
     """
     try:
-        print("Chat request received")
         agent = get_agent()
-        print("Chat request received2")
 
         response = agent.chat(
             message=request.message,

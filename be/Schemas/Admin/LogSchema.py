@@ -22,7 +22,7 @@ class AuditLogCreate(AuditLogBase):
 # Schemas/Admin/LogSchema.py
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class AuditLogResponse(BaseModel):
@@ -40,3 +40,11 @@ class AuditLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PaginatedAuditLogResponse(BaseModel):
+    """Paginated response for audit logs with total count."""
+    records: List[AuditLogResponse]
+    total: int
+    skip: int
+    limit: int

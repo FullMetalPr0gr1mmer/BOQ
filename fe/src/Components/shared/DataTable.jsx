@@ -41,7 +41,7 @@ export default function DataTable({
         <thead>
           <tr>
             {columns.map((col, idx) => (
-              <th key={idx}>{col.label}</th>
+              <th key={idx} title={col.title || undefined}>{col.label}</th>
             ))}
             {hasActions && <th>Actions</th>}
           </tr>

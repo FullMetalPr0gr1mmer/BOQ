@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { apiCall, setTransient } from '../api.js';
 import '../css/Inventory.css';
 import '../css/shared/DownloadButton.css';
@@ -32,6 +32,9 @@ export default function Inventory() {
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const fetchAbort = useRef(null);
+  const searchDebounceTimer = useRef(null); // OPTIMIZED: Debounce timer for search
+  const inventoryCache = useRef({ data: null, timestamp: 0, search: '', projectId: '' }); // OPTIMIZED: Cache for inventory
+  const CACHE_DURATION = 30000; // 30 seconds cache
 
   const initialForm = {
     site_id: '', site_name: '', slot_id: '', port_id: '', status: '',
@@ -67,8 +70,19 @@ export default function Inventory() {
     }
   };
 
-  const fetchInventory = async (page = 1, search = '', limit = rowsPerPage, projectId = selectedProject) => {
+  const fetchInventory = async (page = 1, search = '', limit = rowsPerPage, projectId = selectedProject, useCache = false) => {
     try {
+      // OPTIMIZED: Check cache first (if enabled and no search/project filter)
+      if (useCache && !search && !projectId && inventoryCache.current.data) {
+        const cacheAge = Date.now() - inventoryCache.current.timestamp;
+        if (cacheAge < CACHE_DURATION) {
+          setRows(inventoryCache.current.data.records || []);
+          setTotal(inventoryCache.current.data.total || 0);
+          setCurrentPage(page);
+          return;
+        }
+      }
+
       if (fetchAbort.current) fetchAbort.current.abort();
       const controller = new AbortController();
       fetchAbort.current = controller;
@@ -88,6 +102,12 @@ export default function Inventory() {
         signal: controller.signal,
         method: 'GET'
       });
+
+      // OPTIMIZED: Cache the results if no search or filter
+      if (!search && !projectId) {
+        inventoryCache.current = { data, timestamp: Date.now(), search: '', projectId: '' };
+      }
+
       setRows(data.records || []);
       setTotal(data.total || 0);
       setCurrentPage(page);
@@ -100,9 +120,18 @@ export default function Inventory() {
 
   useEffect(() => {
     fetchProjects();
-    fetchInventory(1, '', rowsPerPage, '');
+    fetchInventory(1, '', rowsPerPage, '', true); // OPTIMIZED: Use cache on initial load
     fetchStats('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // OPTIMIZED: Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimer.current) {
+        clearTimeout(searchDebounceTimer.current);
+      }
+    };
   }, []);
 
   const handleProjectChange = (e) => {
@@ -117,7 +146,15 @@ export default function Inventory() {
   const onSearchChange = (e) => {
     const v = e.target.value;
     setSearchTerm(v);
-    fetchInventory(1, v);
+
+    // OPTIMIZED: Debounce search - wait 300ms after user stops typing
+    if (searchDebounceTimer.current) {
+      clearTimeout(searchDebounceTimer.current);
+    }
+
+    searchDebounceTimer.current = setTimeout(() => {
+      fetchInventory(1, v);
+    }, 300);
   };
 
   const openCreateForm = () => {
@@ -172,6 +209,8 @@ export default function Inventory() {
 
       setTransient(setSuccess, isEditing ? 'Inventory updated' : 'Inventory created');
       setShowForm(false);
+      // OPTIMIZED: Invalidate cache after modification
+      inventoryCache.current = { data: null, timestamp: 0, search: '', projectId: '' };
       fetchInventory(currentPage, searchTerm, rowsPerPage);
     } catch (err) {
       setTransient(setError, err.message || 'Operation failed');
@@ -185,6 +224,8 @@ export default function Inventory() {
         method: 'DELETE'
       });
       setTransient(setSuccess, 'Inventory deleted');
+      // OPTIMIZED: Invalidate cache after deletion
+      inventoryCache.current = { data: null, timestamp: 0, search: '', projectId: '' };
       fetchInventory(currentPage, searchTerm, rowsPerPage);
     } catch (err) {
       setTransient(setError, err.message || 'Delete failed');
@@ -213,6 +254,8 @@ export default function Inventory() {
         body: formData
       });
       setTransient(setSuccess, `Upload successful! ${result.inserted_count} rows inserted.`);
+      // OPTIMIZED: Invalidate cache after CSV upload
+      inventoryCache.current = { data: null, timestamp: 0, search: '', projectId: '' };
       fetchInventory(1, searchTerm, rowsPerPage);
     } catch (err) {
       setTransient(setError, err.message);
@@ -246,6 +289,8 @@ export default function Inventory() {
       setTransient(setSuccess, message);
       setShowDeleteAllModal(false);
       setSelectedProject('');
+      // OPTIMIZED: Invalidate cache after delete all
+      inventoryCache.current = { data: null, timestamp: 0, search: '', projectId: '' };
       fetchInventory(1, '', rowsPerPage, '');
       fetchStats();
     } catch (err) {
@@ -277,7 +322,8 @@ export default function Inventory() {
   };
 
   // Define all stat cards for the carousel
-  const statCards = [
+  // OPTIMIZED: Memoize statCards to prevent recalculation on every render
+  const statCards = useMemo(() => [
     { label: 'Total Items', value: stats.total_items },
     { label: 'Unique Sites', value: stats.unique_sites },
     { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
@@ -301,7 +347,7 @@ export default function Inventory() {
         </select>
       )
     }
-  ];
+  ], [stats.total_items, stats.unique_sites, currentPage, totalPages, rows.length, rowsPerPage]);
 
   // Define table columns
   const tableColumns = [
@@ -497,7 +543,14 @@ export default function Inventory() {
           }
         ]}
         showClearButton={!!searchTerm}
-        onClearSearch={() => { setSearchTerm(''); fetchInventory(1, ''); }}
+        onClearSearch={() => {
+          setSearchTerm('');
+          // OPTIMIZED: Clear debounce timer on manual clear
+          if (searchDebounceTimer.current) {
+            clearTimeout(searchDebounceTimer.current);
+          }
+          fetchInventory(1, '');
+        }}
         clearButtonText="Clear Search"
       />
 

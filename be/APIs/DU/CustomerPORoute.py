@@ -25,6 +25,7 @@ from typing import Optional, List
 logger = logging.getLogger(__name__)
 
 from APIs.Core import get_db, get_current_user
+from utils.file_validation import validate_csv_file  # SECURITY: File upload validation
 from Models.DU.CustomerPO import (
     CustomerPO,
     CSV_COLUMN_MAPPING,
@@ -173,7 +174,11 @@ def get_customer_po_stats(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Get Customer PO item statistics."""
+    """
+    Get Customer PO item statistics.
+
+    OPTIMIZED: Combined 5 separate aggregation queries into 1 single query (80% reduction).
+    """
     try:
         query = db.query(CustomerPO)
         query = filter_customer_po_by_user_access(current_user, query, db)
@@ -181,22 +186,21 @@ def get_customer_po_stats(
         if project_id:
             query = query.filter(CustomerPO.project_id == project_id)
 
-        total_items = query.count()
-
-        # Count unique categories
-        unique_categories = query.with_entities(func.count(func.distinct(CustomerPO.cat))).scalar() or 0
-        unique_statuses = query.with_entities(func.count(func.distinct(CustomerPO.status))).scalar() or 0
-
-        # Sum totals
-        total_quantity = query.with_entities(func.sum(CustomerPO.quantity)).scalar() or 0
-        total_amount = query.with_entities(func.sum(CustomerPO.amount)).scalar() or 0
+        # OPTIMIZED: Combine all aggregations into a single query (5 queries → 1 query)
+        stats = query.with_entities(
+            func.count(CustomerPO.id).label('total_items'),
+            func.count(func.distinct(CustomerPO.cat)).label('unique_categories'),
+            func.count(func.distinct(CustomerPO.status)).label('unique_statuses'),
+            func.sum(CustomerPO.quantity).label('total_quantity'),
+            func.sum(CustomerPO.amount).label('total_amount')
+        ).one()
 
         return CustomerPOStatsResponse(
-            total_items=total_items,
-            unique_categories=unique_categories,
-            total_quantity=total_quantity,
-            total_amount=total_amount,
-            unique_statuses=unique_statuses
+            total_items=stats.total_items or 0,
+            unique_categories=stats.unique_categories or 0,
+            total_quantity=stats.total_quantity or 0,
+            total_amount=stats.total_amount or 0,
+            unique_statuses=stats.unique_statuses or 0
         )
     except Exception as e:
         raise HTTPException(
@@ -568,9 +572,8 @@ async def upload_customer_po_csv(
             detail="You are not authorized to upload items to this project."
         )
 
-    if not file.filename.endswith('.csv'):
-        logger.warning(f"Invalid file type uploaded: {file.filename}")
-        raise HTTPException(status_code=400, detail="File must be a CSV")
+    # SECURITY: Validate file size and type
+    await validate_csv_file(file, max_size=50 * 1024 * 1024)  # 50 MB limit
 
     try:
         content = await file.read()
@@ -611,6 +614,9 @@ async def upload_customer_po_csv(
         updated_count = 0
         skipped_count = 0
 
+        # OPTIMIZED: Build list for bulk insert instead of individual adds
+        bulk_data = []
+
         for idx, row in df.iterrows():
             try:
                 # Map row values to model fields
@@ -647,15 +653,18 @@ async def upload_customer_po_csv(
                 # Add project_id
                 item_data['project_id'] = project_id
 
-                # Create new item
-                new_item = CustomerPO(**item_data)
-                db.add(new_item)
+                # OPTIMIZED: Add to bulk list instead of individual db.add()
+                bulk_data.append(item_data)
                 inserted_count += 1
 
             except Exception as row_error:
-                print(f"Error processing row {idx}: {row_error}")
+                logger.error(f"Error processing row {idx}: {row_error}")
                 skipped_count += 1
                 continue
+
+        # OPTIMIZED: Single bulk insert instead of N individual inserts
+        if bulk_data:
+            db.bulk_insert_mappings(CustomerPO, bulk_data)
 
         db.commit()
 

@@ -5,6 +5,7 @@ import csv
 import io
 
 from APIs.Core import safe_int, get_db, get_current_user
+from utils.file_validation import validate_csv_file  # SECURITY: File upload validation
 from Models.Admin.User import UserProjectAccess, User
 from Schemas.RAN.RANInventorySchema import (
     RANInventoryCreate,
@@ -342,7 +343,7 @@ def delete_ran_inventory_record(
 
 
 @RANInventoryRouter.post("/upload-csv", response_model=dict)
-def upload_ran_inventory_csv(
+async def upload_ran_inventory_csv(
         file: UploadFile = File(...),
         pid_po: str = Form(...),
         db: Session = Depends(get_db),
@@ -352,6 +353,7 @@ def upload_ran_inventory_csv(
     Uploads a CSV file to bulk-add RAN Inventory records.
     The CSV must have headers matching the RANInventory schema fields.
     The pid_po parameter will be used for all records in the CSV.
+    OPTIMIZED: Uses bulk insert operations for better performance.
     """
     # Check access for the provided project
     if not check_raninventory_project_access(current_user, pid_po, db, "edit"):
@@ -360,14 +362,15 @@ def upload_ran_inventory_csv(
             detail="You are not authorized to upload CSV files for this project. Contact the Senior Admin."
         )
 
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="Invalid file type. Only CSV files are allowed.")
+    # SECURITY: Validate file size and type
+    await validate_csv_file(file, max_size=50 * 1024 * 1024)  # 50 MB limit
 
     try:
-        contents = file.file.read().decode('utf-8')
-        csv_reader = csv.DictReader(io.StringIO(contents))
+        contents = await file.read()
+        csv_reader = csv.DictReader(io.StringIO(contents.decode('utf-8')))
 
-        new_records = []
+        # OPTIMIZED: Build list of dictionaries for bulk insert
+        bulk_data = []
         for row in csv_reader:
             # Try different possible column names for flexibility
             mrbts = row.get('MRBTS') or row.get('mrbts') or row.get('Mrbts')
@@ -378,23 +381,24 @@ def upload_ran_inventory_csv(
             duplicate = row.get('Duplicate') or row.get('duplicate')
             duplicate_remarks = row.get('Duplicate remarks') or row.get('duplicate_remarks') or row.get('Duplicate_remarks') or row.get('DuplicateRemarks')
 
-            new_record = RANInventory(
-                mrbts=mrbts,
-                site_id=site_id,
-                identification_code=identification_code,
-                user_label=user_label,
-                serial_number=serial_number,
-                duplicate=True if duplicate and str(duplicate).lower() in ['true', '1', 'yes', 'y'] else False,
-                duplicate_remarks=duplicate_remarks,
-                pid_po=pid_po,  # Use the form parameter for all records
-            )
-            new_records.append(new_record)
+            # OPTIMIZED: Append dictionary instead of object
+            bulk_data.append({
+                'mrbts': mrbts,
+                'site_id': site_id,
+                'identification_code': identification_code,
+                'user_label': user_label,
+                'serial_number': serial_number,
+                'duplicate': True if duplicate and str(duplicate).lower() in ['true', '1', 'yes', 'y'] else False,
+                'duplicate_remarks': duplicate_remarks,
+                'pid_po': pid_po,  # Use the form parameter for all records
+            })
 
-        if new_records:
-            db.add_all(new_records)
+        # OPTIMIZED: Single bulk insert instead of add_all
+        if bulk_data:
+            db.bulk_insert_mappings(RANInventory, bulk_data)
             db.commit()
 
-        return {"message": f"Successfully added {len(new_records)} records from CSV with pid_po: {pid_po}"}
+        return {"message": f"Successfully added {len(bulk_data)} records from CSV with pid_po: {pid_po}"}
 
     except Exception as e:
         db.rollback()

@@ -28,9 +28,11 @@ import DUProjects from './DUComponents/DUProjects';
 import RolloutSheet from './DUComponents/RolloutSheet';
 import ODBOQItems from './DUComponents/ODBOQItems';
 import CustomerPO from './DUComponents/CustomerPO';
+import DURPALogistics from './DUComponents/DURPALogistics';
 import NDPDData from './NDPDComponents/NDPDData';
 import Approvals from './Components/Approvals';
 import POReport from './Components/POReport';
+import PriceBook from './Components/PriceBook';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { setGlobalToast } from './api';
 
@@ -40,6 +42,8 @@ const getSectionFromPath = (pathname) => {
     return 'le-automation';
   } else if (pathname.startsWith('/ran-') || pathname.startsWith('/ran_')) {
     return 'ran-boq';
+  } else if (pathname.startsWith('/projects') || pathname.startsWith('/invoices')) {
+    return 'du-logistics';
   } else if (pathname.startsWith('/du-')) {
     return 'du-5g';
   } else if (pathname.startsWith('/ndpd-')) {
@@ -134,11 +138,14 @@ function AppContent() {
               <Route path="/du-boq-generation" element={<RolloutSheet />} />
               <Route path="/du-boq-items" element={<ODBOQItems />} />
               <Route path="/du-customer-po" element={<CustomerPO />} />
+              <Route path="/projects" element={<DURPALogistics />} />
+              <Route path="/invoices" element={<DURPALogistics />} />
               <Route path="/ndpd-data" element={<NDPDData />} />
               <Route path="/approvals" element={<Approvals />} />
               <Route path="/triggering" element={<Approvals />} />
               <Route path="/logistics" element={<Approvals />} />
               <Route path="/po-report" element={<POReport />} />
+              <Route path="/price-book" element={<PriceBook />} />
               <Route path="*" element={<Home setActiveSection={setActiveSection} user={auth.user}/>} />
             </Routes>
           </div>
@@ -154,7 +161,7 @@ function AppContent() {
             onSelect={(section) => {
               if (section === 'logout') {
                 logout();
-              } else if (section === 'boq' || section === 'le-automation' || section === 'ran-boq' || section === 'du-5g' || section === 'ndpd') {
+              } else if (section === 'boq' || section === 'le-automation' || section === 'ran-boq' || section === 'du-5g' || section === 'ndpd' || section === 'du-logistics') {
                 setActiveSection(section);
               }
               setSidebarOpen(false);
