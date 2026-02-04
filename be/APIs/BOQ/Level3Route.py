@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 
 from APIs.Core import get_db, get_current_user
@@ -164,7 +164,10 @@ def get_all_lvl3(
 
         # OPTIMIZED: Added pagination with offset and limit
         # MSSQL requires ORDER BY when using OFFSET/LIMIT
-        lvl3_records = db.query(Lvl3).filter(
+        # OPTIMIZED: Use joinedload to eagerly load items and prevent N+1 queries
+        lvl3_records = db.query(Lvl3).options(
+            joinedload(Lvl3.items)
+        ).filter(
             Lvl3.project_id.in_(accessible_project_ids)
         ).order_by(Lvl3.id).offset(skip).limit(limit).all()
 

@@ -486,7 +486,7 @@ export default function DURPALogistics() {
 
   const formatCurrency = (value) => {
     if (value == null || value === '') return '-';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR' }).format(value);
+    return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
   };
 
   const formatNumber = (value) => {

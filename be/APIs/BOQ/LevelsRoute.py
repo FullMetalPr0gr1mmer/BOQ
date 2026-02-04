@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from APIs.Core import get_db
+from APIs.Core import get_db, get_current_user
 from Models.BOQ.Levels import Lvl1
+from Models.Admin.User import User
 from Schemas.BOQ.LevelsSchema import (
     Lvl1Create, Lvl1Out,
 )
@@ -12,7 +13,7 @@ levelsRouter = APIRouter(tags=["Levels"])
 # ---------------------------- Level 1 ----------------------------
 
 @levelsRouter.post("/create-lvl1")
-def create_lvl1_entry(data: Lvl1Create, db: Session = Depends(get_db)):
+def create_lvl1_entry(data: Lvl1Create, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     lvl1 = Lvl1(
         project_id=data.project_id,
         project_name=data.project_name,
@@ -31,7 +32,8 @@ def create_lvl1_entry(data: Lvl1Create, db: Session = Depends(get_db)):
 def get_all_lvl1(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get all Level 1 entries with pagination.
@@ -56,7 +58,7 @@ def get_all_lvl1(
     ]
 
 @levelsRouter.put("/update-lvl1/{id}")
-def update_lvl1(id: int, data: Lvl1Create, db: Session = Depends(get_db)):
+def update_lvl1(id: int, data: Lvl1Create, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     lvl1 = db.query(Lvl1).filter(Lvl1.id == id).first()
     if not lvl1:
         raise HTTPException(status_code=404, detail="Lvl1 entry not found")
@@ -72,7 +74,7 @@ def update_lvl1(id: int, data: Lvl1Create, db: Session = Depends(get_db)):
     return lvl1
 
 @levelsRouter.delete("/delete-lvl1/{id}")
-def delete_lvl1(id: int, db: Session = Depends(get_db)):
+def delete_lvl1(id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     lvl1 = db.query(Lvl1).filter(Lvl1.id == id).first()
     if not lvl1:
         raise HTTPException(status_code=404, detail="Lvl1 entry not found")

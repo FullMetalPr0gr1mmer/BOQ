@@ -368,8 +368,9 @@ def _find_matching_serial(child, inventory_pool, used_serials):
 
 
 # ✅ Generate BoQ CSV from a RAN Site's key (UPDATED LOGIC)
+# SECURITY: Added authentication requirement
 @ran_lld_router.get("/{site_id}/generate-boq")
-def generate_ran_boq(site_id: int, db: Session = Depends(get_db)):
+def generate_ran_boq(site_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # 1. Fetch the specific RAN Site
 
     site = db.query(RAN_LLD).filter(RAN_LLD.id == site_id).first()

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import csv
 import io
@@ -81,7 +81,8 @@ def get_ranlvl3_by_project_id(db: Session, project_id: str):
 
 def get_all_ranlvl3(db: Session, skip: int = 0, limit: int = 100, search: Optional[str] = None,
                     accessible_projects: List[str] = None, project_id: Optional[str] = None):
-    query = db.query(RANLvl3)
+    # OPTIMIZED: Use joinedload to eagerly load items and prevent N+1 queries
+    query = db.query(RANLvl3).options(joinedload(RANLvl3.items))
 
     # Filter by accessible projects if not senior admin
     if accessible_projects is not None:
