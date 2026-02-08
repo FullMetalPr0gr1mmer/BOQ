@@ -176,10 +176,13 @@ async def create_site(
                 detail="You are not authorized to add sites to this project."
             )
 
-    # Check if site_id already exists
-    existing_site = db.query(ODBOQSite).filter(ODBOQSite.site_id == site_data.site_id).first()
+    # Check if site_id with same subscope already exists (unique constraint)
+    existing_site = db.query(ODBOQSite).filter(
+        ODBOQSite.site_id == site_data.site_id,
+        ODBOQSite.subscope == site_data.subscope
+    ).first()
     if existing_site:
-        raise HTTPException(status_code=400, detail=f"Site with ID '{site_data.site_id}' already exists")
+        raise HTTPException(status_code=400, detail=f"Site with ID '{site_data.site_id}' and subscope '{site_data.subscope}' already exists")
 
     try:
         new_site = ODBOQSite(**site_data.dict())
@@ -260,14 +263,14 @@ def get_sites(
         )
 
 
-@odBOQRoute.get("/sites/{site_id}", response_model=ODBOQSiteOut)
+@odBOQRoute.get("/sites/{id}", response_model=ODBOQSiteOut)
 def get_site(
-        site_id: str,
+        id: int,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Get a specific site by ID."""
-    site = db.query(ODBOQSite).filter(ODBOQSite.site_id == site_id).first()
+    """Get a specific site by database ID."""
+    site = db.query(ODBOQSite).filter(ODBOQSite.id == id).first()
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -283,14 +286,14 @@ def get_site(
     return site
 
 
-@odBOQRoute.get("/sites/{site_id}/with-products", response_model=SiteWithProductsOut)
+@odBOQRoute.get("/sites/{id}/with-products", response_model=SiteWithProductsOut)
 def get_site_with_products(
-        site_id: str,
+        id: int,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """Get a site with all its products and quantities."""
-    site = db.query(ODBOQSite).filter(ODBOQSite.site_id == site_id).first()
+    site = db.query(ODBOQSite).filter(ODBOQSite.id == id).first()
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -310,10 +313,11 @@ def get_site_with_products(
     ).join(
         ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
     ).filter(
-        ODBOQSiteProduct.site_id == site_id
+        ODBOQSiteProduct.site_record_id == site.id
     ).all()
 
     products_list = []
+    total_qty_sum = 0.0
     for sp, product in site_products:
         products_list.append({
             "product_id": product.id,
@@ -327,8 +331,11 @@ def get_site_with_products(
             "remaining_in_po": product.remaining_in_po,
             "qty_per_site": sp.qty_per_site
         })
+        if sp.qty_per_site:
+            total_qty_sum += sp.qty_per_site
 
     return SiteWithProductsOut(
+        id=site.id,
         site_id=site.site_id,
         region=site.region,
         distance=site.distance,
@@ -336,20 +343,34 @@ def get_site_with_products(
         subscope=site.subscope,
         po_model=site.po_model,
         project_id=site.project_id,
-        products=products_list
+        ac_armod_cable=site.ac_armod_cable,
+        additional_cost=site.additional_cost,
+        remark=site.remark,
+        partner=site.partner,
+        request_status=site.request_status,
+        requested_date=site.requested_date,
+        du_po_number=site.du_po_number,
+        smp=site.smp,
+        year_scope=site.year_scope,
+        integration_status=site.integration_status,
+        integration_date=site.integration_date,
+        du_po_convention_name=site.du_po_convention_name,
+        po_year_issuance=site.po_year_issuance,
+        products=products_list,
+        total_qty_sum=total_qty_sum
     )
 
 
-@odBOQRoute.put("/sites/{site_id}", response_model=ODBOQSiteOut)
+@odBOQRoute.put("/sites/{id}", response_model=ODBOQSiteOut)
 async def update_site(
-        site_id: str,
+        id: int,
         site_data: ODBOQSiteUpdate,
         request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """Update a site."""
-    site = db.query(ODBOQSite).filter(ODBOQSite.site_id == site_id).first()
+    site = db.query(ODBOQSite).filter(ODBOQSite.id == id).first()
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -376,8 +397,8 @@ async def update_site(
             user_id=current_user.id,
             action="update_od_boq_site",
             resource_type="od_boq_site",
-            resource_id=site.site_id,
-            resource_name=site.site_id,
+            resource_id=str(site.id),
+            resource_name=f"{site.site_id} ({site.subscope})",
             details=json.dumps(update_data),
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("User-Agent")
@@ -393,15 +414,15 @@ async def update_site(
         )
 
 
-@odBOQRoute.delete("/sites/{site_id}")
+@odBOQRoute.delete("/sites/{id}")
 async def delete_site(
-        site_id: str,
+        id: int,
         request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """Delete a site and all its site-product records."""
-    site = db.query(ODBOQSite).filter(ODBOQSite.site_id == site_id).first()
+    site = db.query(ODBOQSite).filter(ODBOQSite.id == id).first()
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
 
@@ -416,9 +437,10 @@ async def delete_site(
 
     try:
         project_id = site.project_id
+        site_identifier = f"{site.site_id} ({site.subscope})"
 
         # Delete all site-product records first
-        db.query(ODBOQSiteProduct).filter(ODBOQSiteProduct.site_id == site_id).delete(synchronize_session=False)
+        db.query(ODBOQSiteProduct).filter(ODBOQSiteProduct.site_record_id == site.id).delete(synchronize_session=False)
 
         # Delete the site
         db.delete(site)
@@ -429,14 +451,14 @@ async def delete_site(
             user_id=current_user.id,
             action="delete_od_boq_site",
             resource_type="od_boq_site",
-            resource_id=site_id,
-            resource_name=site_id,
+            resource_id=str(id),
+            resource_name=site_identifier,
             details=json.dumps({"project_id": project_id}),
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("User-Agent")
         )
 
-        return {"message": f"Site {site_id} and all its products deleted successfully"}
+        return {"message": f"Site {site_identifier} and all its products deleted successfully"}
 
     except Exception as e:
         db.rollback()
@@ -468,16 +490,16 @@ async def delete_all_sites_by_project(
     try:
         # Get all sites for this project
         sites = db.query(ODBOQSite).filter(ODBOQSite.project_id == project_id).all()
-        site_ids = [site.site_id for site in sites]
+        site_record_ids = [site.id for site in sites]
 
         # Count records before deletion
-        deleted_sites = len(site_ids)
+        deleted_sites = len(site_record_ids)
         deleted_site_products = 0
 
-        if site_ids:
+        if site_record_ids:
             # Delete all site-product records for these sites
             deleted_site_products = db.query(ODBOQSiteProduct).filter(
-                ODBOQSiteProduct.site_id.in_(site_ids)
+                ODBOQSiteProduct.site_record_id.in_(site_record_ids)
             ).delete(synchronize_session=False)
 
             # Delete all sites
@@ -684,9 +706,16 @@ async def upload_csv(
 ):
     """
     Upload CSV file and populate all 3 tables:
-    - Sites (rows 8+, columns A-F)
-    - Products (rows 1-7, columns H onwards)
+    - Sites (rows 8+, columns A-F + metadata columns)
+    - Products (rows 1-5, columns 7 onwards) - consumed_in_year and remaining_in_po auto-calculated
     - Site-Products (junction with quantities)
+
+    Changes:
+    - consumed_in_year: Auto-calculated as SUM of all site quantities for each product
+    - remaining_in_po: Auto-calculated as total_po_qty - consumed_in_year
+    - Same site_id can exist with different subscope (unique constraint on site_id + subscope)
+    - Sum column: Calculated automatically, not read from CSV
+    - New site metadata: AC ARMOD Cable, Additional Cost, Remark, Partner, Request Status, etc.
     """
     logger.info(f"User {current_user.username} uploading OD BOQ CSV: {file.filename} for project {project_id}, consumed_year: {consumed_year}")
 
@@ -726,91 +755,146 @@ async def upload_csv(
         # Read CSV
         df = pd.read_csv(StringIO(csv_content), header=None)
 
-        # Extract product headers (rows 1-7, starting from column 7)
+        # Extract product headers (rows 1-5, starting from column 7)
+        # Row 6 (consumed_in_year) is SKIPPED - will be auto-calculated
         descriptions = df.iloc[0, 7:].tolist()
         line_numbers = df.iloc[1, 7:].tolist()
         codes = df.iloc[2, 7:].tolist()
         categories = df.iloc[3, 7:].tolist()
         total_pos = df.iloc[4, 7:].tolist()
-        consumed_2026 = df.iloc[5, 7:].tolist()
-        remaining_pos = df.iloc[6, 7:].tolist()
+        # Row 5 (index 5) is consumed in year - SKIP
+        # Row 6 (index 6) is remaining in PO - SKIP
 
-        # Create/update products
+        # Helper function to safely extract and clean string values from lists
+        def clean_value(lst, idx):
+            """Extract value from list, return cleaned string or None."""
+            if idx < len(lst) and not pd.isna(lst[idx]):
+                val = str(lst[idx]).strip()
+                return val if val else None
+            return None
+
+        # Create/update products (WITHOUT consumed_in_year and remaining_in_po)
         products_inserted = 0
         products_updated = 0
         product_id_map = {}  # Maps column index to product ID
 
         for idx, desc in enumerate(descriptions):
-            if pd.isna(desc) or str(desc).strip() == '':
+            # Skip columns without description OR without #Line number (validates product column)
+            description = clean_value(descriptions, idx)
+            line_number = clean_value(line_numbers, idx)
+
+            if not description or not line_number:
                 continue
 
-            code = str(codes[idx]).strip() if not pd.isna(codes[idx]) else None
+            # Extract other product fields
+            code = clean_value(codes, idx)
+            category = clean_value(categories, idx)
+            total_po_qty = float(total_pos[idx]) if not pd.isna(total_pos[idx]) and str(total_pos[idx]).strip() else None
 
-            # Check if product exists by code
+            # Check if product exists by code (upsert logic)
             existing_product = db.query(ODBOQProduct).filter(ODBOQProduct.code == code).first() if code else None
 
             if existing_product:
-                # Update existing
-                existing_product.description = str(desc).strip() if not pd.isna(desc) else None
-                existing_product.line_number = str(line_numbers[idx]).strip() if not pd.isna(line_numbers[idx]) else None
-                existing_product.category = str(categories[idx]).strip() if not pd.isna(categories[idx]) else None
-                existing_product.total_po_qty = float(total_pos[idx]) if not pd.isna(total_pos[idx]) else None
-                existing_product.consumed_in_year = float(consumed_2026[idx]) if not pd.isna(consumed_2026[idx]) else None
+                # Update existing product (WITHOUT consumed_in_year and remaining_in_po)
+                existing_product.description = description
+                existing_product.line_number = line_number
+                existing_product.category = category
+                existing_product.total_po_qty = total_po_qty
                 existing_product.consumed_year = consumed_year
-                existing_product.remaining_in_po = float(remaining_pos[idx]) if not pd.isna(remaining_pos[idx]) else None
+                # consumed_in_year and remaining_in_po will be calculated later
                 product_id_map[idx] = existing_product.id
                 products_updated += 1
             else:
-                # Create new
+                # Create new product (WITHOUT consumed_in_year and remaining_in_po)
                 new_product = ODBOQProduct(
-                    description=str(desc).strip() if not pd.isna(desc) else None,
-                    line_number=str(line_numbers[idx]).strip() if not pd.isna(line_numbers[idx]) else None,
+                    description=description,
+                    line_number=line_number,
                     code=code,
-                    category=str(categories[idx]).strip() if not pd.isna(categories[idx]) else None,
-                    total_po_qty=float(total_pos[idx]) if not pd.isna(total_pos[idx]) else None,
-                    consumed_in_year=float(consumed_2026[idx]) if not pd.isna(consumed_2026[idx]) else None,
+                    category=category,
+                    total_po_qty=total_po_qty,
                     consumed_year=consumed_year,
-                    remaining_in_po=float(remaining_pos[idx]) if not pd.isna(remaining_pos[idx]) else None
+                    consumed_in_year=0,  # Will be calculated later
+                    remaining_in_po=0  # Will be calculated later
                 )
                 db.add(new_product)
                 db.flush()  # Get the ID without committing
                 product_id_map[idx] = new_product.id
                 products_inserted += 1
 
-        # Process site rows (row 8 onwards)
+        # Determine number of product columns
+        num_product_cols = len(product_id_map)
+
+        # Calculate metadata column indices (after products and Sum column)
+        # Structure: [Region, Distance, Scope, Subscope, Site ID, Model] + [Products...] + [Sum] + [Metadata...]
+        metadata_start_col = 7 + num_product_cols + 1  # +1 for Sum column
+
+        # Process site rows (row 8 onwards, which is index 7)
         sites_inserted = 0
         sites_updated = 0
         site_products_inserted = 0
         skipped = 0
+        site_record_id_map = {}  # Maps (site_id, subscope) to database record ID
+
+        # Helper function to safely extract cell value
+        def safe_extract(row, col_idx):
+            """Extract and clean cell value, return None if empty/invalid."""
+            if col_idx < len(row) and not pd.isna(row.iloc[col_idx]):
+                val = str(row.iloc[col_idx]).strip()
+                return val if val else None
+            return None
 
         for row_idx in range(7, len(df)):
             row = df.iloc[row_idx]
 
-            # Extract site data (columns A-F = 0-5)
-            region = str(row.iloc[0]).strip() if not pd.isna(row.iloc[0]) else None
-            distance = str(row.iloc[1]).strip() if not pd.isna(row.iloc[1]) else None
-            scope = str(row.iloc[2]).strip() if not pd.isna(row.iloc[2]) else None
-            subscope = str(row.iloc[3]).strip() if not pd.isna(row.iloc[3]) else None
-            site_id = str(row.iloc[4]).strip() if not pd.isna(row.iloc[4]) else None
-            po_model = str(row.iloc[5]).strip() if not pd.isna(row.iloc[5]) else None
+            # Extract site basic data (columns 0-5)
+            region = safe_extract(row, 0)
+            distance = safe_extract(row, 1)
+            scope = safe_extract(row, 2)
+            subscope = safe_extract(row, 3)
+            site_id = safe_extract(row, 4)
+            po_model = safe_extract(row, 5)
 
             # Skip if no site_id
             if not site_id or site_id == '':
                 skipped += 1
                 continue
 
-            # Create/update site
-            existing_site = db.query(ODBOQSite).filter(ODBOQSite.site_id == site_id).first()
+            # Extract metadata columns (after products and Sum column) - 13 fields
+            metadata_values = [safe_extract(row, metadata_start_col + i) for i in range(13)]
+            (ac_armod_cable, additional_cost, remark, partner, request_status,
+             requested_date, du_po_number, smp, year_scope, integration_status,
+             integration_date, du_po_convention_name, po_year_issuance) = metadata_values
+
+            # Check for existing site with same site_id and subscope
+            existing_site = db.query(ODBOQSite).filter(
+                ODBOQSite.site_id == site_id,
+                ODBOQSite.subscope == subscope
+            ).first()
 
             if existing_site:
+                # Update existing site
                 existing_site.region = region
                 existing_site.distance = distance
                 existing_site.scope = scope
-                existing_site.subscope = subscope
                 existing_site.po_model = po_model
                 existing_site.project_id = project_id
+                existing_site.ac_armod_cable = ac_armod_cable
+                existing_site.additional_cost = additional_cost
+                existing_site.remark = remark
+                existing_site.partner = partner
+                existing_site.request_status = request_status
+                existing_site.requested_date = requested_date
+                existing_site.du_po_number = du_po_number
+                existing_site.smp = smp
+                existing_site.year_scope = year_scope
+                existing_site.integration_status = integration_status
+                existing_site.integration_date = integration_date
+                existing_site.du_po_convention_name = du_po_convention_name
+                existing_site.po_year_issuance = po_year_issuance
+                site_record_id_map[(site_id, subscope)] = existing_site.id
                 sites_updated += 1
             else:
+                # Create new site
                 new_site = ODBOQSite(
                     site_id=site_id,
                     region=region,
@@ -818,19 +902,37 @@ async def upload_csv(
                     scope=scope,
                     subscope=subscope,
                     po_model=po_model,
-                    project_id=project_id
+                    project_id=project_id,
+                    ac_armod_cable=ac_armod_cable,
+                    additional_cost=additional_cost,
+                    remark=remark,
+                    partner=partner,
+                    request_status=request_status,
+                    requested_date=requested_date,
+                    du_po_number=du_po_number,
+                    smp=smp,
+                    year_scope=year_scope,
+                    integration_status=integration_status,
+                    integration_date=integration_date,
+                    du_po_convention_name=du_po_convention_name,
+                    po_year_issuance=po_year_issuance
                 )
                 db.add(new_site)
+                db.flush()  # Get the ID
+                site_record_id_map[(site_id, subscope)] = new_site.id
                 sites_inserted += 1
 
-            # Create site-product records (columns 7 onwards)
+            # Get the site record ID for this site
+            current_site_record_id = site_record_id_map[(site_id, subscope)]
+
+            # Create site-product records (columns 7 to 7+num_product_cols-1)
             for col_idx, product_id in product_id_map.items():
                 qty_value = row.iloc[7 + col_idx]
                 qty = float(qty_value) if not pd.isna(qty_value) and str(qty_value).strip() != '' else None
 
-                # Only create record if qty is not None (store all combinations as requested)
+                # Create or update site-product record
                 existing_sp = db.query(ODBOQSiteProduct).filter(
-                    ODBOQSiteProduct.site_id == site_id,
+                    ODBOQSiteProduct.site_record_id == current_site_record_id,
                     ODBOQSiteProduct.product_id == product_id
                 ).first()
 
@@ -838,12 +940,33 @@ async def upload_csv(
                     existing_sp.qty_per_site = qty
                 else:
                     new_sp = ODBOQSiteProduct(
-                        site_id=site_id,
+                        site_record_id=current_site_record_id,
                         product_id=product_id,
                         qty_per_site=qty
                     )
                     db.add(new_sp)
                     site_products_inserted += 1
+
+        # Flush to ensure all site-products are in the database
+        db.flush()
+
+        # Now calculate consumed_in_year and remaining_in_po for each product
+        for product_id in set(product_id_map.values()):
+            product = db.query(ODBOQProduct).filter(ODBOQProduct.id == product_id).first()
+            if product:
+                # Calculate consumed_in_year as SUM of all site quantities for this product
+                total_consumed = db.query(func.sum(ODBOQSiteProduct.qty_per_site)).filter(
+                    ODBOQSiteProduct.product_id == product_id,
+                    ODBOQSiteProduct.qty_per_site.isnot(None)
+                ).scalar() or 0.0
+
+                product.consumed_in_year = total_consumed
+
+                # Calculate remaining_in_po as total_po_qty - consumed_in_year
+                if product.total_po_qty is not None:
+                    product.remaining_in_po = product.total_po_qty - total_consumed
+                else:
+                    product.remaining_in_po = -total_consumed  # Negative if no total_po_qty
 
         db.commit()
 

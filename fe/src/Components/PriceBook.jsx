@@ -245,7 +245,7 @@ export default function PriceBook() {
   const totalPages = Math.ceil(total / ROWS_PER_PAGE);
 
   const tableColumns = [
-    { key: 'id', label: 'ID' },
+    // { key: 'id', label: 'ID' },
     { key: 'project_name', label: 'Project Name', render: (row) => row.project_name || '-' },
     { key: 'po_number', label: 'PO#', render: (row) => row.po_number || '-' },
     { key: 'merge_poline_uplline', label: 'Merge POLine#UPLLine#', render: (row) => row.merge_poline_uplline || '-' },
@@ -382,10 +382,10 @@ export default function PriceBook() {
 
             <div className="modal-form">
               <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                <div className="info-row">
+                {/* <div className="info-row">
                   <label className="info-label">ID:</label>
                   <span className="info-value">{infoItem.id}</span>
-                </div>
+                </div> */}
                 <div className="info-row">
                   <label className="info-label">Project Name:</label>
                   <span className="info-value">{infoItem.project_name || '-'}</span>

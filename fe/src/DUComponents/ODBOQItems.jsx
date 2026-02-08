@@ -32,7 +32,7 @@ export default function ODBOQItems() {
   const [updating, setUpdating] = useState(false);
 
   // State for products mini-table (View Products)
-  const [expandedSiteId, setExpandedSiteId] = useState(null);
+  const [expandedSiteId, setExpandedSiteId] = useState(null); // Now tracks site.id (not site_id)
   const [currentSiteProducts, setCurrentSiteProducts] = useState(null);
   const [loadingProducts, setLoadingProducts] = useState(false);
 
@@ -256,7 +256,7 @@ export default function ODBOQItems() {
   const handleDeleteSite = async (site) => {
     if (!window.confirm(`Are you sure you want to delete site ${site.site_id}? This will also delete all associated product quantities.`)) return;
     try {
-      await apiCall(`/od-boq/sites/${site.site_id}`, { method: "DELETE" });
+      await apiCall(`/od-boq/sites/${site.id}`, { method: "DELETE" });
       setTransient(setSuccess, "Site deleted successfully");
       fetchSites(currentPage, searchTerm, rowsPerPage, selectedProject, selectedRegion, selectedScope, selectedSubscope);
       fetchStats(selectedProject);
@@ -312,7 +312,7 @@ export default function ODBOQItems() {
   // Handle site edit
   const openEditModal = (site) => {
     setEditingSite(site);
-    const { site_id, ...formFields } = site;
+    const { id, site_id, ...formFields } = site; // Exclude id and site_id from form fields
     setEditForm(formFields);
     setIsEditModalOpen(true);
   };
@@ -335,7 +335,7 @@ export default function ODBOQItems() {
     setError("");
     setSuccess("");
     try {
-      await apiCall(`/od-boq/sites/${editingSite.site_id}`, {
+      await apiCall(`/od-boq/sites/${editingSite.id}`, {
         method: "PUT",
         body: JSON.stringify(editForm),
       });
@@ -353,20 +353,20 @@ export default function ODBOQItems() {
   // Handle View Products (Toggle expand/collapse)
   const toggleExpandSite = async (site) => {
     // If clicking on already expanded site, collapse it
-    if (expandedSiteId === site.site_id) {
+    if (expandedSiteId === site.id) {
       setExpandedSiteId(null);
       setCurrentSiteProducts(null);
       return;
     }
 
     // Expand new site and load products
-    setExpandedSiteId(site.site_id);
+    setExpandedSiteId(site.id);
     setLoadingProducts(true);
     setCurrentSiteProducts(null);
     setError("");
 
     try {
-      const data = await apiCall(`/od-boq/sites/${site.site_id}/with-products`);
+      const data = await apiCall(`/od-boq/sites/${site.id}/with-products`);
       setCurrentSiteProducts(data);
     } catch (err) {
       setTransient(setError, `Failed to load products for site ${site.site_id}: ${err.message}`);
@@ -750,7 +750,7 @@ export default function ODBOQItems() {
               </tr>
             )}
             {!loading && sites.map((site) => (
-              <React.Fragment key={site.site_id}>
+              <React.Fragment key={site.id}>
                 {/* Main Site Row */}
                 <tr className="parent-row">
                   <td>
@@ -759,7 +759,7 @@ export default function ODBOQItems() {
                       className="expand-btn"
                       title="Expand/Collapse products"
                     >
-                      {expandedSiteId === site.site_id ? '▼' : '▶'}
+                      {expandedSiteId === site.id ? '▼' : '▶'}
                     </button>
                   </td>
                   <td>{site.site_id}</td>
@@ -790,7 +790,7 @@ export default function ODBOQItems() {
                 </tr>
 
                 {/* Expandable Products Mini-Table */}
-                {expandedSiteId === site.site_id && (
+                {expandedSiteId === site.id && (
                   <tr className="expanded-row">
                     <td colSpan="9">
                       <div className="nested-items-container">
@@ -814,53 +814,68 @@ export default function ODBOQItems() {
                         {!loadingProducts && currentSiteProducts && (
                           <div className="nested-table-wrapper">
                             {currentSiteProducts.products && currentSiteProducts.products.length > 0 ? (
-                              <table className="nested-table">
-                                <thead>
-                                  <tr>
-                                    <th>Description</th>
-                                    <th>Line #</th>
-                                    <th>Code</th>
-                                    <th>Category</th>
-                                    <th>Total PO QTY</th>
-                                    <th>Consumed</th>
-                                    <th>Remaining</th>
-                                    <th>Qty for Site</th>
-                                    <th>Actions</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {currentSiteProducts.products.map((product, idx) => (
-                                    <tr key={`${site.site_id}-product-${idx}`}>
-                                      <td title={product.description}>{product.description || 'N/A'}</td>
-                                      <td title={product.line_number}>{product.line_number || 'N/A'}</td>
-                                      <td title={product.code}>{product.code || 'N/A'}</td>
-                                      <td title={product.category}>{product.category || 'N/A'}</td>
-                                      <td title={product.total_po_qty}>{product.total_po_qty != null ? product.total_po_qty : 'N/A'}</td>
-                                      <td title={product.consumed_in_year}>{product.consumed_in_year != null ? product.consumed_in_year : 'N/A'}</td>
-                                      <td title={product.remaining_in_po}>{product.remaining_in_po != null ? product.remaining_in_po : 'N/A'}</td>
-                                      <td title={product.qty_per_site}>{product.qty_per_site != null ? product.qty_per_site : 'N/A'}</td>
-                                      <td>
-                                        <div className="action-buttons">
-                                          <button
-                                            className="btn-action btn-edit"
-                                            onClick={() => handleEditProduct(product)}
-                                            title="Edit"
-                                          >
-                                            ✏️
-                                          </button>
-                                          <button
-                                            className="btn-action btn-delete"
-                                            onClick={() => handleDeleteProduct(product)}
-                                            title="Delete"
-                                          >
-                                            🗑️
-                                          </button>
-                                        </div>
-                                      </td>
+                              <>
+                                <table className="nested-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Description</th>
+                                      <th>Line #</th>
+                                      <th>Code</th>
+                                      <th>Category</th>
+                                      <th>Total PO QTY</th>
+                                      <th>Consumed</th>
+                                      <th>Remaining</th>
+                                      <th>Qty for Site</th>
+                                      <th>Actions</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                  </thead>
+                                  <tbody>
+                                    {currentSiteProducts.products.map((product, idx) => (
+                                      <tr key={`${site.id}-product-${idx}`}>
+                                        <td title={product.description}>{product.description || 'N/A'}</td>
+                                        <td title={product.line_number}>{product.line_number || 'N/A'}</td>
+                                        <td title={product.code}>{product.code || 'N/A'}</td>
+                                        <td title={product.category}>{product.category || 'N/A'}</td>
+                                        <td title={product.total_po_qty}>{product.total_po_qty != null ? product.total_po_qty : 'N/A'}</td>
+                                        <td title={product.consumed_in_year}>{product.consumed_in_year != null ? product.consumed_in_year : 'N/A'}</td>
+                                        <td title={product.remaining_in_po}>{product.remaining_in_po != null ? product.remaining_in_po : 'N/A'}</td>
+                                        <td title={product.qty_per_site}>{product.qty_per_site != null ? product.qty_per_site : 'N/A'}</td>
+                                        <td>
+                                          <div className="action-buttons">
+                                            <button
+                                              className="btn-action btn-edit"
+                                              onClick={() => handleEditProduct(product)}
+                                              title="Edit"
+                                            >
+                                              ✏️
+                                            </button>
+                                            <button
+                                              className="btn-action btn-delete"
+                                              onClick={() => handleDeleteProduct(product)}
+                                              title="Delete"
+                                            >
+                                              🗑️
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                                {currentSiteProducts.total_qty_sum != null && (
+                                  <div style={{
+                                    marginTop: '1rem',
+                                    padding: '0.75rem',
+                                    background: '#f0f8ff',
+                                    border: '1px solid #d0e8f2',
+                                    borderRadius: '4px',
+                                    fontWeight: 'bold',
+                                    textAlign: 'right'
+                                  }}>
+                                    Total Quantity Sum for {site.site_id}: {currentSiteProducts.total_qty_sum.toFixed(2)}
+                                  </div>
+                                )}
+                              </>
                             ) : (
                               <div className="no-data" style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>
                                 No products found for this site
@@ -921,6 +936,34 @@ export default function ODBOQItems() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h3 className="section-title">Additional Site Metadata</h3>
+                <div className="form-grid">
+                  {renderFormField('AC ARMOD Cable', 'ac_armod_cable', editForm.ac_armod_cable, (e) => onEditChange('ac_armod_cable', e.target.value))}
+                  {renderFormField('Additional Cost', 'additional_cost', editForm.additional_cost, (e) => onEditChange('additional_cost', e.target.value))}
+                  {renderFormField('Partner', 'partner', editForm.partner, (e) => onEditChange('partner', e.target.value))}
+                  {renderFormField('Request Status', 'request_status', editForm.request_status, (e) => onEditChange('request_status', e.target.value))}
+                  {renderFormField('Requested Date', 'requested_date', editForm.requested_date, (e) => onEditChange('requested_date', e.target.value))}
+                  {renderFormField('DU PO Number', 'du_po_number', editForm.du_po_number, (e) => onEditChange('du_po_number', e.target.value))}
+                  {renderFormField('SMP', 'smp', editForm.smp, (e) => onEditChange('smp', e.target.value))}
+                  {renderFormField('Year Scope', 'year_scope', editForm.year_scope, (e) => onEditChange('year_scope', e.target.value))}
+                  {renderFormField('Integration Status', 'integration_status', editForm.integration_status, (e) => onEditChange('integration_status', e.target.value))}
+                  {renderFormField('Integration Date', 'integration_date', editForm.integration_date, (e) => onEditChange('integration_date', e.target.value))}
+                  {renderFormField('DU PO Convention Name', 'du_po_convention_name', editForm.du_po_convention_name, (e) => onEditChange('du_po_convention_name', e.target.value))}
+                  {renderFormField('PO Year Issuance', 'po_year_issuance', editForm.po_year_issuance, (e) => onEditChange('po_year_issuance', e.target.value))}
+                  <div className="form-field full-width">
+                    <label>Remark</label>
+                    <textarea
+                      name="remark"
+                      value={editForm.remark != null ? editForm.remark : ''}
+                      onChange={(e) => onEditChange('remark', e.target.value)}
+                      rows="3"
+                      style={{ width: '100%', padding: '0.5rem', fontFamily: 'inherit' }}
+                    />
                   </div>
                 </div>
               </div>

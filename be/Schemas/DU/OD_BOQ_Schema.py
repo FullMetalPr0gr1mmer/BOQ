@@ -19,13 +19,27 @@ from typing import List, Optional, Dict, Any
 
 class ODBOQSiteCreate(BaseModel):
     """Schema for creating a new site."""
-    site_id: str = Field(..., description="Unique site identifier")
+    site_id: str = Field(..., description="Site identifier (can be duplicated with different subscopes)")
     region: Optional[str] = None
     distance: Optional[str] = None
     scope: Optional[str] = Field(None, description="5G, SRAN, etc.")
     subscope: Optional[str] = Field(None, description="New 5G-n78, Bandswap, etc.")
     po_model: Optional[str] = Field(None, description="PO model string")
     project_id: Optional[str] = None
+    # Additional metadata
+    ac_armod_cable: Optional[str] = None
+    additional_cost: Optional[str] = None
+    remark: Optional[str] = None
+    partner: Optional[str] = None
+    request_status: Optional[str] = None
+    requested_date: Optional[str] = None
+    du_po_number: Optional[str] = None
+    smp: Optional[str] = None
+    year_scope: Optional[str] = None
+    integration_status: Optional[str] = None
+    integration_date: Optional[str] = None
+    du_po_convention_name: Optional[str] = None
+    po_year_issuance: Optional[str] = None
 
 
 class ODBOQSiteUpdate(BaseModel):
@@ -36,10 +50,25 @@ class ODBOQSiteUpdate(BaseModel):
     subscope: Optional[str] = None
     po_model: Optional[str] = None
     project_id: Optional[str] = None
+    # Additional metadata
+    ac_armod_cable: Optional[str] = None
+    additional_cost: Optional[str] = None
+    remark: Optional[str] = None
+    partner: Optional[str] = None
+    request_status: Optional[str] = None
+    requested_date: Optional[str] = None
+    du_po_number: Optional[str] = None
+    smp: Optional[str] = None
+    year_scope: Optional[str] = None
+    integration_status: Optional[str] = None
+    integration_date: Optional[str] = None
+    du_po_convention_name: Optional[str] = None
+    po_year_issuance: Optional[str] = None
 
 
 class ODBOQSiteOut(BaseModel):
     """Schema for returning a site."""
+    id: int
     site_id: str
     region: Optional[str] = None
     distance: Optional[str] = None
@@ -47,6 +76,20 @@ class ODBOQSiteOut(BaseModel):
     subscope: Optional[str] = None
     po_model: Optional[str] = None
     project_id: Optional[str] = None
+    # Additional metadata
+    ac_armod_cable: Optional[str] = None
+    additional_cost: Optional[str] = None
+    remark: Optional[str] = None
+    partner: Optional[str] = None
+    request_status: Optional[str] = None
+    requested_date: Optional[str] = None
+    du_po_number: Optional[str] = None
+    smp: Optional[str] = None
+    year_scope: Optional[str] = None
+    integration_status: Optional[str] = None
+    integration_date: Optional[str] = None
+    du_po_convention_name: Optional[str] = None
+    po_year_issuance: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -105,7 +148,7 @@ class ODBOQProductOut(BaseModel):
 
 class ODBOQSiteProductCreate(BaseModel):
     """Schema for creating a site-product quantity."""
-    site_id: str
+    site_record_id: int
     product_id: int
     qty_per_site: Optional[float] = Field(None, description="Quantity for this site-product combo")
 
@@ -118,7 +161,7 @@ class ODBOQSiteProductUpdate(BaseModel):
 class ODBOQSiteProductOut(BaseModel):
     """Schema for returning a site-product quantity."""
     id: int
-    site_id: str
+    site_record_id: int
     product_id: int
     qty_per_site: Optional[float] = None
 
@@ -132,6 +175,7 @@ class ODBOQSiteProductOut(BaseModel):
 
 class SiteWithProductsOut(BaseModel):
     """Schema for returning a site with its products."""
+    id: int
     site_id: str
     region: Optional[str] = None
     distance: Optional[str] = None
@@ -139,7 +183,22 @@ class SiteWithProductsOut(BaseModel):
     subscope: Optional[str] = None
     po_model: Optional[str] = None
     project_id: Optional[str] = None
+    # Additional metadata
+    ac_armod_cable: Optional[str] = None
+    additional_cost: Optional[str] = None
+    remark: Optional[str] = None
+    partner: Optional[str] = None
+    request_status: Optional[str] = None
+    requested_date: Optional[str] = None
+    du_po_number: Optional[str] = None
+    smp: Optional[str] = None
+    year_scope: Optional[str] = None
+    integration_status: Optional[str] = None
+    integration_date: Optional[str] = None
+    du_po_convention_name: Optional[str] = None
+    po_year_issuance: Optional[str] = None
     products: List[Dict[str, Any]] = Field(default_factory=list, description="Product details with quantities")
+    total_qty_sum: Optional[float] = Field(None, description="Sum of all product quantities for this site")
 
     class Config:
         from_attributes = True
