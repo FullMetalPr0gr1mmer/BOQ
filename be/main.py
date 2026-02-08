@@ -52,8 +52,25 @@ logging.basicConfig(
 )
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    """Middleware to add Cache-Control headers to API responses.
+
+    This prevents browsers from caching API responses, which can cause
+    stale data issues like API_VALIDATION_ERROR after re-login.
+    """
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        # Add no-cache headers to prevent browser caching of API responses
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
 # Admin API imports
 from APIs.Admin.AdminRoute import adminRoute
@@ -154,6 +171,10 @@ app.add_middleware(
     allow_methods=["*"],             # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
     allow_headers=["*"],             # Allow all headers
 )
+
+# Add no-cache middleware to prevent browser caching of API responses
+# This fixes API_VALIDATION_ERROR issues after re-login
+app.add_middleware(NoCacheMiddleware)
 
 # Register API routers
 # Admin and User Management

@@ -45,13 +45,16 @@ const handleUnauthorized = (message = 'Unauthorized access. Redirecting to login
 
 export const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
+  // Always include cache-control headers to prevent browser caching
+  const headers = {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache'
+  };
   if (token) {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
+    headers['Authorization'] = `Bearer ${token}`;
   }
-  return { 'Content-Type': 'application/json' };
+  return headers;
 };
 
 // Refresh access token using refresh token
