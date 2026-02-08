@@ -106,6 +106,8 @@ export default function RolloutSheet() {
   // Multi-selection State
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [allFilteredCount, setAllFilteredCount] = useState(0); // Total filtered entries with scope
+  const [selectingAllFiltered, setSelectingAllFiltered] = useState(false); // Loading state
 
   // Bulk BOQ Generation State
   const [bulkGenerating, setBulkGenerating] = useState(false);
@@ -179,6 +181,38 @@ export default function RolloutSheet() {
     }
   };
 
+  // Fetch all filtered entry IDs for "Select All Filtered" feature
+  const fetchAllFilteredIds = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedProject) params.append('project_id', selectedProject);
+      if (searchTerm) params.append('search', searchTerm);
+      if (selectedPartner) params.append('partner', selectedPartner);
+      if (selectedStatus) params.append('request_status', selectedStatus);
+
+      const data = await apiCall(`/rollout-sheet/all-ids?${params.toString()}`);
+      setAllFilteredCount(data.total || 0);
+      return data.entry_ids || [];
+    } catch (err) {
+      console.error('Failed to fetch all filtered IDs:', err);
+      return [];
+    }
+  };
+
+  // Handle selecting all filtered entries (not just visible ones)
+  const handleSelectAllFiltered = async () => {
+    setSelectingAllFiltered(true);
+    try {
+      const allIds = await fetchAllFilteredIds();
+      setSelectedRows(new Set(allIds));
+      setSelectAll(true);
+    } catch (err) {
+      setTransient(setError, 'Failed to select all filtered entries');
+    } finally {
+      setSelectingAllFiltered(false);
+    }
+  };
+
   useEffect(() => {
     fetchProjects();
     fetchFilterOptions();
@@ -186,6 +220,15 @@ export default function RolloutSheet() {
     fetchStats('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Update filtered count when filters change
+  useEffect(() => {
+    fetchAllFilteredIds();
+    // Clear selection when filters change
+    setSelectedRows(new Set());
+    setSelectAll(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject, searchTerm, selectedPartner, selectedStatus]);
 
   const handleProjectChange = (e) => {
     const projectId = e.target.value;
@@ -932,17 +975,43 @@ export default function RolloutSheet() {
   const csvHeaders = currentBoq ? currentBoq.csvData[0] : editableCsvData[0] || [];
   const csvBody = currentBoq ? currentBoq.csvData.slice(1) : editableCsvData.slice(1);
 
+  // Calculate selectable rows on current page (rows with scope)
+  const selectableRowsOnPage = rows.filter(row => row.scope).length;
+  const allVisibleSelected = selectAll && selectedRows.size === selectableRowsOnPage && selectableRowsOnPage > 0;
+  const moreFilteredAvailable = allFilteredCount > selectableRowsOnPage;
+
   // Define table columns (all fields)
   const tableColumns = [
     {
       key: 'select',
       label: (
-        <input
-          type="checkbox"
-          checked={selectAll}
-          onChange={handleSelectAll}
-          title="Select all sites with scope"
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+          <input
+            type="checkbox"
+            checked={selectAll}
+            onChange={handleSelectAll}
+            title="Select all sites with scope on this page"
+          />
+          {allVisibleSelected && moreFilteredAvailable && (
+            <button
+              onClick={handleSelectAllFiltered}
+              disabled={selectingAllFiltered}
+              style={{
+                fontSize: '10px',
+                padding: '2px 4px',
+                background: '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '3px',
+                cursor: selectingAllFiltered ? 'wait' : 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+              title={`Select all ${allFilteredCount} filtered entries with scope`}
+            >
+              {selectingAllFiltered ? '...' : `All ${allFilteredCount}`}
+            </button>
+          )}
+        </div>
       ),
       render: (row) => (
         <input
@@ -1252,6 +1321,44 @@ export default function RolloutSheet() {
 
       {/* Stats Bar */}
       <StatsCarousel cards={statCards} visibleCount={4} />
+
+      {/* Selection Banner */}
+      {selectedRows.size > 0 && (
+        <div style={{
+          padding: '8px 16px',
+          margin: '8px 0',
+          background: '#e0f2fe',
+          border: '1px solid #0ea5e9',
+          borderRadius: '6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '14px'
+        }}>
+          <span>
+            <strong>{selectedRows.size}</strong> {selectedRows.size === 1 ? 'site' : 'sites'} selected
+            {selectedRows.size > selectableRowsOnPage && (
+              <span style={{ color: '#0369a1', marginLeft: '8px' }}>
+                (includes entries from other pages)
+              </span>
+            )}
+          </span>
+          <button
+            onClick={() => { setSelectedRows(new Set()); setSelectAll(false); }}
+            style={{
+              background: 'transparent',
+              border: '1px solid #0ea5e9',
+              borderRadius: '4px',
+              padding: '4px 12px',
+              cursor: 'pointer',
+              color: '#0369a1',
+              fontSize: '13px'
+            }}
+          >
+            Clear Selection
+          </button>
+        </div>
+      )}
 
       {/* Table Section */}
       <DataTable

@@ -403,6 +403,73 @@ def get_filter_options(
         )
 
 
+@rolloutSheetRoute.get("/rollout-sheet/all-ids")
+def get_all_filtered_entry_ids(
+        search: Optional[str] = Query(None),
+        project_id: Optional[str] = Query(None),
+        partner: Optional[str] = Query(None),
+        request_status: Optional[str] = Query(None),
+        integration_status: Optional[str] = Query(None),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Get all entry IDs matching the current filters (for bulk selection).
+    Only returns IDs of entries that have a scope (required for BOQ generation).
+    """
+    try:
+        query = db.query(_5G_Rollout_Sheet.id)
+
+        # Filter by user access
+        query = filter_rollout_by_user_access(current_user, query, db)
+
+        # Apply filters (same as main listing endpoint)
+        if project_id:
+            query = query.filter(_5G_Rollout_Sheet.project_id == project_id)
+
+        if partner:
+            query = query.filter(_5G_Rollout_Sheet.partner == partner)
+
+        if request_status:
+            query = query.filter(_5G_Rollout_Sheet.request_status == request_status)
+
+        if integration_status:
+            query = query.filter(_5G_Rollout_Sheet.integration_status == integration_status)
+
+        # Apply search across multiple fields
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(
+                or_(
+                    _5G_Rollout_Sheet.site_id.ilike(search_pattern),
+                    _5G_Rollout_Sheet.partner.ilike(search_pattern),
+                    _5G_Rollout_Sheet.partner_requester_name.ilike(search_pattern),
+                    _5G_Rollout_Sheet.du_po_number.ilike(search_pattern),
+                    _5G_Rollout_Sheet.smp_number.ilike(search_pattern),
+                    _5G_Rollout_Sheet.wo_number.ilike(search_pattern),
+                    _5G_Rollout_Sheet.nokia_rollout_requester.ilike(search_pattern)
+                )
+            )
+
+        # Only include entries with scope (required for BOQ generation)
+        query = query.filter(_5G_Rollout_Sheet.scope.isnot(None))
+        query = query.filter(_5G_Rollout_Sheet.scope != '')
+
+        # Get all matching IDs
+        results = query.all()
+        entry_ids = [r[0] for r in results]
+
+        return {
+            "entry_ids": entry_ids,
+            "total": len(entry_ids)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving entry IDs: {str(e)}"
+        )
+
+
 @rolloutSheetRoute.get("/rollout-sheet/{entry_id}", response_model=RolloutSheetOut)
 def get_rollout_sheet_by_id(
         entry_id: int,
@@ -867,15 +934,18 @@ def generate_boq_for_rollout_entry(
     from Models.DU.OD_BOQ_Product import ODBOQProduct
     from Models.DU.OD_BOQ_Site_Product import ODBOQSiteProduct
 
-    # Query OD_BOQ_Site_Product joined with OD_BOQ_Product for this site
+    # Query OD_BOQ_Site_Product joined with OD_BOQ_Site and OD_BOQ_Product for this site
     # Filter where qty_per_site > 0
+    # Note: site_record_id now references ODBOQSite.id (not site_id string)
     site_products = db.query(
         ODBOQSiteProduct,
         ODBOQProduct
     ).join(
+        ODBOQSite, ODBOQSiteProduct.site_record_id == ODBOQSite.id
+    ).join(
         ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
     ).filter(
-        ODBOQSiteProduct.site_id == site_id,
+        ODBOQSite.site_id == site_id,
         ODBOQSiteProduct.qty_per_site > 0
     ).all()
 
@@ -1110,15 +1180,18 @@ def bulk_generate_boq(
             from Models.DU.OD_BOQ_Product import ODBOQProduct
             from Models.DU.OD_BOQ_Site_Product import ODBOQSiteProduct
 
-            # Query OD_BOQ_Site_Product joined with OD_BOQ_Product for this site
+            # Query OD_BOQ_Site_Product joined with OD_BOQ_Site and OD_BOQ_Product for this site
             # Filter where qty_per_site > 0
+            # Note: site_record_id now references ODBOQSite.id (not site_id string)
             site_products = db.query(
                 ODBOQSiteProduct,
                 ODBOQProduct
             ).join(
+                ODBOQSite, ODBOQSiteProduct.site_record_id == ODBOQSite.id
+            ).join(
                 ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
             ).filter(
-                ODBOQSiteProduct.site_id == site_id,
+                ODBOQSite.site_id == site_id,
                 ODBOQSiteProduct.qty_per_site > 0
             ).all()
 
@@ -1304,19 +1377,18 @@ def generate_boq_data_for_entry(entry_id: int, db: Session):
     from Models.DU.OD_BOQ_Product import ODBOQProduct
     from Models.DU.OD_BOQ_Site_Product import ODBOQSiteProduct
 
-    # Note: We don't require the site to exist in OD_BOQ_Sites table
-    # as long as it has products in the site_product table.
-    # The OD_BOQ_Sites table is optional metadata.
-
-    # Query OD_BOQ_Site_Product joined with OD_BOQ_Product for this site
+    # Query OD_BOQ_Site_Product joined with OD_BOQ_Site and OD_BOQ_Product for this site
     # Filter where qty_per_site > 0
+    # Note: site_record_id now references ODBOQSite.id (not site_id string)
     site_products = db.query(
         ODBOQSiteProduct,
         ODBOQProduct
     ).join(
+        ODBOQSite, ODBOQSiteProduct.site_record_id == ODBOQSite.id
+    ).join(
         ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
     ).filter(
-        ODBOQSiteProduct.site_id == site_id,
+        ODBOQSite.site_id == site_id,
         ODBOQSiteProduct.qty_per_site > 0
     ).all()
 
@@ -1351,8 +1423,10 @@ def generate_boq_data_for_entry(entry_id: int, db: Session):
 
     if not filtered_items:
         # Check if site has ANY products (even with qty = 0)
-        total_products = db.query(ODBOQSiteProduct).filter(
-            ODBOQSiteProduct.site_id == site_id
+        total_products = db.query(ODBOQSiteProduct).join(
+            ODBOQSite, ODBOQSiteProduct.site_record_id == ODBOQSite.id
+        ).filter(
+            ODBOQSite.site_id == site_id
         ).count()
         error_msg = f"Site {site_id} (entry {entry_id}) has {total_products} total products, but none with qty_per_site > 0"
         logger.warning(error_msg)
@@ -1404,6 +1478,7 @@ def generate_boq_data_for_entry(entry_id: int, db: Session):
         'scope': entry.scope,  # Keep scope from entry for reference
         'project_po': project_po,
         'sps_category': entry.sps_category or 'N/A',
+        'smp': entry.smp_number,  # Add smp at top level for bulk mode
         'data': result_data
     }
 
@@ -1863,6 +1938,8 @@ async def bulk_download_boq_excel(
     boq_entries = []
     failed_entries = []
 
+    logger.info(f"Bulk BOQ download requested for {len(entry_ids)} entries: {entry_ids}")
+
     for entry_id in entry_ids:
         try:
             # Check access for each entry
@@ -1870,24 +1947,33 @@ async def bulk_download_boq_excel(
 
             if not entry:
                 failed_entries.append({"entry_id": entry_id, "reason": "Entry not found"})
+                logger.warning(f"Bulk BOQ: Entry {entry_id} not found")
                 continue
 
             # Check if user has access to this entry's project
             if entry.project_id and not check_rollout_project_access(current_user, entry.project_id, db, "view"):
                 failed_entries.append({"entry_id": entry_id, "reason": "Access denied"})
+                logger.warning(f"Bulk BOQ: Access denied for entry {entry_id} (site: {entry.site_id})")
                 continue
 
             # Generate BOQ data
+            logger.info(f"Bulk BOQ: Generating data for entry {entry_id} (site: {entry.site_id})")
             boq_data = generate_boq_data_for_entry(entry_id, db)
 
             if boq_data and 'error' not in boq_data:
+                data_count = len(boq_data.get('data', []))
+                logger.info(f"Bulk BOQ: Entry {entry_id} (site: {entry.site_id}) generated {data_count} items")
                 boq_entries.append(boq_data)
             else:
                 error_reason = boq_data.get('error', 'No BOQ data available') if boq_data else 'No BOQ data available'
                 failed_entries.append({"entry_id": entry_id, "reason": error_reason})
+                logger.warning(f"Bulk BOQ: Entry {entry_id} (site: {entry.site_id}) failed: {error_reason}")
 
         except Exception as e:
             failed_entries.append({"entry_id": entry_id, "reason": str(e)})
+            logger.error(f"Bulk BOQ: Exception for entry {entry_id}: {str(e)}")
+
+    logger.info(f"Bulk BOQ: Successfully generated {len(boq_entries)} entries, {len(failed_entries)} failed")
 
     # If no BOQs could be generated at all, raise an error
     if not boq_entries:
