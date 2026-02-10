@@ -1,10 +1,13 @@
 # routes/projectRoute.py
-from fastapi import status
+from fastapi import status, Request
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import json
+import logging
 from APIs.Core import get_current_user, get_db
 from Models.BOQ.Project import Project
 from Models.Admin.User import User, UserProjectAccess
+from Models.Admin.AuditLog import AuditLog
 from Schemas.BOQ.ProjectSchema import CreateProject, UpdateProject, UpdatePOSchema, UpdatePOResponse
 from Models.BOQ.Levels import Lvl3
 from Models.BOQ.LLD import LLD
@@ -14,7 +17,45 @@ from Models.BOQ.Site import Site
 from Models.BOQ.Dismantling import Dismantling
 from typing import List
 
+logger = logging.getLogger(__name__)
 projectRoute = APIRouter(tags=["Projects"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 def check_project_access(current_user: User, project: Project, db: Session, required_permission: str = "view"):
@@ -91,6 +132,7 @@ def get_user_accessible_projects(current_user: User, db: Session) -> List[Projec
 @projectRoute.post("/create_project", response_model=CreateProject)
 def add_project(
         project_data: CreateProject,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -118,6 +160,20 @@ def add_project(
     db.add(new_project_db)
     db.commit()
     db.refresh(new_project_db)
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="create",
+        resource_type="Project",
+        resource_id=pid_po,
+        resource_name=project_data.project_name,
+        details=json.dumps({"pid": project_data.pid, "po": project_data.po}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
     return new_project_db
 
 
@@ -170,6 +226,7 @@ def get_project(
 def update_project(
         pid_po: str,
         update_data: UpdateProject,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -189,6 +246,9 @@ def update_project(
             detail="You are not authorized to update this project. Contact the Senior Admin."
         )
 
+    # Store old values for audit
+    old_name = project.project_name
+
     # Update the project
     try:
         if update_data.project_name:
@@ -200,6 +260,20 @@ def update_project(
 
         db.commit()
         db.refresh(project)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="Project",
+            resource_id=pid_po,
+            resource_name=project.project_name,
+            details=json.dumps({"old_name": old_name, "new_name": project.project_name}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return project
     except Exception as e:
         db.rollback()
@@ -212,6 +286,7 @@ def update_project(
 @projectRoute.delete("/delete_project/{pid_po}")
 def delete_project(
         pid_po: str,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -231,10 +306,27 @@ def delete_project(
             detail="You are not authorized to delete this project. Contact the Senior Admin."
         )
 
+    # Store project name for audit
+    project_name = project.project_name
+
     # Delete the project
     try:
         db.delete(project)
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="Project",
+            resource_id=pid_po,
+            resource_name=project_name,
+            details=None,
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": f"Project '{pid_po}' deleted successfully"}
     except Exception as e:
         db.rollback()
@@ -318,6 +410,7 @@ def get_project_for_boq(
 def update_project_purchase_order(
         old_pid_po: str,
         update_data: UpdatePOSchema,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -443,6 +536,24 @@ def update_project_purchase_order(
 
         # Calculate total records updated
         total_records_updated = sum(affected_tables.values())
+
+        # Create audit log for PO update
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update_purchase_order",
+            resource_type="Project",
+            resource_id=new_pid_po,
+            resource_name=new_project.project_name,
+            details=json.dumps({
+                "old_pid_po": old_pid_po,
+                "new_pid_po": new_pid_po,
+                "affected_tables": affected_tables,
+                "total_records_updated": total_records_updated
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return UpdatePOResponse(
             old_pid_po=old_pid_po,

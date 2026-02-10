@@ -209,81 +209,6 @@ export function downloadRANAntennaSerialsUploadTemplate() {
 }
 
 /**
- * DU 5G Rollout Sheet Upload CSV Template
- * Headers: All 5G rollout sheet fields
- */
-export function downloadDURolloutSheetUploadTemplate() {
-  const headers = [
-    'Site ID',
-    'Scope',
-    'Year Target Scope',
-    'Partner',
-    'Partner Requester Name',
-    'Date of Partner Request',
-    'Survey Partner',
-    'Implementation Partner',
-    'Ant Swap',
-    'Additional Cost',
-    'WR Transportation',
-    'Crane',
-    'AC Armod Cable New SRAN',
-    'Military Factor',
-    'CICPA Factor',
-    'Nokia Rollout Requester',
-    'Services Validation by Rollout',
-    'Date of Validation by Rollout',
-    'Request Status',
-    'DU PO Number',
-    'Integration Status',
-    'Integration Date',
-    'DU PO Convention Name',
-    'PO Year Issuance',
-    'SMP Number',
-    'WO Number',
-    'SPS Category',
-    'Submission Date',
-    'PO Status',
-    'PAC Received',
-    'Date of PAC',
-    'Hardware Remark'
-  ];
-
-  const sampleRows = [
-    ['SITE001', 'New 5G', '2024', 'Partner A', 'John Doe', '2024-01-15', 'Survey Co', 'Impl Co', 'Yes', '1000', 'Yes', 'No', 'Yes', 'No', 'No', 'Jane Smith', 'Approved', '2024-02-01', 'In Progress', 'PO-001', 'Integrated', '2024-03-01', 'Conv-001', '2024', 'SMP-001', 'WO-001', 'Cat A', '2024-01-20', 'Active', 'Yes', '2024-04-01', 'No remarks']
-  ];
-
-  downloadCSVTemplate(headers, 'du_rollout_sheet_upload_template', sampleRows);
-}
-
-/**
- * DU Customer PO Upload CSV Template
- * Headers: All Customer PO fields
- */
-export function downloadDUCustomerPOUploadTemplate() {
-  const headers = [
-    'Line',
-    'CAT',
-    'Item/Job',
-    'PCI',
-    'SI',
-    'Supplier Item',
-    'Description',
-    'Quantity',
-    'UOM',
-    'Price',
-    'Amount',
-    'Status'
-  ];
-
-  const sampleRows = [
-    ['1', 'OD', 'ITEM-001', 'PCI001', 'SI001', 'SUP-001', 'Sample item description', '10', 'EA', '100.00', '1000.00', 'Active'],
-    ['2', 'IBS', 'ITEM-002', 'PCI002', 'SI002', 'SUP-002', 'Another item description', '5', 'SET', '250.00', '1250.00', 'Pending']
-  ];
-
-  downloadCSVTemplate(headers, 'du_customer_po_upload_template', sampleRows);
-}
-
-/**
  * Generic CSV template downloader
  * Use this for custom templates with specific headers
  *
@@ -307,7 +232,5 @@ export const CSV_TEMPLATES = {
   LLD_UPLOAD: downloadLLDUploadTemplate,
   RAN_LLD_UPLOAD: downloadRANLLDUploadTemplate,
   RAN_INVENTORY_UPLOAD: downloadRANInventoryUploadTemplate,
-  RAN_ANTENNA_SERIALS_UPLOAD: downloadRANAntennaSerialsUploadTemplate,
-  DU_ROLLOUT_SHEET_UPLOAD: downloadDURolloutSheetUploadTemplate,
-  DU_CUSTOMER_PO_UPLOAD: downloadDUCustomerPOUploadTemplate
+  RAN_ANTENNA_SERIALS_UPLOAD: downloadRANAntennaSerialsUploadTemplate
 };

@@ -1,11 +1,12 @@
 """
 Approval Workflow API Routes
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 import os
 import shutil
+import json
 from pathlib import Path
 from datetime import datetime
 import logging
@@ -15,14 +16,53 @@ from Schemas.BOQ.ApprovalSchema import (
     ApprovalListResponse,
     ApprovalReject,
     ApprovalApprove,
-    BulkLogisticsDownload
+    BulkLogisticsDownload,
+    BulkApprove
 )
 from APIs.Core import get_current_user, get_db
 from Models.Admin.User import User
+from Models.Admin.AuditLog import AuditLog
 from utils.file_validation import validate_csv_file, validate_document_file
 from Models.BOQ.Approval import Approval
 
 logger = logging.getLogger(__name__)
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+async def create_audit_log(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 router = APIRouter(prefix="/approvals", tags=["Approvals"])
 
@@ -49,6 +89,7 @@ def resolve_file_path(file_path_str: str) -> Path:
 
 @router.post("/upload", response_model=ApprovalResponse)
 async def upload_approval(
+    request: Request,
     csv_file: UploadFile = File(..., description="PAC CSV data file"),
     template_file: UploadFile = File(..., description="PAC Word template file"),
     project_id: str = Form(...),
@@ -105,6 +146,24 @@ async def upload_approval(
         db.refresh(approval)
 
         logger.info(f"Approval {approval.id} uploaded by user {current_user.id}: CSV={csv_file.filename}, Template={template_file.filename}")
+
+        # Create audit log for upload
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="upload",
+            resource_type="Approval",
+            resource_id=str(approval.id),
+            resource_name=approval.filename,
+            details=json.dumps({
+                "project_id": project_id,
+                "project_type": project_type,
+                "csv_file": csv_file.filename,
+                "template_file": template_file.filename
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return ApprovalResponse(
             id=approval.id,
@@ -283,6 +342,7 @@ async def get_approval(
 async def approve_item(
     approval_id: int,
     approval_data: ApprovalApprove,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -691,6 +751,25 @@ async def approve_item(
         approval.notes = None  # Clear any previous rejection notes
         db.commit()
         logger.info(f"Approval {approval_id} moved to triggering stage by user {current_user.id}")
+
+        # Create audit log for approval stage advancement
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="approve_to_triggering",
+            resource_type="Approval",
+            resource_id=str(approval_id),
+            resource_name=approval.filename,
+            details=json.dumps({
+                "previous_stage": "approval",
+                "new_stage": "triggering",
+                "planning_smp_id": approval.planning_smp_id,
+                "implementation_smp_id": approval.implementation_smp_id
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {
             "message": "Moved to triggering stage with multi-SMP mapping",
             "stage": "triggering",
@@ -812,6 +891,23 @@ async def approve_item(
         approval.notes = None  # Clear any previous rejection notes
         db.commit()
         logger.info(f"Approval {approval_id} moved to logistics stage by user {current_user.id}")
+
+        # Create audit log for triggering stage advancement
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="approve_to_logistics",
+            resource_type="Approval",
+            resource_id=str(approval_id),
+            resource_name=approval.filename,
+            details=json.dumps({
+                "previous_stage": "triggering",
+                "new_stage": "logistics"
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {
             "message": "Moved to logistics stage",
             "stage": "logistics"
@@ -822,6 +918,23 @@ async def approve_item(
         approval.status = 'approved'
         db.commit()
         logger.info(f"Approval {approval_id} fully approved by user {current_user.id}")
+
+        # Create audit log for final approval
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="approve_complete",
+            resource_type="Approval",
+            resource_id=str(approval_id),
+            resource_name=approval.filename,
+            details=json.dumps({
+                "previous_stage": "logistics",
+                "final_status": "approved"
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": "Workflow completed - fully approved", "stage": "completed"}
 
     return {"message": "No action taken"}
@@ -831,6 +944,7 @@ async def approve_item(
 async def reject_item(
     approval_id: int,
     rejection: ApprovalReject,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -841,20 +955,58 @@ async def reject_item(
 
     if approval.stage == 'logistics':
         # Send back to triggering stage with notes
+        previous_stage = approval.stage
         approval.stage = 'triggering'
         approval.status = 'rejected'
         approval.notes = rejection.notes
         db.commit()
         logger.info(f"Approval {approval_id} rejected by logistics team, sent back to triggering by user {current_user.id}")
+
+        # Create audit log for rejection
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="reject",
+            resource_type="Approval",
+            resource_id=str(approval_id),
+            resource_name=approval.filename,
+            details=json.dumps({
+                "previous_stage": previous_stage,
+                "new_stage": "triggering",
+                "rejection_notes": rejection.notes
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": "Sent back to triggering stage", "stage": "triggering"}
 
     elif approval.stage == 'triggering':
         # Send back to approval stage with notes
+        previous_stage = approval.stage
         approval.stage = 'approval'
         approval.status = 'rejected'
         approval.notes = rejection.notes
         db.commit()
         logger.info(f"Approval {approval_id} rejected by triggering team, sent back to approval by user {current_user.id}")
+
+        # Create audit log for rejection
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="reject",
+            resource_type="Approval",
+            resource_id=str(approval_id),
+            resource_name=approval.filename,
+            details=json.dumps({
+                "previous_stage": previous_stage,
+                "new_stage": "approval",
+                "rejection_notes": rejection.notes
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": "Sent back to approval stage", "stage": "approval"}
 
     elif approval.stage == 'approval':
@@ -863,6 +1015,23 @@ async def reject_item(
         approval.notes = rejection.notes
         db.commit()
         logger.info(f"Approval {approval_id} rejected at approval stage by user {current_user.id}")
+
+        # Create audit log for rejection
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="reject",
+            resource_type="Approval",
+            resource_id=str(approval_id),
+            resource_name=approval.filename,
+            details=json.dumps({
+                "stage": "approval",
+                "rejection_notes": rejection.notes
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": "Rejected at approval stage", "stage": "approval"}
 
     return {"message": "No action taken"}
@@ -871,6 +1040,7 @@ async def reject_item(
 @router.delete("/{approval_id}")
 async def delete_approval(
     approval_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -878,6 +1048,10 @@ async def delete_approval(
     approval = db.query(Approval).filter(Approval.id == approval_id).first()
     if not approval:
         raise HTTPException(status_code=404, detail="Approval not found")
+
+    # Store data for audit log before deletion
+    approval_filename = approval.filename
+    approval_project_id = approval.project_id
 
     try:
         # Delete CSV file
@@ -907,7 +1081,22 @@ async def delete_approval(
 
         logger.info(f"Approval {approval_id} deleted by user {current_user.id}")
 
-        return {"success": True, "message": f"Approval '{approval.filename}' deleted"}
+        # Create audit log for deletion
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="Approval",
+            resource_id=str(approval_id),
+            resource_name=approval_filename,
+            details=json.dumps({
+                "project_id": approval_project_id
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
+        return {"success": True, "message": f"Approval '{approval_filename}' deleted"}
 
     except Exception as e:
         db.rollback()
@@ -1092,6 +1281,171 @@ async def bulk_download_logistics(
         media_type='text/csv',
         headers={"Content-Disposition": f"attachment; filename={timestamp}_bulk_logistics.csv"}
     )
+
+
+@router.post("/bulk-approve")
+async def bulk_approve(
+    body: BulkApprove,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Bulk approve multiple items - moves them to next stage"""
+    import csv as csv_mod
+    from Models.BOQ.PriceBook import PriceBook
+
+    if not body.approval_ids:
+        raise HTTPException(status_code=400, detail="No approval IDs provided")
+
+    approvals = db.query(Approval).filter(Approval.id.in_(body.approval_ids)).all()
+    if not approvals:
+        raise HTTPException(status_code=404, detail="No matching approvals found")
+
+    success_count = 0
+    failed_count = 0
+    errors = []
+
+    for approval in approvals:
+        try:
+            if approval.stage == 'triggering':
+                # Generate logistics CSV from triggering CSV + PriceBook lookups
+                if not approval.triggering_file_path:
+                    errors.append(f"{approval.filename}: Triggering file path not set")
+                    failed_count += 1
+                    continue
+
+                triggering_path = resolve_file_path(approval.triggering_file_path)
+                if not triggering_path.exists():
+                    errors.append(f"{approval.filename}: Triggering file not found")
+                    failed_count += 1
+                    continue
+
+                with open(triggering_path, 'r', encoding='utf-8', newline='') as f:
+                    reader = csv_mod.reader(f)
+                    triggering_rows = list(reader)
+
+                if len(triggering_rows) < 2:
+                    errors.append(f"{approval.filename}: Triggering CSV has no data rows")
+                    failed_count += 1
+                    continue
+
+                headers = triggering_rows[0]
+                data_rows = triggering_rows[1:]
+
+                # Get actual PO number from the Project/RanProject model
+                po_number = None
+                is_ran = 'Ran' in approval.project_type or 'RAN' in approval.project_type
+                if is_ran:
+                    from Models.RAN.RANProject import RanProject
+                    project = db.query(RanProject).filter(RanProject.pid_po == approval.project_id).first()
+                    if project:
+                        po_number = project.po
+                else:
+                    from Models.BOQ.Project import Project
+                    project = db.query(Project).filter(Project.pid_po == approval.project_id).first()
+                    if project:
+                        po_number = project.po
+
+                # Fallback: extract from triggering CSV "Project Name" column
+                if not po_number:
+                    first_project_name = data_rows[0][0].strip() if data_rows[0] else ''
+                    if ' PO:' in first_project_name:
+                        po_number = first_project_name.split(' PO:', 1)[1].strip()
+
+                # Query PriceBook by PO, build lookup
+                price_lookup = {}
+                if po_number:
+                    pb_records = db.query(
+                        PriceBook.merge_poline_uplline,
+                        PriceBook.unit_price_sar_after_special_discount,
+                        PriceBook.fv_unit_price_after_descope
+                    ).filter(PriceBook.po_number == po_number).all()
+
+                    for rec in pb_records:
+                        if rec.merge_poline_uplline:
+                            price_lookup[rec.merge_poline_uplline.strip()] = (
+                                rec.unit_price_sar_after_special_discount or '',
+                                rec.fv_unit_price_after_descope or ''
+                            )
+
+                # Find "Merge POLine#UPLLine#" column index
+                merge_col_idx = None
+                for i, h in enumerate(headers):
+                    if 'Merge POLine#UPLLine#' in h:
+                        merge_col_idx = i
+                        break
+
+                # Write logistics CSV
+                timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+                logistics_filename = f"{timestamp}_logistics_{approval.filename}"
+                logistics_file_path = UPLOAD_DIR / logistics_filename
+
+                logistics_headers = headers + [
+                    'Unit Price(SAR) after Special Discount for this project only (% on), not applicable for future reference',
+                    'FV Unit Price after Descope'
+                ]
+
+                with open(logistics_file_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv_mod.writer(f)
+                    writer.writerow(logistics_headers)
+
+                    for row in data_rows:
+                        unit_price_val = ''
+                        fv_price_val = ''
+                        if merge_col_idx is not None and merge_col_idx < len(row):
+                            normalized_key = row[merge_col_idx].strip().replace('\\', '_')
+                            if normalized_key in price_lookup:
+                                unit_price_val, fv_price_val = price_lookup[normalized_key]
+                        writer.writerow(row + [unit_price_val, fv_price_val])
+
+                approval.logistics_file_path = str(logistics_file_path)
+                approval.stage = 'logistics'
+                approval.status = 'pending_logistics'
+                approval.notes = None
+                success_count += 1
+                logger.info(f"Bulk approve: Approval {approval.id} moved to logistics by user {current_user.id}")
+
+            elif approval.stage == 'logistics':
+                # Final approval - workflow complete
+                approval.status = 'approved'
+                success_count += 1
+                logger.info(f"Bulk approve: Approval {approval.id} fully approved by user {current_user.id}")
+
+            else:
+                # Approval stage requires SMP input, cannot bulk approve
+                errors.append(f"{approval.filename}: Cannot bulk approve from approval stage (requires SMP input)")
+                failed_count += 1
+
+        except Exception as e:
+            logger.error(f"Bulk approve error for approval {approval.id}: {e}")
+            errors.append(f"{approval.filename}: {str(e)}")
+            failed_count += 1
+
+    db.commit()
+
+    # Create audit log for bulk approval
+    await create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="bulk_approve",
+        resource_type="Approval",
+        resource_id=",".join([str(id) for id in body.approval_ids]),
+        resource_name=f"Bulk approval of {len(body.approval_ids)} items",
+        details=json.dumps({
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "approval_ids": body.approval_ids
+        }),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
+    return {
+        "message": f"Bulk approval completed: {success_count} succeeded, {failed_count} failed",
+        "success_count": success_count,
+        "failed_count": failed_count,
+        "errors": errors if errors else None
+    }
 
 
 @router.get("/projects/{project_type}")

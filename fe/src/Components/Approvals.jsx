@@ -577,6 +577,39 @@ export default function Approvals() {
     }
   };
 
+  const handleBulkApprove = async () => {
+    if (selectedRows.size === 0) return;
+
+    const count = selectedRows.size;
+    if (!window.confirm(`Are you sure you want to approve ${count} item(s) and move them to ${activeTab === 'triggering' ? 'logistics' : 'completed'}?`)) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await apiCall('/approvals/bulk-approve', {
+        method: 'POST',
+        body: JSON.stringify({ approval_ids: Array.from(selectedRows) }),
+      });
+
+      const successCount = response.success_count || 0;
+      const failedCount = response.failed_count || 0;
+
+      if (failedCount > 0) {
+        setTransient(setSuccess, `Bulk approval completed: ${successCount} succeeded, ${failedCount} failed`);
+      } else {
+        setTransient(setSuccess, `Successfully approved ${successCount} item(s)`);
+      }
+
+      setSelectedRows(new Set());
+      fetchApprovals(currentPage, activeTab, searchTerm, filterProjectType, selectedProject);
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to bulk approve items');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
@@ -630,8 +663,8 @@ export default function Approvals() {
     { key: 'uploader_name', label: 'Uploaded By' }
   ];
 
-  // Prepend checkbox column in logistics tab for bulk selection
-  const tableColumns = activeTab === 'logistics'
+  // Prepend checkbox column in triggering and logistics tabs for bulk selection
+  const tableColumns = (activeTab === 'logistics' || activeTab === 'triggering')
     ? [
         {
           key: '__select',
@@ -761,6 +794,17 @@ export default function Approvals() {
           infoTooltip="Learn about the workflow"
         />
         <div className="header-actions">
+          {activeTab === 'triggering' && (
+            <button
+              className={`btn-primary ${selectedRows.size === 0 || submitting ? 'disabled' : ''}`}
+              onClick={handleBulkApprove}
+              disabled={selectedRows.size === 0 || submitting}
+              title={selectedRows.size === 0 ? 'Select items first' : `Approve ${selectedRows.size} item(s) to logistics`}
+            >
+              <span className="btn-icon">✅</span>
+              {submitting ? 'Approving...' : `Bulk Approve (${selectedRows.size})`}
+            </button>
+          )}
           {activeTab === 'logistics' && (
             <button
               className={`btn-primary ${selectedRows.size === 0 ? 'disabled' : ''}`}

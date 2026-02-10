@@ -1,12 +1,15 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Query, Request
 from sqlalchemy.orm import Session
 from typing import List
 import csv
+import json
+import logging
 from io import StringIO
 
 # Core and Schema Imports
 from APIs.Core import get_db, get_current_user
 from Models.BOQ.LLD import LLD
+from Models.Admin.AuditLog import AuditLog
 from Schemas.BOQ.LLDSchema import LLDCreate, LLDOut, LLDListOut
 
 # Model Imports for Authentication & Authorization
@@ -16,8 +19,45 @@ from Models.BOQ.Project import Project
 # File validation utility
 from utils.file_validation import validate_csv_file
 
-
+logger = logging.getLogger(__name__)
 lld_router = APIRouter(prefix="/lld", tags=["LLD"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 # --- ADMINISTRATION & ACCESS CONTROL HELPERS ---
 # NOTE: For better code organization, these helpers could be moved to a shared 'auth_utils.py' file.
@@ -99,6 +139,7 @@ def get_lld(
 @lld_router.post("", response_model=LLDOut)
 def create_lld(
     data: LLDCreate, # Assumes LLDCreate schema now includes 'pid_po'
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -119,6 +160,20 @@ def create_lld(
     try:
         db.commit()
         db.refresh(db_obj)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="LLD",
+            resource_id=str(db_obj.id),
+            resource_name=db_obj.link_id,
+            details=json.dumps({"project_id": data.pid_po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Database error: {e}")
@@ -129,6 +184,7 @@ def create_lld(
 def update_lld(
     link_id: str,
     data: LLDCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -154,12 +210,27 @@ def update_lld(
 
     db.commit()
     db.refresh(db_obj)
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="update",
+        resource_type="LLD",
+        resource_id=str(db_obj.id),
+        resource_name=link_id,
+        details=json.dumps({"project_id": db_obj.pid_po}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
     return db_obj
 
 # ---------------- DELETE ----------------
 @lld_router.delete("/{link_id}")
 def delete_lld(
     link_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -175,14 +246,32 @@ def delete_lld(
             detail="You are not authorized to delete LLD records for this project."
         )
 
+    # Store for audit
+    project_id = db_obj.pid_po
+
     # 2. Delete Object
     db.delete(db_obj)
     db.commit()
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="delete",
+        resource_type="LLD",
+        resource_id=link_id,
+        resource_name=link_id,
+        details=json.dumps({"project_id": project_id}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
     return {"detail": f"LLD record for {link_id} deleted successfully"}
 
 # ---------------- CSV Upload ----------------
 @lld_router.post("/upload-csv")
 async def upload_csv(
+    request: Request,
     project_id: str = Query(..., description="The Project ID (pid_po) to associate the LLD records with."),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -256,6 +345,19 @@ async def upload_csv(
         db.commit()
         inserted = len(to_insert)
 
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="upload_csv",
+            resource_type="LLD",
+            resource_id=project_id,
+            resource_name=file.filename,
+            details=json.dumps({"project_id": project_id, "rows_inserted": inserted}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"rows_inserted": inserted}
     except Exception as e:
         db.rollback()
@@ -266,6 +368,7 @@ async def upload_csv(
 @lld_router.delete("/delete-all-lld/{project_id}")
 async def delete_all_lld_for_project(
         project_id: str,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -300,6 +403,19 @@ async def delete_all_lld_for_project(
         lld_deleted = db.query(LLD).filter(LLD.pid_po == project_id).delete(synchronize_session=False)
 
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete_all",
+            resource_type="LLD",
+            resource_id=project_id,
+            resource_name=f"All LLD for project {project_id}",
+            details=json.dumps({"project_id": project_id, "deleted_count": lld_deleted}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return {
             "message": "All LLD records deleted successfully",

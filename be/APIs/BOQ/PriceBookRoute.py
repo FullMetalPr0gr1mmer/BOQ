@@ -1,7 +1,7 @@
 """
 Price Book API Routes
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
@@ -9,6 +9,7 @@ from typing import Optional
 import os
 import csv
 import io
+import json
 from pathlib import Path
 from datetime import datetime
 import logging
@@ -22,11 +23,75 @@ from Schemas.BOQ.PriceBookSchema import (
 from APIs.Core import get_current_user, get_db
 from Models.Admin.User import User
 from Models.BOQ.PriceBook import PriceBook
+from Models.Admin.AuditLog import AuditLog
 from utils.file_validation import validate_csv_file
 
 logger = logging.getLogger(__name__)
 
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+async def create_audit_log(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
+
 router = APIRouter(prefix="/price-books", tags=["Price Books"])
+
+
+def require_approval_access(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Dependency that checks if user has access to any approval stage.
+    Only users with approval, triggering, or logistics access can view Price Book data.
+    Senior admins always have access.
+    """
+    # Senior admin always has access
+    if current_user.role and current_user.role.name == "senior_admin":
+        return current_user
+
+    # Check if user has any approval permission
+    has_access = (
+        current_user.can_access_approval or
+        current_user.can_access_triggering or
+        current_user.can_access_logistics
+    )
+
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You need approval, triggering, or logistics access to view Price Book data."
+        )
+
+    return current_user
 
 # Use absolute path based on the backend directory location
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -36,8 +101,9 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_price_book_csv(
+    request: Request,
     csv_file: UploadFile = File(..., description="Price Book CSV file"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_approval_access),
     db: Session = Depends(get_db)
 ):
     """
@@ -138,6 +204,23 @@ async def upload_price_book_csv(
 
         logger.info(f"Price Book upload: {records_created} records created by user {current_user.id}")
 
+        # Create audit log for upload
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="upload_csv",
+            resource_type="PriceBook",
+            resource_id=None,
+            resource_name=csv_file.filename,
+            details=json.dumps({
+                "records_created": records_created,
+                "total_rows": row_num - 1 if 'row_num' in locals() else 0,
+                "errors_count": len(errors)
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         result = {
             "message": f"Successfully uploaded {records_created} price book records",
             "records_created": records_created,
@@ -165,7 +248,7 @@ async def list_price_books(
     po_number: Optional[str] = None,
     page: int = 1,
     page_size: int = 50,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_approval_access),
     db: Session = Depends(get_db)
 ):
     """List price books with optional filtering"""
@@ -253,7 +336,7 @@ async def list_price_books(
 
 @router.get("/po-numbers")
 async def get_unique_po_numbers(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_approval_access),
     db: Session = Depends(get_db)
 ):
     """Get list of unique PO numbers"""
@@ -268,7 +351,7 @@ async def get_unique_po_numbers(
 @router.get("/export/csv")
 async def export_price_books_csv(
     po_number: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_approval_access),
     db: Session = Depends(get_db)
 ):
     """Export price books as CSV with optional PO number filter"""
@@ -367,7 +450,8 @@ async def export_price_books_csv(
 @router.delete("/by-po-number/{po_number}")
 async def delete_by_po_number(
     po_number: str,
-    current_user: User = Depends(get_current_user),
+    request: Request,
+    current_user: User = Depends(require_approval_access),
     db: Session = Depends(get_db)
 ):
     """Delete all price book records for a specific PO number"""
@@ -376,6 +460,19 @@ async def delete_by_po_number(
         db.commit()
 
         logger.info(f"Deleted {deleted_count} price book records for PO# {po_number} by user {current_user.id}")
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="delete_by_po",
+            resource_type="PriceBook",
+            resource_id=po_number,
+            resource_name=f"PO# {po_number}",
+            details=json.dumps({"deleted_count": deleted_count}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return {"success": True, "message": f"Deleted {deleted_count} price book records for PO# {po_number}", "deleted_count": deleted_count}
 
@@ -391,7 +488,7 @@ async def delete_by_po_number(
 @router.get("/{price_book_id}", response_model=PriceBookResponse)
 async def get_price_book(
     price_book_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_approval_access),
     db: Session = Depends(get_db)
 ):
     """Get single price book record by ID"""
@@ -450,7 +547,8 @@ async def get_price_book(
 async def update_price_book(
     price_book_id: int,
     update_data: PriceBookUpdate,
-    current_user: User = Depends(get_current_user),
+    request: Request,
+    current_user: User = Depends(require_approval_access),
     db: Session = Depends(get_db)
 ):
     """Update a price book record"""
@@ -473,6 +571,19 @@ async def update_price_book(
         db.refresh(price_book)
 
         logger.info(f"Price book {price_book_id} updated by user {current_user.id}")
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="PriceBook",
+            resource_id=str(price_book_id),
+            resource_name=price_book.project_name or f"PriceBook #{price_book_id}",
+            details=json.dumps(update_dict),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         # Uploader already loaded via joinedload
         uploader = price_book.uploader
@@ -534,7 +645,8 @@ async def update_price_book(
 @router.delete("/{price_book_id}")
 async def delete_price_book(
     price_book_id: int,
-    current_user: User = Depends(get_current_user),
+    request: Request,
+    current_user: User = Depends(require_approval_access),
     db: Session = Depends(get_db)
 ):
     """Delete a price book record"""
@@ -544,10 +656,26 @@ async def delete_price_book(
         if not price_book:
             raise HTTPException(status_code=404, detail="Price book record not found")
 
+        # Store for audit
+        price_book_name = price_book.project_name
+
         db.delete(price_book)
         db.commit()
 
         logger.info(f"Price book {price_book_id} deleted by user {current_user.id}")
+
+        # Create audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="PriceBook",
+            resource_id=str(price_book_id),
+            resource_name=price_book_name or f"PriceBook #{price_book_id}",
+            details=None,
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return {"success": True, "message": "Price book record deleted"}
 

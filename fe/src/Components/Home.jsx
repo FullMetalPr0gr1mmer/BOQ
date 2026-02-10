@@ -28,7 +28,7 @@ export default function Home({ setActiveSection, user }) {
               <h2>Zain BOQ Automation</h2>
               <p>Automate and manage Zain BOQ processes. 📈</p>
             </div>
-            <div className="home-card card-link" onClick={() => handleCardClick('/du-rollout-sheet', 'du-5g')}>
+            <div className="home-card card-link" onClick={() => handleCardClick('/du-boq-items', 'du-5g')}>
               <h2>DU BOQ Automation</h2>
               <p>Automate and manage DU BOQ processes. 📱</p>
             </div>

@@ -278,3 +278,50 @@ class BulkDeleteResponse(BaseModel):
     message: str
     deleted_sites: int = 0
     deleted_site_products: int = 0
+
+
+# ===========================
+# BOQ GENERATION SCHEMAS
+# ===========================
+
+class BOQGenerationRequest(BaseModel):
+    """Request for bulk BOQ generation."""
+    site_record_ids: List[int] = Field(..., description="List of ODBOQSite.id values")
+
+
+class BOQGenerationResult(BaseModel):
+    """Single BOQ generation result."""
+    site_record_id: int
+    site_id: str
+    subscope: Optional[str] = None
+    success: bool
+    csv_content: Optional[str] = None
+    error: Optional[str] = None
+
+
+class BOQGenerationResponse(BaseModel):
+    """Response for bulk BOQ generation."""
+    successful: int = 0
+    failed: int = 0
+    results: List[BOQGenerationResult] = Field(default_factory=list)
+
+
+class BOQExcelFromCSVRequest(BaseModel):
+    """Request for generating Excel from edited CSV data."""
+    site_record_id: int
+    site_id: str
+    csv_data: List[List[str]] = Field(..., description="2D array of CSV data")
+
+
+class BulkBOQEditedSiteData(BaseModel):
+    """Single site data for bulk edited Excel generation."""
+    site_record_id: int
+    site_id: str
+    subscope: Optional[str] = None
+    smp: Optional[str] = None
+    csv_data: List[List[Any]] = Field(..., description="2D array of CSV data for this site")
+
+
+class BulkBOQExcelFromEditedRequest(BaseModel):
+    """Request for generating bulk Excel from multiple edited sites."""
+    sites_data: List[BulkBOQEditedSiteData] = Field(..., description="List of edited site data")

@@ -74,3 +74,7 @@ class ApprovalUpdate(BaseModel):
 
 class BulkLogisticsDownload(BaseModel):
     approval_ids: List[int] = Field(..., description="List of approval IDs to combine")
+
+
+class BulkApprove(BaseModel):
+    approval_ids: List[int] = Field(..., description="List of approval IDs to approve")

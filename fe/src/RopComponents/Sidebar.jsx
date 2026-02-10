@@ -94,9 +94,7 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
             icon: <FaMobileAlt />,
             items: [
                 { label: 'Projects', path: '/du-projects', icon: <FaProjectDiagram /> },
-                { label: 'BOQ Generation', path: '/du-rollout-sheet', icon: <FaFile /> },
-                { label: 'OD BOQ Items', path: '/du-boq-items', icon: <FaCubes /> },
-                { label: 'Customer PO', path: '/du-customer-po', icon: <FaClipboardList /> }
+                { label: 'BOQ Items', path: '/du-boq-items', icon: <FaCubes /> }
             ]
         },
         {
@@ -218,20 +216,24 @@ function Sidebar({ isOpen, onClose, onSelect, user }) {
                                         Logistics Stage
                                     </button>
                                 )}
-                                <button
-                                    className="nav-item"
-                                    onClick={() => handleNavigation('/po-report', null)}
-                                >
-                                    <span className="nav-icon"><FaFileAlt /></span>
-                                    PO Report
-                                </button>
-                                <button
-                                    className="nav-item"
-                                    onClick={() => handleNavigation('/price-book', null)}
-                                >
-                                    <span className="nav-icon"><FaFileAlt /></span>
-                                    Price Book
-                                </button>
+                                {(approvalPermissions.can_access_approval || approvalPermissions.can_access_triggering || approvalPermissions.can_access_logistics) && (
+                                    <>
+                                        <button
+                                            className="nav-item"
+                                            onClick={() => handleNavigation('/po-report', null)}
+                                        >
+                                            <span className="nav-icon"><FaFileAlt /></span>
+                                            PO Report
+                                        </button>
+                                        <button
+                                            className="nav-item"
+                                            onClick={() => handleNavigation('/price-book', null)}
+                                        >
+                                            <span className="nav-icon"><FaFileAlt /></span>
+                                            Price Book
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

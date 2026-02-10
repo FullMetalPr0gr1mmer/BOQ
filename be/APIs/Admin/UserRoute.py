@@ -1,21 +1,59 @@
 from datetime import timedelta, datetime
 from email_validator import EmailNotValidError
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import validate_email, BaseModel
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
+import logging
 from APIs.Core import pwd_context, authenticate_user, create_access_token, create_refresh_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_db, get_current_user, oauth2_scheme, SECRET_KEY, ALGORITHM
 from Schemas.Admin.UserSchema import CreateUser
 from Models.Admin.User import User, Role
 from Models.Admin.RefreshToken import RefreshToken
 from Models.Admin.TokenBlacklist import TokenBlacklist
+from Models.Admin.AuditLog import AuditLog
 from utils.password_validator import validate_password_strength
 
-#from APIs.BOQ.LogRoute import create_log
-#from Schemas.Admin.LogSchema import LogCreate
+logger = logging.getLogger(__name__)
 
 userRoute = APIRouter(tags=["Users"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+async def create_audit_log(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 # --- Pydantic Schemas ---
@@ -26,7 +64,7 @@ class RefreshTokenRequest(BaseModel):
 
 # --- Registration Endpoint ---
 @userRoute.post("/register")
-async def register(user: CreateUser, db: Session = Depends(get_db)):
+async def register(user: CreateUser, request: Request, db: Session = Depends(get_db)):
     # Validate email format
     try:
         validate_email(user.email)
@@ -57,21 +95,28 @@ async def register(user: CreateUser, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # log_create = LogCreate(user=user.username, log="User registered")
-    # create_log(log_create, db=db)
+    # Create audit log for registration
+    await create_audit_log(
+        db=db,
+        user_id=new_user.id,
+        action="register",
+        resource_type="user",
+        resource_id=str(new_user.id),
+        resource_name=new_user.username,
+        details=f"New user registered: {new_user.username}",
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
 
     return {"msg": "Registration successful"}
 
 
 # --- Login Endpoint ---
 @userRoute.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(form_data.username, form_data.password, db=db)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    # log_create = LogCreate(user=form_data.username, log="New login")
-    # create_log(log_create, db=db)
 
     # Create access token (30 minutes)
     access_token = create_access_token(
@@ -84,6 +129,19 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         data={"sub": user.username, "role": user.role.name},
         user_id=user.id,
         db=db
+    )
+
+    # Create audit log for login
+    await create_audit_log(
+        db=db,
+        user_id=user.id,
+        action="login",
+        resource_type="user",
+        resource_id=str(user.id),
+        resource_name=user.username,
+        details=f"User logged in: {user.username}",
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
     )
 
     return {
@@ -157,6 +215,7 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
 # --- Logout Endpoint ---
 @userRoute.post("/logout")
 async def logout(
+    request: Request,
     current_user: User = Depends(get_current_user),
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
@@ -168,6 +227,7 @@ async def logout(
     forcing them to re-authenticate to obtain new tokens.
 
     Args:
+        request: FastAPI Request object
         current_user: Current authenticated user (from token)
         token: Current access token
         db: Database session
@@ -198,6 +258,19 @@ async def logout(
 
         # Revoke all refresh tokens for this user
         db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id).update({"revoked": True})
+
+        # Create audit log for logout
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="logout",
+            resource_type="user",
+            resource_id=str(current_user.id),
+            resource_name=current_user.username,
+            details=f"User logged out: {current_user.username}",
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         db.commit()
 

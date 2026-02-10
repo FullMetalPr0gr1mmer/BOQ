@@ -26,10 +26,6 @@ import importlib
 du_project_model = importlib.import_module("Models.DU.DU_Project")
 DUProject = du_project_model.DUProject
 
-# Import the 5G Rollout Sheet model for cascading updates
-rollout_model = importlib.import_module("Models.DU.5G_Rollout_Sheet")
-_5G_Rollout_Sheet = rollout_model._5G_Rollout_Sheet
-
 # Import schemas
 du_schema = importlib.import_module("Schemas.DU.DU_ProjectSchema")
 CreateDUProject = du_schema.CreateDUProject
@@ -427,8 +423,6 @@ async def delete_du_project(
     Delete a DU project.
     - senior_admin: Can delete any project
     - Users with "all" permission: Can delete projects they have full access to
-
-    Note: This will also delete all related 5G Rollout Sheet entries.
     """
     logger.info(f"User {current_user.username} attempting to delete DU project: {pid_po}")
 
@@ -445,21 +439,11 @@ async def delete_du_project(
             detail="You are not authorized to delete this DU project. Contact the Senior Admin."
         )
 
-    # Delete the project and related data
+    # Delete the project
     try:
         project_name = project.project_name
 
-        # Count related records for response
-        rollout_count = db.query(_5G_Rollout_Sheet).filter(
-            _5G_Rollout_Sheet.project_id == pid_po
-        ).count()
-
-        logger.info(f"Deleting DU project {pid_po} with {rollout_count} related rollout sheet entries")
-
-        # Delete related 5G Rollout Sheet entries first
-        db.query(_5G_Rollout_Sheet).filter(
-            _5G_Rollout_Sheet.project_id == pid_po
-        ).delete(synchronize_session=False)
+        logger.info(f"Deleting DU project {pid_po}")
 
         # Delete the project
         db.delete(project)
@@ -475,16 +459,13 @@ async def delete_du_project(
             resource_type="du_project",
             resource_id=pid_po,
             resource_name=project_name,
-            details=json.dumps({
-                "deleted_rollout_sheets": rollout_count
-            }),
+            details=json.dumps({}),
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("User-Agent")
         )
 
         return {
-            "message": f"DU Project '{pid_po}' deleted successfully",
-            "deleted_rollout_sheets": rollout_count
+            "message": f"DU Project '{pid_po}' deleted successfully"
         }
     except Exception as e:
         db.rollback()
@@ -555,11 +536,6 @@ async def update_project_purchase_order(
         # Track affected records - count them first before any updates
         affected_tables = {}
 
-        # Count 5G Rollout Sheet records
-        rollout_count = db.query(_5G_Rollout_Sheet).filter(
-            _5G_Rollout_Sheet.project_id == old_pid_po
-        ).count()
-
         # Count UserProjectAccess records
         user_access_count = db.query(UserProjectAccess).filter(
             UserProjectAccess.DUproject_id == old_pid_po
@@ -577,12 +553,6 @@ async def update_project_purchase_order(
         db.flush()  # Make the new project available for foreign key references
 
         # STEP 2: Now update all foreign key references to point to the new pid_po
-        # Update 5G Rollout Sheet records
-        db.query(_5G_Rollout_Sheet).filter(
-            _5G_Rollout_Sheet.project_id == old_pid_po
-        ).update({"project_id": new_pid_po}, synchronize_session=False)
-        affected_tables["5g_rollout_sheet"] = rollout_count
-
         # Update UserProjectAccess records
         db.query(UserProjectAccess).filter(
             UserProjectAccess.DUproject_id == old_pid_po
@@ -652,18 +622,8 @@ def get_du_projects_stats(
 
         total_projects = len(accessible_projects)
 
-        # Count total rollout sheet entries for accessible projects
-        if accessible_projects:
-            project_ids = [p.pid_po for p in accessible_projects]
-            total_rollout_entries = db.query(_5G_Rollout_Sheet).filter(
-                _5G_Rollout_Sheet.project_id.in_(project_ids)
-            ).count()
-        else:
-            total_rollout_entries = 0
-
         return {
-            "total_projects": total_projects,
-            "total_rollout_entries": total_rollout_entries
+            "total_projects": total_projects
         }
     except Exception as e:
         raise HTTPException(

@@ -24,7 +24,7 @@ export default function DUProjects() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [stats, setStats] = useState({ total_projects: 0, total_rollout_entries: 0 });
+  const [stats, setStats] = useState({ total_projects: 0 });
   const [showHelpModal, setShowHelpModal] = useState(false);
   const fetchAbort = useRef(null);
 
@@ -67,7 +67,7 @@ export default function DUProjects() {
   const fetchStats = async () => {
     try {
       const data = await apiCall('/du-projects/stats/summary');
-      setStats(data || { total_projects: 0, total_rollout_entries: 0 });
+      setStats(data || { total_projects: 0 });
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     }
@@ -130,7 +130,7 @@ export default function DUProjects() {
   };
 
   const handleDelete = async (pid_po) => {
-    if (!window.confirm('Are you sure you want to delete this project? This will also delete all related 5G Rollout Sheet entries.')) return;
+    if (!window.confirm('Are you sure you want to delete this project? This will also delete all related BOQ entries.')) return;
     try {
       await apiCall(`/du-projects/${pid_po}`, { method: 'DELETE' });
       setTransient(setSuccess, 'Project deleted successfully!');
@@ -154,7 +154,6 @@ export default function DUProjects() {
   // --- UI Component Definitions ---
   const statCards = [
     { label: 'Total Projects', value: stats.total_projects },
-    { label: 'Total Rollout Entries', value: stats.total_rollout_entries },
     { label: 'Current Page', value: `${currentPage} / ${totalPages || 1}` },
     { label: 'Showing', value: `${rows.length} projects` },
     {
@@ -179,17 +178,17 @@ export default function DUProjects() {
   ];
 
   const helpSections = [
-    { icon: '📋', title: 'Overview', content: <HelpText>This page allows you to manage DU (Digital Transformation) projects for 5G rollout tracking. You can create, view, edit, and delete projects.</HelpText> },
+    { icon: '📋', title: 'Overview', content: <HelpText>This page allows you to manage DU (Digital Transformation) projects for BOQ management. You can create, view, edit, and delete projects.</HelpText> },
     { icon: '✨', title: 'Features', content: (
       <HelpList items={[
         { label: '+ New Project', text: 'Opens a form to create a new DU project.' },
         { label: 'Search', text: 'Filter projects in real-time by their name, ID, or PO number.' },
         { label: 'Edit (✏️)', text: 'Allows you to update the name of an existing project.' },
-        { label: 'Delete (🗑️)', text: 'Permanently removes a project and all related 5G Rollout Sheet entries.' },
+        { label: 'Delete (🗑️)', text: 'Permanently removes a project and all related BOQ entries.' },
       ]} />
     )},
     { icon: '💡', title: 'Important Notes', content: (
-      <HelpText isNote>When editing a project, the Project ID and Purchase Order cannot be changed. Only the Project Name can be updated. Deleting a project will also delete all associated 5G Rollout Sheet entries.</HelpText>
+      <HelpText isNote>When editing a project, the Project ID and Purchase Order cannot be changed. Only the Project Name can be updated. Deleting a project will also delete all associated BOQ entries.</HelpText>
     )}
   ];
 
@@ -199,7 +198,7 @@ export default function DUProjects() {
       <div className="ran-projects-header">
         <TitleWithInfo
           title="DU Projects"
-          subtitle="Manage Digital Transformation projects for 5G rollout"
+          subtitle="Manage Digital Transformation projects for BOQ management"
           onInfoClick={() => setShowHelpModal(true)}
         />
         <div className="header-actions">

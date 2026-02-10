@@ -76,7 +76,45 @@ export default function ODBOQItems() {
   // CSV upload state
   const [consumedYear, setConsumedYear] = useState(new Date().getFullYear());
 
+  // BOQ Generation State
+  const [generatingBoqId, setGeneratingBoqId] = useState(null);
+  const [showBoqModal, setShowBoqModal] = useState(false);
+  const [editableCsvData, setEditableCsvData] = useState([]);
+  const [currentBoqSiteInfo, setCurrentBoqSiteInfo] = useState(null);
+
+  // Multi-selection for bulk BOQ
+  const [selectedSites, setSelectedSites] = useState(new Set());
+  const [selectAllForBoq, setSelectAllForBoq] = useState(false);
+
+  // Bulk BOQ data
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkBoqData, setBulkBoqData] = useState([]);
+  const [currentBoqIndex, setCurrentBoqIndex] = useState(0);
+
   const fetchAbort = useRef(null);
+
+  // CSV Helper Functions
+  const parseCSV = (csvString) => {
+    if (!csvString) return [];
+    const lines = csvString.split('\n');
+    return lines.map(line => {
+      const regex = /(".*?"|[^",]+)(?=\s*,|\s*$)/g;
+      const matches = line.match(regex) || [];
+      return matches.map(field => field.replace(/^"|"$/g, '').replace(/""/g, '"'));
+    });
+  };
+
+  const stringifyCSV = (data) => {
+    return data.map(row =>
+      row.map(field => {
+        const fieldStr = String(field || '');
+        if (fieldStr.includes(',') || fieldStr.includes('"')) {
+          return `"${fieldStr.replace(/"/g, '""')}"`;
+        }
+        return fieldStr;
+      }).join(',')
+    ).join('\n');
+  };
 
   // Fetch projects
   const fetchProjects = async () => {
@@ -467,6 +505,340 @@ export default function ODBOQItems() {
     }
   };
 
+  // ===========================
+  // BOQ Generation Handlers
+  // ===========================
+
+  // Generate BOQ for a single site
+  const handleGenerateBoq = async (site) => {
+    setGeneratingBoqId(site.id);
+    setError("");
+    setSuccess("");
+    try {
+      const csvContent = await apiCall(`/od-boq/sites/${site.id}/generate-boq`);
+      setEditableCsvData(parseCSV(csvContent));
+      setCurrentBoqSiteInfo({ id: site.id, site_id: site.site_id, subscope: site.subscope });
+      setShowBoqModal(true);
+      setTransient(setSuccess, `BOQ for site ${site.site_id} generated successfully.`);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setGeneratingBoqId(null);
+    }
+  };
+
+  // Direct Excel download for a single site
+  const handleDownloadSingleExcel = async (site) => {
+    setGeneratingBoqId(site.id);
+    setError("");
+    try {
+      const token = localStorage.getItem('token');
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+      const response = await fetch(`${API_BASE}/od-boq/sites/${site.id}/download-boq-excel`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to download');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOQ_${site.site_id}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setTransient(setSuccess, `Excel BOQ for site ${site.site_id} downloaded.`);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setGeneratingBoqId(null);
+    }
+  };
+
+  // Toggle site selection for bulk BOQ
+  const handleSelectSiteForBoq = (siteId) => {
+    const newSelected = new Set(selectedSites);
+    if (newSelected.has(siteId)) {
+      newSelected.delete(siteId);
+    } else {
+      newSelected.add(siteId);
+    }
+    setSelectedSites(newSelected);
+    setSelectAllForBoq(newSelected.size === sites.length && sites.length > 0);
+  };
+
+  // Select/deselect all sites for BOQ
+  const handleSelectAllForBoq = () => {
+    if (selectAllForBoq) {
+      setSelectedSites(new Set());
+      setSelectAllForBoq(false);
+    } else {
+      const allIds = sites.map(site => site.id);
+      setSelectedSites(new Set(allIds));
+      setSelectAllForBoq(true);
+    }
+  };
+
+  // Bulk BOQ generation
+  const handleBulkGenerateBoq = async () => {
+    if (selectedSites.size === 0) {
+      setTransient(setError, 'Please select at least one site.');
+      return;
+    }
+
+    setBulkGenerating(true);
+    setError("");
+
+    try {
+      const siteRecordIds = Array.from(selectedSites);
+      const response = await apiCall('/od-boq/sites/bulk-generate-boq', {
+        method: 'POST',
+        body: JSON.stringify({ site_record_ids: siteRecordIds })
+      });
+
+      const successfulBoqs = response.results
+        .filter(r => r.success)
+        .map(r => ({
+          site_record_id: r.site_record_id,
+          site_id: r.site_id,
+          subscope: r.subscope,
+          csvData: parseCSV(r.csv_content)
+        }));
+
+      if (successfulBoqs.length === 0) {
+        setTransient(setError, 'Failed to generate BOQs for all selected sites.');
+        return;
+      }
+
+      setBulkBoqData(successfulBoqs);
+      setCurrentBoqIndex(0);
+      setShowBoqModal(true);
+      setTransient(setSuccess, `Generated ${successfulBoqs.length} BOQs successfully.`);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
+  // Bulk Excel download - all sites in single Excel file ordered by BPO Line No
+  const handleBulkDownloadExcel = async () => {
+    if (selectedSites.size === 0) {
+      setTransient(setError, 'Please select at least one site.');
+      return;
+    }
+
+    setBulkGenerating(true);
+    setError("");
+
+    try {
+      const token = localStorage.getItem('token');
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+      const siteRecordIds = Array.from(selectedSites);
+
+      const response = await fetch(`${API_BASE}/od-boq/sites/bulk-download-boq-zip`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ site_record_ids: siteRecordIds })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to download');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOQ_Bulk_${siteRecordIds.length}_sites_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setTransient(setSuccess, `Downloaded BOQ for ${siteRecordIds.length} sites in single Excel.`);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
+  // CSV Modal Handlers
+  const handleCellChange = (rowIndex, cellIndex, value) => {
+    if (bulkBoqData.length > 0) {
+      const updatedBulkData = [...bulkBoqData];
+      updatedBulkData[currentBoqIndex].csvData[rowIndex][cellIndex] = value;
+      setBulkBoqData(updatedBulkData);
+    } else {
+      const updatedData = [...editableCsvData];
+      updatedData[rowIndex][cellIndex] = value;
+      setEditableCsvData(updatedData);
+    }
+  };
+
+  const handleAddBoqRow = () => {
+    const currentData = bulkBoqData.length > 0
+      ? bulkBoqData[currentBoqIndex].csvData
+      : editableCsvData;
+    const numColumns = currentData[0]?.length || 1;
+    const newRow = Array(numColumns).fill('');
+
+    if (bulkBoqData.length > 0) {
+      const updatedBulkData = [...bulkBoqData];
+      updatedBulkData[currentBoqIndex].csvData = [...currentData, newRow];
+      setBulkBoqData(updatedBulkData);
+    } else {
+      setEditableCsvData([...editableCsvData, newRow]);
+    }
+  };
+
+  const handleDeleteBoqRow = (rowIndex) => {
+    if (rowIndex < 6) return; // Don't delete header rows (first 6 rows are metadata/headers)
+
+    if (bulkBoqData.length > 0) {
+      const updatedBulkData = [...bulkBoqData];
+      updatedBulkData[currentBoqIndex].csvData =
+        updatedBulkData[currentBoqIndex].csvData.filter((_, i) => i !== rowIndex);
+      setBulkBoqData(updatedBulkData);
+    } else {
+      setEditableCsvData(editableCsvData.filter((_, i) => i !== rowIndex));
+    }
+  };
+
+  const downloadBoqCSV = () => {
+    const currentData = bulkBoqData.length > 0
+      ? bulkBoqData[currentBoqIndex].csvData
+      : editableCsvData;
+    const siteId = bulkBoqData.length > 0
+      ? bulkBoqData[currentBoqIndex].site_id
+      : currentBoqSiteInfo?.site_id;
+
+    const csvContent = stringifyCSV(currentData);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `BOQ_${siteId || 'export'}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadCurrentBoqAsExcel = async () => {
+    const currentData = bulkBoqData.length > 0
+      ? bulkBoqData[currentBoqIndex]
+      : { csvData: editableCsvData, site_id: currentBoqSiteInfo?.site_id, site_record_id: currentBoqSiteInfo?.id };
+
+    try {
+      const token = localStorage.getItem('token');
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+      const response = await fetch(`${API_BASE}/od-boq/download-boq-excel-from-csv`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          site_record_id: currentData.site_record_id,
+          site_id: currentData.site_id,
+          csv_data: currentData.csvData
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to download Excel');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOQ_${currentData.site_id}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setTransient(setError, err.message);
+    }
+  };
+
+  const closeBoqModal = () => {
+    setShowBoqModal(false);
+    setEditableCsvData([]);
+    setCurrentBoqSiteInfo(null);
+    setBulkBoqData([]);
+    setCurrentBoqIndex(0);
+    setSelectedSites(new Set());
+    setSelectAllForBoq(false);
+  };
+
+  // Download all edited data as single Excel (uses bulkBoqData from modal)
+  const handleDownloadAllEditedAsExcel = async () => {
+    if (bulkBoqData.length === 0) {
+      setTransient(setError, 'No bulk data available.');
+      return;
+    }
+
+    setBulkGenerating(true);
+    setError("");
+
+    try {
+      const token = localStorage.getItem('token');
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+
+      // Prepare the edited data for the backend
+      const sitesData = bulkBoqData.map(item => ({
+        site_record_id: item.site_record_id,
+        site_id: item.site_id,
+        subscope: item.subscope || null,
+        smp: item.smp || null,
+        csv_data: item.csvData
+      }));
+
+      const response = await fetch(`${API_BASE}/od-boq/sites/bulk-download-boq-excel-from-edited`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sites_data: sitesData })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to download');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BOQ_Bulk_${bulkBoqData.length}_sites_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setTransient(setSuccess, `Downloaded edited BOQ for ${bulkBoqData.length} sites.`);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
   // Pagination
   const totalPages = Math.ceil(total / rowsPerPage);
 
@@ -638,6 +1010,25 @@ export default function ODBOQItems() {
               style={{ width: '100%', padding: '0.5rem' }}
             />
           </div>
+          {/* BOQ Generation Buttons */}
+          <button
+            className={`btn-primary ${selectedSites.size === 0 || bulkGenerating ? 'disabled' : ''}`}
+            onClick={handleBulkGenerateBoq}
+            disabled={selectedSites.size === 0 || bulkGenerating}
+            title={selectedSites.size === 0 ? "Select sites first" : `Generate BOQ CSV for ${selectedSites.size} sites`}
+          >
+            <span className="btn-icon">{bulkGenerating ? '...' : '📋'}</span>
+            {bulkGenerating ? 'Processing...' : `Bulk CSV (${selectedSites.size})`}
+          </button>
+          <button
+            className={`btn-primary ${selectedSites.size === 0 || bulkGenerating ? 'disabled' : ''}`}
+            onClick={handleBulkDownloadExcel}
+            disabled={selectedSites.size === 0 || bulkGenerating}
+            title={selectedSites.size === 0 ? "Select sites first" : `Download BOQ Excel for ${selectedSites.size} sites`}
+          >
+            <span className="btn-icon">{bulkGenerating ? '...' : '📊'}</span>
+            {bulkGenerating ? 'Processing...' : `Bulk Excel (${selectedSites.size})`}
+          </button>
           <label className={`btn-secondary ${uploading || !selectedProject ? 'disabled' : ''}`}>
             <span className="btn-icon">📤</span>
             Upload CSV
@@ -723,6 +1114,14 @@ export default function ODBOQItems() {
         <table className="project-table">
           <thead>
             <tr>
+              <th style={{ width: '40px' }}>
+                <input
+                  type="checkbox"
+                  checked={selectAllForBoq}
+                  onChange={handleSelectAllForBoq}
+                  title="Select all for BOQ generation"
+                />
+              </th>
               <th style={{ width: '40px' }}></th>
               <th>Site ID</th>
               <th>Region</th>
@@ -731,20 +1130,21 @@ export default function ODBOQItems() {
               <th>Subscope</th>
               <th>PO Model</th>
               <th>Project</th>
+              <th style={{ width: '140px' }}>BOQ Actions</th>
               <th style={{ width: '100px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
+                <td colSpan="11" style={{ textAlign: 'center', padding: '2rem' }}>
                   Loading sites...
                 </td>
               </tr>
             )}
             {!loading && sites.length === 0 && (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
+                <td colSpan="11" style={{ textAlign: 'center', padding: '2rem' }}>
                   No sites found
                 </td>
               </tr>
@@ -753,6 +1153,14 @@ export default function ODBOQItems() {
               <React.Fragment key={site.id}>
                 {/* Main Site Row */}
                 <tr className="parent-row">
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedSites.has(site.id)}
+                      onChange={() => handleSelectSiteForBoq(site.id)}
+                      title="Select for BOQ generation"
+                    />
+                  </td>
                   <td>
                     <button
                       onClick={() => toggleExpandSite(site)}
@@ -769,6 +1177,28 @@ export default function ODBOQItems() {
                   <td>{site.subscope || 'N/A'}</td>
                   <td>{site.po_model || 'N/A'}</td>
                   <td>{site.project_id || 'N/A'}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <div className="action-buttons">
+                      <button
+                        className="btn-action btn-generate"
+                        onClick={() => handleGenerateBoq(site)}
+                        disabled={generatingBoqId === site.id}
+                        title="Generate BOQ (CSV editor)"
+                        style={{ background: '#2196F3', color: 'white' }}
+                      >
+                        {generatingBoqId === site.id ? '...' : '📋'}
+                      </button>
+                      <button
+                        className="btn-action btn-generate"
+                        onClick={() => handleDownloadSingleExcel(site)}
+                        disabled={generatingBoqId === site.id}
+                        title="Download BOQ as Excel"
+                        style={{ background: '#4CAF50', color: 'white' }}
+                      >
+                        {generatingBoqId === site.id ? '...' : '📊'}
+                      </button>
+                    </div>
+                  </td>
                   <td style={{ textAlign: 'center' }}>
                     <div className="action-buttons">
                       <button
@@ -792,7 +1222,7 @@ export default function ODBOQItems() {
                 {/* Expandable Products Mini-Table */}
                 {expandedSiteId === site.id && (
                   <tr className="expanded-row">
-                    <td colSpan="9">
+                    <td colSpan="11">
                       <div className="nested-items-container">
                         <div className="nested-items-header">
                           <h4 className="nested-items-title">Products for {site.site_id}</h4>
@@ -1091,6 +1521,121 @@ export default function ODBOQItems() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* BOQ Generation Modal - Editable CSV */}
+      {showBoqModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex',
+          justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', padding: 24, borderRadius: 8,
+            width: '95%', height: '90%', display: 'flex', flexDirection: 'column'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <h3 style={{ margin: 0 }}>
+                  Edit BOQ Data for {bulkBoqData.length > 0
+                    ? bulkBoqData[currentBoqIndex].site_id
+                    : currentBoqSiteInfo?.site_id}
+                  {bulkBoqData.length > 0 && bulkBoqData[currentBoqIndex].subscope &&
+                    ` (${bulkBoqData[currentBoqIndex].subscope})`}
+                </h3>
+
+                {bulkBoqData.length > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      onClick={() => setCurrentBoqIndex(prev => Math.max(0, prev - 1))}
+                      disabled={currentBoqIndex === 0}
+                      style={{ padding: '6px 12px', borderRadius: 4, border: '1px solid #ddd', cursor: currentBoqIndex === 0 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ fontWeight: 'bold' }}>Site {currentBoqIndex + 1} of {bulkBoqData.length}</span>
+                    <button
+                      onClick={() => setCurrentBoqIndex(prev => Math.min(bulkBoqData.length - 1, prev + 1))}
+                      disabled={currentBoqIndex === bulkBoqData.length - 1}
+                      style={{ padding: '6px 12px', borderRadius: 4, border: '1px solid #ddd', cursor: currentBoqIndex === bulkBoqData.length - 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button onClick={closeBoqModal} style={{ fontSize: 24, cursor: 'pointer', background: 'none', border: 'none', fontWeight: 'bold' }}>
+                ×
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <button onClick={handleAddBoqRow} style={{ padding: '8px 16px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                + Add Row
+              </button>
+              <button onClick={downloadBoqCSV} style={{ padding: '8px 16px', background: '#2196F3', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                Download CSV
+              </button>
+              <button onClick={downloadCurrentBoqAsExcel} style={{ padding: '8px 16px', background: '#FF9800', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                Download as Excel
+              </button>
+              {bulkBoqData.length > 1 && (
+                <button onClick={handleDownloadAllEditedAsExcel} style={{ padding: '8px 16px', background: '#9C27B0', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+                  Download All ({bulkBoqData.length} sites in Excel)
+                </button>
+              )}
+            </div>
+
+            {/* Editable Table */}
+            <div style={{ flex: 1, overflow: 'auto', border: '1px solid #ddd', borderRadius: 6 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+                <tbody>
+                  {(bulkBoqData.length > 0
+                    ? bulkBoqData[currentBoqIndex].csvData
+                    : editableCsvData
+                  ).map((row, rowIndex) => (
+                      <tr key={rowIndex} style={{ background: rowIndex < 6 ? '#f5f5f5' : 'white' }}>
+                        <td style={{ padding: '4px 8px', border: '1px solid #ddd', width: 80, textAlign: 'center' }}>
+                          {rowIndex >= 6 ? (
+                            <button
+                              onClick={() => handleDeleteBoqRow(rowIndex)}
+                              style={{ background: '#f44336', color: 'white', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
+                            >
+                              Delete
+                            </button>
+                          ) : (
+                            <span style={{ color: '#999', fontSize: '0.8rem' }}>Header</span>
+                          )}
+                        </td>
+                        {row.map((cell, cellIndex) => (
+                          <td key={cellIndex} style={{ padding: '2px', border: '1px solid #ddd', minWidth: 100 }}>
+                            <input
+                              type="text"
+                              value={cell}
+                              onChange={(e) => handleCellChange(rowIndex, cellIndex, e.target.value)}
+                              style={{
+                                width: '100%', border: 'none', padding: '6px',
+                                background: rowIndex < 6 ? '#f5f5f5' : 'transparent',
+                                fontWeight: rowIndex === 5 ? 'bold' : 'normal'
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer info */}
+            <div style={{ marginTop: 12, color: '#666', fontSize: '0.9rem' }}>
+              Rows 1-5 are metadata headers. Row 6 contains column headers. Data rows start from row 7.
+            </div>
           </div>
         </div>
       )}

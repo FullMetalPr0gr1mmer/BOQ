@@ -17,15 +17,55 @@ Features:
 import json
 import csv
 import logging
+import os
 import pandas as pd
 from io import StringIO
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, Request, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union, Tuple
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# ===========================
+# MODULE CONSTANTS
+# ===========================
+
+# Pagination defaults
+DEFAULT_PAGINATION_SKIP = 0
+DEFAULT_SITES_LIMIT = 50
+DEFAULT_PRODUCTS_LIMIT = 100
+MAX_SITES_LIMIT = 500
+MAX_PRODUCTS_LIMIT = 1000
+
+# CSV structure constants
+CSV_PRODUCT_START_COL = 7  # Column index where product quantities begin
+CSV_METADATA_FIELD_COUNT = 13  # Number of metadata fields per site row
+
+# Date/time formats
+DATE_FORMAT_DISPLAY = '%d-%b-%y'  # e.g., "09-Feb-26"
+DATE_FORMAT_ISO = '%Y-%m-%d'  # e.g., "2026-02-09"
+
+# Excel template path
+BOQ_TEMPLATE_FILENAME = 'BOQ Formate.xlsx'
+BOQ_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', '..', BOQ_TEMPLATE_FILENAME)
+
+# Excel column mapping for BOQ data
+BOQ_EXCEL_COLUMNS = [
+    (1, ''),           # Empty column A
+    (2, 'line'),       # Line number
+    (3, 'bu'),         # Business Unit
+    (4, 'item_job'),   # Item/Job code
+    (5, 'description'),# Description
+    (6, ''),           # Empty column F
+    (7, 'qty'),        # Quantity
+    (8, 'unit_price'), # Unit price
+    (9, 'total_usd'),  # Total USD
+    (10, 'total_aed'), # Total AED
+    (11, 'site_id_list'), # Site ID
+    (12, 'smp')        # SMP
+]
 
 from APIs.Core import get_db, get_current_user
 from Models.DU.OD_BOQ_Site import ODBOQSite
@@ -119,6 +159,67 @@ def check_du_project_access(current_user: User, project: DUProject, db: Session,
     return access.permission_level in permission_hierarchy.get(required_permission, [])
 
 
+def validate_site_project_access(
+    site: ODBOQSite,
+    current_user: User,
+    db: Session,
+    required_permission: str = "view"
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validate user access to a site's project.
+
+    Returns:
+        Tuple of (has_access: bool, error_message: Optional[str])
+    """
+    if not site.project_id:
+        return True, None
+
+    project = db.query(DUProject).filter(DUProject.pid_po == site.project_id).first()
+    if not project:
+        return True, None  # No project means no restriction
+
+    if not check_du_project_access(current_user, project, db, required_permission):
+        return False, f"You do not have {required_permission} access to this site's project."
+
+    return True, None
+
+
+def clean_csv_value(value) -> Optional[str]:
+    """Extract and clean a CSV value, returning None if empty."""
+    if pd.isna(value):
+        return None
+    val = str(value).strip()
+    return val if val else None
+
+
+def safe_extract_float(value) -> Optional[float]:
+    """Safely convert a value to float for quantities."""
+    if pd.isna(value):
+        return None
+    val_str = str(value).strip()
+    if not val_str:
+        return None
+    try:
+        return float(val_str)
+    except ValueError:
+        return None
+
+
+def format_quantity(qty_value: float) -> Union[int, float]:
+    """Convert float to int if it's a whole number (e.g., 2.0 -> 2)."""
+    if isinstance(qty_value, float) and qty_value == int(qty_value):
+        return int(qty_value)
+    return qty_value
+
+
+def write_boq_row_to_excel(ws, row_num: int, item: Dict[str, Any], template_border) -> None:
+    """Write a single BOQ item row to the worksheet with borders."""
+    for col_idx, field in BOQ_EXCEL_COLUMNS:
+        value = item.get(field) if field else ''
+        ws.cell(row=row_num, column=col_idx).value = value
+        ws.cell(row=row_num, column=col_idx).border = template_border
+
+
 def get_user_accessible_du_projects(current_user: User, db: Session):
     """Get all DU projects that the current user has access to."""
     # Senior admin can see all projects
@@ -206,9 +307,10 @@ async def create_site(
 
     except Exception as e:
         db.rollback()
+        logger.error(f"Error creating site: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating site: {str(e)}"
+            detail="An error occurred while creating the site. Please try again."
         )
 
 
@@ -950,16 +1052,31 @@ async def upload_csv(
         # Flush to ensure all site-products are in the database
         db.flush()
 
-        # Now calculate consumed_in_year and remaining_in_po for each product
-        for product_id in set(product_id_map.values()):
-            product = db.query(ODBOQProduct).filter(ODBOQProduct.id == product_id).first()
-            if product:
-                # Calculate consumed_in_year as SUM of all site quantities for this product
-                total_consumed = db.query(func.sum(ODBOQSiteProduct.qty_per_site)).filter(
-                    ODBOQSiteProduct.product_id == product_id,
-                    ODBOQSiteProduct.qty_per_site.isnot(None)
-                ).scalar() or 0.0
+        # Calculate consumed_in_year and remaining_in_po for each product (optimized batch query)
+        product_ids = set(product_id_map.values())
 
+        if product_ids:
+            # Batch fetch all products at once
+            products_dict = {
+                p.id: p for p in db.query(ODBOQProduct).filter(
+                    ODBOQProduct.id.in_(product_ids)
+                ).all()
+            }
+
+            # Calculate all consumed amounts in a single query
+            consumed_data = db.query(
+                ODBOQSiteProduct.product_id,
+                func.sum(ODBOQSiteProduct.qty_per_site).label('total')
+            ).filter(
+                ODBOQSiteProduct.product_id.in_(product_ids),
+                ODBOQSiteProduct.qty_per_site.isnot(None)
+            ).group_by(ODBOQSiteProduct.product_id).all()
+
+            consumed_map = {cd[0]: cd[1] or 0.0 for cd in consumed_data}
+
+            # Update products with calculated values
+            for product_id, product in products_dict.items():
+                total_consumed = consumed_map.get(product_id, 0.0)
                 product.consumed_in_year = total_consumed
 
                 # Calculate remaining_in_po as total_po_qty - consumed_in_year
@@ -1009,3 +1126,916 @@ async def upload_csv(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing CSV: {str(e)}"
         )
+
+
+# ===========================
+# BOQ GENERATION ENDPOINTS
+# ===========================
+
+from Schemas.DU.OD_BOQ_Schema import (
+    BOQGenerationRequest, BOQGenerationResult, BOQGenerationResponse,
+    BOQExcelFromCSVRequest, BulkBOQEditedSiteData, BulkBOQExcelFromEditedRequest
+)
+from fastapi.responses import StreamingResponse
+from io import BytesIO
+import zipfile
+from datetime import datetime
+import os
+from openpyxl import load_workbook
+from openpyxl.styles import Border, Side
+
+
+def generate_boq_csv_for_site(site: ODBOQSite, db: Session) -> str:
+    """
+    Generate BOQ CSV data for a single site.
+
+    Logic:
+    1. Query ODBOQSiteProduct joined with ODBOQProduct where qty_per_site > 0
+    2. Apply category transformations (HW→1, SW→3, Service→1/2)
+    3. Return CSV string with columns: Description, Category, BU, UOM, BOQ Qty, Line Number, Code
+    """
+    # Query site products with qty > 0
+    site_products = db.query(
+        ODBOQSiteProduct,
+        ODBOQProduct
+    ).join(
+        ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
+    ).filter(
+        ODBOQSiteProduct.site_record_id == site.id,
+        ODBOQSiteProduct.qty_per_site > 0
+    ).all()
+
+    if not site_products:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No products found with qty_per_site > 0 for site '{site.site_id}'."
+        )
+
+    # Build result data - use raw quantities as stored
+    result_data = []
+    for sp, product in site_products:
+        final_qty = sp.qty_per_site
+
+        # Convert float to int if it's a whole number (e.g., 2.0 -> 2)
+        if isinstance(final_qty, float) and final_qty == int(final_qty):
+            final_qty = int(final_qty)
+
+        result_data.append({
+            'Description': product.description or ' ',
+            'Category': product.category or ' ',
+            'BU': product.bu or ' ',
+            'UOM': product.code or ' ',
+            'BOQ Qty': final_qty,
+            'Line Number': product.line_number or ' ',
+            'Code': product.code or ' '
+        })
+
+    # Get project details for header
+    project = db.query(DUProject).filter(DUProject.pid_po == site.project_id).first()
+    project_name = project.project_name if project else (site.project_id or 'N/A')
+    project_po = project.po if project else (site.project_id or 'N/A')
+
+    # Get current date
+    current_date = datetime.now().strftime('%d-%b-%y')
+
+    # Generate CSV string with metadata headers
+    csv_lines = []
+
+    # Add metadata header rows
+    csv_lines.append(f'" "," "," "," ",DU BOQ," "," "')
+    csv_lines.append(f'BPO Number:,{project_po}," "," "," ",Date:,{current_date}')
+    csv_lines.append(f'Scope:,{site.scope or "N/A"}," "," "," ",Subscope:,{site.subscope or "N/A"}')
+    csv_lines.append(f'Vendor:,Nokia," "," "," ",Site ID:,{site.site_id}')
+    csv_lines.append(f'" "," "," "," "," "," "," "')  # Empty row separator
+
+    # Add data table headers
+    csv_headers = ['Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'Line Number', 'Code']
+    csv_lines.append(','.join(csv_headers))
+
+    # Add data rows
+    for row in result_data:
+        csv_row = []
+        for header in csv_headers:
+            value = row.get(header, ' ')
+            value_str = str(value) if value is not None else ' '
+            if value_str == '' or value_str == 'None':
+                value_str = ' '
+            # Escape commas and quotes in values
+            if ',' in value_str or '"' in value_str:
+                value_str = f'"{value_str.replace(chr(34), chr(34)+chr(34))}"'
+            csv_row.append(value_str)
+        csv_lines.append(','.join(csv_row))
+
+    return '\n'.join(csv_lines)
+
+
+@odBOQRoute.get("/sites/{site_record_id}/generate-boq")
+async def generate_boq_for_site(
+    site_record_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> str:
+    """
+    Generate BOQ for a specific site.
+
+    - site_record_id: The database ID (ODBOQSite.id)
+    - Returns: CSV-formatted string with BOQ data
+    """
+    # Get the site
+    site = db.query(ODBOQSite).filter(ODBOQSite.id == site_record_id).first()
+
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    # Check project access if site has a project_id
+    if site.project_id:
+        project = db.query(DUProject).filter(DUProject.pid_po == site.project_id).first()
+        if project and not check_du_project_access(current_user, project, db, "view"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this site's project."
+            )
+
+    # Generate BOQ CSV
+    csv_content = generate_boq_csv_for_site(site, db)
+
+    # Audit log
+    await create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="generate_boq",
+        resource_type="od_boq_site",
+        resource_id=str(site_record_id),
+        resource_name=site.site_id,
+        details=json.dumps({"site_id": site.site_id, "subscope": site.subscope}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
+    return csv_content
+
+
+@odBOQRoute.post("/sites/bulk-generate-boq", response_model=BOQGenerationResponse)
+async def bulk_generate_boq(
+    body: BOQGenerationRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Bulk generate BOQ for multiple sites.
+
+    - body.site_record_ids: List of ODBOQSite.id values
+    - Returns: BOQGenerationResponse with results for each site
+    """
+    results = []
+    successful = 0
+    failed = 0
+
+    # Batch fetch all sites at once (fixes N+1 query)
+    sites_map = {
+        s.id: s for s in db.query(ODBOQSite).filter(
+            ODBOQSite.id.in_(body.site_record_ids)
+        ).all()
+    }
+
+    # Batch fetch all projects at once (fixes N+1 query)
+    project_ids = [s.project_id for s in sites_map.values() if s.project_id]
+    projects_map = {}
+    if project_ids:
+        projects_map = {
+            p.pid_po: p for p in db.query(DUProject).filter(
+                DUProject.pid_po.in_(project_ids)
+            ).all()
+        }
+
+    for site_record_id in body.site_record_ids:
+        site = sites_map.get(site_record_id)
+
+        if not site:
+            results.append(BOQGenerationResult(
+                site_record_id=site_record_id,
+                site_id="unknown",
+                success=False,
+                error="Site not found"
+            ))
+            failed += 1
+            continue
+
+        try:
+            # Check project access using pre-fetched project
+            if site.project_id:
+                project = projects_map.get(site.project_id)
+                if project and not check_du_project_access(current_user, project, db, "view"):
+                    results.append(BOQGenerationResult(
+                        site_record_id=site_record_id,
+                        site_id=site.site_id,
+                        subscope=site.subscope,
+                        success=False,
+                        error="Access denied"
+                    ))
+                    failed += 1
+                    continue
+
+            # Generate BOQ CSV
+            csv_content = generate_boq_csv_for_site(site, db)
+
+            results.append(BOQGenerationResult(
+                site_record_id=site_record_id,
+                site_id=site.site_id,
+                subscope=site.subscope,
+                success=True,
+                csv_content=csv_content
+            ))
+            successful += 1
+
+        except HTTPException as e:
+            results.append(BOQGenerationResult(
+                site_record_id=site_record_id,
+                site_id=site.site_id,
+                subscope=site.subscope,
+                success=False,
+                error=e.detail
+            ))
+            failed += 1
+        except Exception as e:
+            logger.error(f"Error generating BOQ for site {site.site_id}: {str(e)}", exc_info=True)
+            results.append(BOQGenerationResult(
+                site_record_id=site_record_id,
+                site_id=site.site_id,
+                subscope=site.subscope,
+                success=False,
+                error="Failed to generate BOQ"
+            ))
+            failed += 1
+
+    # Audit log
+    await create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="bulk_generate_boq",
+        resource_type="od_boq_site",
+        resource_id="bulk",
+        details=json.dumps({
+            "site_record_ids": body.site_record_ids,
+            "successful": successful,
+            "failed": failed
+        }),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
+    return BOQGenerationResponse(
+        successful=successful,
+        failed=failed,
+        results=results
+    )
+
+
+def generate_boq_data_for_site(site: ODBOQSite, db: Session) -> dict:
+    """
+    Generate BOQ data for a single site in the format expected by the Excel template.
+    Returns a dictionary with site metadata and BOQ items.
+    """
+    # Query site products with qty > 0
+    site_products = db.query(
+        ODBOQSiteProduct,
+        ODBOQProduct
+    ).join(
+        ODBOQProduct, ODBOQSiteProduct.product_id == ODBOQProduct.id
+    ).filter(
+        ODBOQSiteProduct.site_record_id == site.id,
+        ODBOQSiteProduct.qty_per_site > 0
+    ).all()
+
+    if not site_products:
+        return {'error': f"No products found with qty_per_site > 0 for site '{site.site_id}'."}
+
+    # Build result data - use raw quantities as stored
+    result_data = []
+    for sp, product in site_products:
+        final_qty = sp.qty_per_site
+
+        # Convert float to int if it's a whole number (e.g., 2.0 -> 2)
+        if isinstance(final_qty, float) and final_qty == int(final_qty):
+            final_qty = int(final_qty)
+
+        result_data.append({
+            'line': product.line_number,
+            'bu': product.bu,
+            'item_job': product.code,  # ERP Item Code
+            'description': product.description,
+            'budget_line': product.category,
+            'qty': final_qty,
+            'unit_price': '',  # No CustomerPO, leave blank
+            'total_usd': '',
+            'total_aed': '',
+            'site_id_list': site.site_id,
+            'smp': site.smp or ''
+        })
+
+    # Get project details for header
+    project = db.query(DUProject).filter(DUProject.pid_po == site.project_id).first()
+    project_po = project.po if project else (site.project_id or 'N/A')
+
+    return {
+        'site_record_id': site.id,
+        'site_id': site.site_id,
+        'scope': site.scope,
+        'subscope': site.subscope,
+        'project_po': project_po,
+        'sps_category': site.subscope or 'N/A',
+        'smp': site.smp or '',
+        'data': result_data
+    }
+
+
+def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: bool = False) -> BytesIO:
+    """
+    Create an Excel file from the template with BOQ data.
+
+    Args:
+        boq_entries: List of BOQ entry dictionaries from generate_boq_data_for_site
+        template_path: Path to the Excel template file
+        is_bulk: If True, combine all entries in one sheet
+
+    Returns:
+        BytesIO object containing the Excel file
+    """
+    # Load the template
+    wb = load_workbook(template_path)
+    ws = wb.active
+
+    # Get max row and prepare template border
+    max_row = ws.max_row
+
+    # Get border style from template
+    template_border = None
+    if ws.max_row >= 9:
+        for col in range(2, 13):
+            sample_cell = ws.cell(row=9, column=col)
+            if sample_cell.border and sample_cell.border.left and sample_cell.border.left.style:
+                template_border = sample_cell.border.copy()
+                break
+
+    if template_border is None:
+        thin_side = Side(style='thin', color='000000')
+        template_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+
+    # Save footer rows
+    footer_rows = []
+    footer_start = None
+    if max_row >= 10:
+        for row_idx in range(max(10, max_row - 20), max_row + 1):
+            has_fill = False
+            for col_idx in range(1, 15):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if cell.fill and cell.fill.start_color and cell.fill.start_color.rgb and cell.fill.start_color.rgb != '00000000':
+                    has_fill = True
+                    footer_start = row_idx
+                    break
+            if has_fill:
+                break
+
+        if footer_start:
+            for row_idx in range(footer_start, max_row + 1):
+                row_data = []
+                for col_idx in range(1, 15):
+                    cell = ws.cell(row=row_idx, column=col_idx)
+                    row_data.append({
+                        'value': cell.value,
+                        'font': cell.font.copy() if cell.font else None,
+                        'fill': cell.fill.copy() if cell.fill else None,
+                        'border': cell.border.copy() if cell.border else None,
+                        'alignment': cell.alignment.copy() if cell.alignment else None
+                    })
+                footer_rows.append(row_data)
+            ws.delete_rows(10, max_row - 9)
+
+    if not is_bulk:
+        # Single site mode
+        if not boq_entries or len(boq_entries) == 0:
+            return None
+
+        entry = boq_entries[0]
+        if not entry.get('data') or len(entry['data']) == 0:
+            return None
+
+        # Update header
+        ws.cell(row=5, column=5).value = entry['project_po']
+        ws.cell(row=5, column=9).value = datetime.now().strftime('%d-%b-%y')
+        ws.cell(row=6, column=5).value = entry.get('scope', 'N/A')
+        ws.cell(row=6, column=9).value = entry.get('sps_category', 'N/A')
+        ws.cell(row=7, column=9).value = entry['site_id']
+
+        start_row = 10
+        sorted_data = sorted(entry['data'], key=lambda x: (x.get('line') is None, x.get('line') if x.get('line') is not None else 0))
+
+        for idx, item in enumerate(sorted_data):
+            row_num = start_row + idx
+
+            # Column mapping
+            ws.cell(row=row_num, column=1).value = ''
+            ws.cell(row=row_num, column=1).border = template_border
+            ws.cell(row=row_num, column=2).value = item.get('line')
+            ws.cell(row=row_num, column=2).border = template_border
+            ws.cell(row=row_num, column=3).value = item.get('bu')
+            ws.cell(row=row_num, column=3).border = template_border
+            ws.cell(row=row_num, column=4).value = item.get('item_job')
+            ws.cell(row=row_num, column=4).border = template_border
+            ws.cell(row=row_num, column=5).value = item.get('description')
+            ws.cell(row=row_num, column=5).border = template_border
+            ws.cell(row=row_num, column=6).value = ''
+            ws.cell(row=row_num, column=6).border = template_border
+            ws.cell(row=row_num, column=7).value = item.get('qty')
+            ws.cell(row=row_num, column=7).border = template_border
+            ws.cell(row=row_num, column=8).value = item.get('unit_price')
+            ws.cell(row=row_num, column=8).border = template_border
+            ws.cell(row=row_num, column=9).value = item.get('total_usd')
+            ws.cell(row=row_num, column=9).border = template_border
+            ws.cell(row=row_num, column=10).value = item.get('total_aed')
+            ws.cell(row=row_num, column=10).border = template_border
+            ws.cell(row=row_num, column=11).value = item.get('site_id_list')
+            ws.cell(row=row_num, column=11).border = template_border
+            ws.cell(row=row_num, column=12).value = item.get('smp')
+            ws.cell(row=row_num, column=12).border = template_border
+
+        # Apply bottom border to the last data row
+        if len(sorted_data) > 0:
+            last_row = start_row + len(sorted_data) - 1
+            thin_side = Side(style='thin', color='000000')
+            last_row_border = Border(
+                left=thin_side,
+                right=thin_side,
+                top=thin_side,
+                bottom=thin_side
+            )
+            for col in range(1, 13):
+                cell = ws.cell(row=last_row, column=col)
+                cell.border = last_row_border
+
+        # Restore footer
+        if footer_rows and len(sorted_data) > 0:
+            footer_start_row = start_row + len(sorted_data) + 1
+            for footer_idx, footer_row_data in enumerate(footer_rows):
+                row_num = footer_start_row + footer_idx
+                for col_idx, cell_data in enumerate(footer_row_data):
+                    cell = ws.cell(row=row_num, column=col_idx + 1)
+                    cell.value = cell_data['value']
+                    if cell_data['font']:
+                        cell.font = cell_data['font']
+                    if cell_data['fill']:
+                        cell.fill = cell_data['fill']
+                    if cell_data['border']:
+                        cell.border = cell_data['border']
+                    if cell_data['alignment']:
+                        cell.alignment = cell_data['alignment']
+    else:
+        # Bulk mode
+        if boq_entries and len(boq_entries) > 0:
+            first_entry = boq_entries[0]
+            ws.cell(row=5, column=5).value = first_entry['project_po']
+            ws.cell(row=5, column=9).value = datetime.now().strftime('%d-%b-%y')
+            ws.cell(row=6, column=5).value = "Multiple Scopes (Bulk)"
+            ws.cell(row=6, column=9).value = "Multiple Sites"
+            ws.cell(row=7, column=9).value = f"{len(boq_entries)} sites"
+
+        all_data = []
+        for entry in boq_entries:
+            for item in entry.get('data', []):
+                item_with_site = item.copy()
+                item_with_site['site_id_list'] = entry['site_id']
+                item_with_site['smp'] = entry.get('smp', '')
+                all_data.append(item_with_site)
+
+        # Sort by line number numerically (convert string to int for proper sorting)
+        def get_line_number_key(x):
+            line = x.get('line')
+            if line is None:
+                return (True, 0)  # None values go last
+            try:
+                return (False, int(line))
+            except (ValueError, TypeError):
+                return (False, 0)  # Non-numeric values sorted as 0
+        sorted_data = sorted(all_data, key=get_line_number_key)
+        start_row = 10
+
+        for idx, item in enumerate(sorted_data):
+            row_num = start_row + idx
+
+            ws.cell(row=row_num, column=1).value = ''
+            ws.cell(row=row_num, column=1).border = template_border
+            ws.cell(row=row_num, column=2).value = item.get('line')
+            ws.cell(row=row_num, column=2).border = template_border
+            ws.cell(row=row_num, column=3).value = item.get('bu')
+            ws.cell(row=row_num, column=3).border = template_border
+            ws.cell(row=row_num, column=4).value = item.get('item_job')
+            ws.cell(row=row_num, column=4).border = template_border
+            ws.cell(row=row_num, column=5).value = item.get('description')
+            ws.cell(row=row_num, column=5).border = template_border
+            ws.cell(row=row_num, column=6).value = ''
+            ws.cell(row=row_num, column=6).border = template_border
+            ws.cell(row=row_num, column=7).value = item.get('qty')
+            ws.cell(row=row_num, column=7).border = template_border
+            ws.cell(row=row_num, column=8).value = item.get('unit_price')
+            ws.cell(row=row_num, column=8).border = template_border
+            ws.cell(row=row_num, column=9).value = item.get('total_usd')
+            ws.cell(row=row_num, column=9).border = template_border
+            ws.cell(row=row_num, column=10).value = item.get('total_aed')
+            ws.cell(row=row_num, column=10).border = template_border
+            ws.cell(row=row_num, column=11).value = item.get('site_id_list')
+            ws.cell(row=row_num, column=11).border = template_border
+            ws.cell(row=row_num, column=12).value = item.get('smp')
+            ws.cell(row=row_num, column=12).border = template_border
+
+        # Apply bottom border to the last data row
+        if len(sorted_data) > 0:
+            last_row = start_row + len(sorted_data) - 1
+            thin_side = Side(style='thin', color='000000')
+            last_row_border = Border(
+                left=thin_side,
+                right=thin_side,
+                top=thin_side,
+                bottom=thin_side
+            )
+            for col in range(1, 13):
+                cell = ws.cell(row=last_row, column=col)
+                cell.border = last_row_border
+
+        # Restore footer
+        if footer_rows and len(sorted_data) > 0:
+            footer_start_row = start_row + len(sorted_data) + 1
+            for footer_idx, footer_row_data in enumerate(footer_rows):
+                row_num = footer_start_row + footer_idx
+                for col_idx, cell_data in enumerate(footer_row_data):
+                    cell = ws.cell(row=row_num, column=col_idx + 1)
+                    cell.value = cell_data['value']
+                    if cell_data['font']:
+                        cell.font = cell_data['font']
+                    if cell_data['fill']:
+                        cell.fill = cell_data['fill']
+                    if cell_data['border']:
+                        cell.border = cell_data['border']
+                    if cell_data['alignment']:
+                        cell.alignment = cell_data['alignment']
+
+    # Save to BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+@odBOQRoute.get("/sites/{site_record_id}/download-boq-excel")
+async def download_boq_excel(
+    site_record_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Download BOQ as Excel file for a specific site.
+
+    - site_record_id: The database ID (ODBOQSite.id)
+    - Returns: Excel file as StreamingResponse
+    """
+    # Get the site
+    site = db.query(ODBOQSite).filter(ODBOQSite.id == site_record_id).first()
+
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    # Check project access
+    if site.project_id:
+        project = db.query(DUProject).filter(DUProject.pid_po == site.project_id).first()
+        if project and not check_du_project_access(current_user, project, db, "view"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this site's project."
+            )
+
+    # Generate BOQ data
+    boq_data = generate_boq_data_for_site(site, db)
+
+    if 'error' in boq_data:
+        raise HTTPException(status_code=404, detail=boq_data['error'])
+
+    # Get template path
+    template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'BOQ Formate.xlsx')
+
+    if not os.path.exists(template_path):
+        raise HTTPException(
+            status_code=500,
+            detail="Excel template file not found. Please contact administrator."
+        )
+
+    # Create Excel from template
+    excel_file = create_excel_from_boq_data([boq_data], template_path, is_bulk=False)
+
+    if excel_file is None:
+        raise HTTPException(status_code=500, detail="Failed to generate Excel file")
+
+    # Create filename
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    filename = f"BOQ_{site.site_id}_{date_str}.xlsx"
+
+    # Audit log
+    await create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="download_boq_excel",
+        resource_type="od_boq_site",
+        resource_id=str(site_record_id),
+        resource_name=site.site_id,
+        details=json.dumps({"site_id": site.site_id, "subscope": site.subscope, "filename": filename}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@odBOQRoute.post("/download-boq-excel-from-csv")
+async def download_boq_excel_from_csv(
+    body: BOQExcelFromCSVRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Download BOQ as Excel file from edited CSV data.
+
+    - body.site_record_id: The database ID
+    - body.site_id: The site ID string (for filename)
+    - body.csv_data: 2D array of CSV data
+    - Returns: Excel file as StreamingResponse
+    """
+    # Create DataFrame from 2D array
+    df = pd.DataFrame(body.csv_data)
+
+    # Write to Excel
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='BOQ', index=False, header=False)
+    output.seek(0)
+
+    # Create filename
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    filename = f"BOQ_{body.site_id}_{date_str}.xlsx"
+
+    # Audit log
+    await create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="download_boq_excel_from_csv",
+        resource_type="od_boq_site",
+        resource_id=str(body.site_record_id),
+        resource_name=body.site_id,
+        details=json.dumps({"site_id": body.site_id, "filename": filename, "rows": len(body.csv_data)}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@odBOQRoute.post("/sites/bulk-download-boq-zip")
+async def bulk_download_boq_excel(
+    body: BOQGenerationRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Bulk download BOQ as a single Excel file with all sites combined, ordered by BPO Line No.
+
+    - body.site_record_ids: List of ODBOQSite.id values
+    - Returns: Single Excel file as StreamingResponse
+    """
+    # Get template path
+    template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'BOQ Formate.xlsx')
+
+    if not os.path.exists(template_path):
+        raise HTTPException(
+            status_code=500,
+            detail="Excel template file not found. Please contact administrator."
+        )
+
+    # Collect all BOQ data from all sites
+    all_boq_entries = []
+
+    for site_record_id in body.site_record_ids:
+        try:
+            # Get the site
+            site = db.query(ODBOQSite).filter(ODBOQSite.id == site_record_id).first()
+
+            if not site:
+                continue
+
+            # Check project access
+            if site.project_id:
+                project = db.query(DUProject).filter(DUProject.pid_po == site.project_id).first()
+                if project and not check_du_project_access(current_user, project, db, "view"):
+                    continue
+
+            # Generate BOQ data
+            boq_data = generate_boq_data_for_site(site, db)
+
+            if 'error' in boq_data:
+                logger.warning(f"No BOQ data for site {site_record_id}: {boq_data['error']}")
+                continue
+
+            all_boq_entries.append(boq_data)
+
+        except Exception as e:
+            logger.warning(f"Failed to generate BOQ for site {site_record_id}: {str(e)}")
+            continue
+
+    if not all_boq_entries:
+        raise HTTPException(
+            status_code=404,
+            detail="No BOQ data found for any of the selected sites."
+        )
+
+    # Create single Excel from template with all entries combined (is_bulk=True)
+    excel_file = create_excel_from_boq_data(all_boq_entries, template_path, is_bulk=True)
+
+    if excel_file is None:
+        raise HTTPException(status_code=500, detail="Failed to generate Excel file")
+
+    # Create filename
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    filename = f"BOQ_Bulk_{len(all_boq_entries)}_sites_{date_str}.xlsx"
+
+    # Audit log
+    await create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="bulk_download_boq_excel",
+        resource_type="od_boq_site",
+        resource_id="bulk",
+        details=json.dumps({
+            "site_record_ids": body.site_record_ids,
+            "sites_included": len(all_boq_entries),
+            "filename": filename
+        }),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@odBOQRoute.post("/sites/bulk-download-boq-excel-from-edited")
+async def bulk_download_boq_excel_from_edited(
+    body: BulkBOQExcelFromEditedRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Bulk download BOQ as a single Excel file from edited CSV data.
+    This endpoint accepts the modified data from the frontend modal.
+
+    - body.sites_data: List of edited site data with csv_data arrays
+    - Returns: Single Excel file as StreamingResponse
+    """
+    try:
+        # Get template path
+        template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'BOQ Formate.xlsx')
+
+        if not os.path.exists(template_path):
+            raise HTTPException(
+                status_code=500,
+                detail="Excel template file not found. Please contact administrator."
+            )
+
+        if not body.sites_data:
+            raise HTTPException(
+                status_code=400,
+                detail="No site data provided."
+            )
+
+        # Convert edited CSV data to BOQ entries format expected by create_excel_from_boq_data
+        all_boq_entries = []
+
+        for site_data in body.sites_data:
+            csv_data = site_data.csv_data
+            # Skip header rows (first 6 rows are metadata/headers in the CSV modal)
+            # Find where the data rows start (after "Description" header row)
+            data_start_idx = 6  # Default: data starts at row 6 (after 5 metadata + 1 header)
+
+            for i, row in enumerate(csv_data):
+                if row and len(row) > 0:
+                    # Check for Description header (strip whitespace for comparison)
+                    first_cell = str(row[0]).strip()
+                    if first_cell == 'Description':
+                        data_start_idx = i + 1
+                        break
+
+            # Extract data rows
+            boq_items = []
+            for row in csv_data[data_start_idx:]:
+                if row and len(row) >= 1:
+                    # CSV format: Description, Category, BU, UOM, BOQ Qty, Line Number, Code
+                    description = str(row[0]).strip() if len(row) > 0 else ''
+                    category = str(row[1]).strip() if len(row) > 1 else ''
+                    bu = str(row[2]).strip() if len(row) > 2 else ''
+                    uom = str(row[3]).strip() if len(row) > 3 else ''
+                    qty_str = str(row[4]).strip() if len(row) > 4 else ''
+                    line_number = str(row[5]).strip() if len(row) > 5 else ''
+                    code = str(row[6]).strip() if len(row) > 6 else ''
+
+                    # Skip empty rows
+                    if not description and not code:
+                        continue
+
+                    # Parse quantity
+                    try:
+                        qty = float(qty_str) if qty_str else 0
+                    except (ValueError, TypeError):
+                        qty = 0
+
+                    boq_items.append({
+                        'line': line_number,
+                        'bu': bu,
+                        'item_job': code,
+                        'description': description,
+                        'qty': qty,
+                        'unit_price': '',
+                        'total_usd': '',
+                        'total_aed': ''
+                    })
+
+            if boq_items:
+                all_boq_entries.append({
+                    'site_id': site_data.site_id,
+                    'subscope': site_data.subscope,
+                    'smp': site_data.smp or '',
+                    'project_po': 'N/A',  # Required by create_excel_from_boq_data
+                    'scope': site_data.subscope or 'N/A',
+                    'sps_category': site_data.subscope or 'N/A',
+                    'data': boq_items
+                })
+
+        if not all_boq_entries:
+            raise HTTPException(
+                status_code=400,
+                detail="No valid BOQ data found in the edited data."
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing bulk edited data: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error processing data. Please check your input and try again.")
+
+    try:
+        # Create single Excel from template with all entries combined (is_bulk=True)
+        excel_file = create_excel_from_boq_data(all_boq_entries, template_path, is_bulk=True)
+
+        if excel_file is None:
+            raise HTTPException(status_code=500, detail="Failed to generate Excel file")
+
+        # Create filename
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        filename = f"BOQ_Bulk_{len(all_boq_entries)}_sites_{date_str}.xlsx"
+
+        # Audit log
+        await create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="bulk_download_boq_excel_from_edited",
+            resource_type="od_boq_site",
+            resource_id="bulk_edited",
+            details=json.dumps({
+                "sites_count": len(body.sites_data),
+                "sites_included": len(all_boq_entries),
+                "filename": filename
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
+        return StreamingResponse(
+            excel_file,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating Excel from edited data: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error generating Excel file. Please try again.")

@@ -1,9 +1,11 @@
 from typing import Optional
-from fastapi import status, Query, HTTPException, Depends, APIRouter, UploadFile, File
+from fastapi import status, Query, HTTPException, Depends, APIRouter, UploadFile, File, Request
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 import csv
 import io
+import json
+import logging
 
 # Core and Schema Imports
 from APIs.Core import get_db, get_current_user
@@ -12,8 +14,73 @@ from Schemas.BOQ.POReportSchema import POReportOut, POReportCreate, POReportUpda
 # Model Imports
 from Models.BOQ.POReport import POReport
 from Models.Admin.User import User
+from Models.Admin.AuditLog import AuditLog
 
+logger = logging.getLogger(__name__)
 POReportRouter = APIRouter(prefix="/po-report", tags=["PO Report"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
+
+
+def require_approval_access(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Dependency that checks if user has access to any approval stage.
+    Only users with approval, triggering, or logistics access can view PO Report data.
+    Senior admins always have access.
+    """
+    # Senior admin always has access
+    if current_user.role and current_user.role.name == "senior_admin":
+        return current_user
+
+    # Check if user has any approval permission
+    has_access = (
+        current_user.can_access_approval or
+        current_user.can_access_triggering or
+        current_user.can_access_logistics
+    )
+
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You need approval, triggering, or logistics access to view PO Report data."
+        )
+
+    return current_user
 
 
 # --- CRUD ENDPOINTS ---
@@ -24,7 +91,7 @@ def list_reports(
         limit: int = Query(100, ge=1, le=500),
         search: Optional[str] = Query(None, description="Search across all fields"),
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(require_approval_access)
 ):
     """
     List all PO reports with optional filtering and pagination.
@@ -60,8 +127,9 @@ def list_reports(
 @POReportRouter.post("/report", response_model=POReportOut, status_code=status.HTTP_201_CREATED)
 def create_report(
         payload: POReportCreate,
+        request: Request,
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(require_approval_access)
 ):
     """
     Create a new PO report.
@@ -71,6 +139,20 @@ def create_report(
     db.add(new_report)
     db.commit()
     db.refresh(new_report)
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="create",
+        resource_type="POReport",
+        resource_id=str(new_report.id),
+        resource_name=new_report.project or "PO Report",
+        details=json.dumps({"so_number": new_report.so_number, "project": new_report.project}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
     return POReportOut.model_validate(new_report).model_dump(by_alias=True)
 
 
@@ -78,7 +160,7 @@ def create_report(
 def get_report(
         id: str,
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(require_approval_access)
 ):
     """
     Get a specific PO report by ID.
@@ -97,8 +179,9 @@ def get_report(
 def update_report(
         id: str,
         payload: POReportUpdate,
+        request: Request,
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(require_approval_access)
 ):
     """
     Update an existing PO report.
@@ -118,14 +201,29 @@ def update_report(
     db.add(report)
     db.commit()
     db.refresh(report)
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="update",
+        resource_type="POReport",
+        resource_id=str(id),
+        resource_name=report.project or "PO Report",
+        details=json.dumps(update_data),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
     return POReportOut.model_validate(report).model_dump(by_alias=True)
 
 
 @POReportRouter.delete("/report/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_report(
         id: str,
+        request: Request,
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(require_approval_access)
 ):
     """
     Delete a PO report.
@@ -137,16 +235,34 @@ def delete_report(
             detail=f"Report with id '{id}' not found"
         )
 
+    # Store for audit
+    report_project = report.project
+
     db.delete(report)
     db.commit()
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="delete",
+        resource_type="POReport",
+        resource_id=str(id),
+        resource_name=report_project or "PO Report",
+        details=None,
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
     return
 
 
 @POReportRouter.post("/upload-csv", response_model=POReportUploadResponse)
 async def upload_csv(
+        request: Request,
         file: UploadFile = File(...),
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(require_approval_access)
 ):
     """
     Upload a CSV file to bulk import PO reports.
@@ -264,6 +380,23 @@ async def upload_csv(
         if batch_count > 0:
             db.commit()
 
+        # Create audit log for upload
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="upload_csv",
+            resource_type="POReport",
+            resource_id=None,
+            resource_name=file.filename,
+            details=json.dumps({
+                "total_rows": total_rows,
+                "successful_rows": successful_rows,
+                "failed_rows": failed_rows
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return POReportUploadResponse(
             message=f"CSV upload completed. {successful_rows} records imported successfully.",
             total_rows=total_rows,
@@ -282,9 +415,10 @@ async def upload_csv(
 
 @POReportRouter.delete("/delete-all", status_code=status.HTTP_200_OK)
 def delete_all_reports(
+        request: Request,
         confirm: bool = Query(False, description="Must be true to confirm deletion"),
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+        current_user: User = Depends(require_approval_access)
 ):
     """
     Delete all PO reports. Requires confirmation.
@@ -306,6 +440,19 @@ def delete_all_reports(
     count = db.query(POReport).delete()
 
     db.commit()
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="delete_all",
+        resource_type="POReport",
+        resource_id=None,
+        resource_name="All PO Reports",
+        details=json.dumps({"deleted_count": count}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
 
     return {
         "message": f"Successfully deleted {count} PO report(s).",

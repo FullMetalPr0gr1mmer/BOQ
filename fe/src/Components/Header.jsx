@@ -6,7 +6,7 @@ import '../css/header.css';
 const boqTabs = ['Project', 'Site', 'Inventory', 'Level1', 'Level3', 'BOQ Generation', 'LLD', 'Dismantling', 'LogOut'];
 const leAutomationTabs = ['ROP Project', 'ROP Package', 'LogOut'];
 const ranBoqTabs = ['Ran Projects', 'RAN BOQ Generation', 'Ran Level3', 'Ran Inventory', 'Ran Antenna Serials', 'LogOut'];
-const du5gTabs = ['DU Projects', 'DU BOQ Generation', 'DU BOQ Items', 'DU Customer PO', 'LogOut'];
+const du5gTabs = ['DU Projects', 'DU BOQ Items', 'LogOut'];
 const duLogisticsTabs = ['Projects', 'Invoices', 'LogOut'];
 
 export default function Header({ onLogout, activeSection, user }) {
@@ -35,12 +35,14 @@ export default function Header({ onLogout, activeSection, user }) {
     fetchPermissions();
   }, []);
 
-  // Show approval tabs when on approvals page
-  const isApprovalsPage = location.pathname.startsWith('/approvals') || location.pathname.startsWith('/triggering') || location.pathname.startsWith('/logistics');
+  // Show approval tabs when on approvals page (includes PO Report and Price Book)
+  const isApprovalsPage = location.pathname.startsWith('/approvals') || location.pathname.startsWith('/triggering') || location.pathname.startsWith('/logistics') || location.pathname.startsWith('/po-report') || location.pathname.startsWith('/price-book');
 
   // OPTIMIZED: Memoize approval tabs to prevent re-creation on every render
   const approvalTabs = useMemo(() => {
     const tabs = [];
+    const hasAnyAccess = approvalPermissions.can_access_approval || approvalPermissions.can_access_triggering || approvalPermissions.can_access_logistics;
+
     if (approvalPermissions.can_access_approval) {
       tabs.push('Approvals');
     }
@@ -49,6 +51,11 @@ export default function Header({ onLogout, activeSection, user }) {
     }
     if (approvalPermissions.can_access_logistics) {
       tabs.push('Logistics');
+    }
+    // Only show PO Report and Price Book if user has any approval access
+    if (hasAnyAccess) {
+      tabs.push('PO Report');
+      tabs.push('Price Book');
     }
     tabs.push('LogOut');
     return tabs;

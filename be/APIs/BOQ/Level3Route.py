@@ -1,14 +1,55 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import List
+import json
+import logging
 
 from APIs.Core import get_db, get_current_user
 from Models.BOQ.Levels import Lvl3, ItemsForLvl3
 from Models.BOQ.Project import Project
 from Models.Admin.User import User, UserProjectAccess
+from Models.Admin.AuditLog import AuditLog
 from Schemas.BOQ.LevelsSchema import Lvl3Create, Lvl3Out, Lvl3Update, ItemsForLvl3Create, ItemsForLvl3Out
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/lvl3", tags=["Lvl3"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 def check_project_access(current_user: User, project_id: str, db: Session, required_permission: str = "view"):
@@ -105,6 +146,7 @@ def get_user_accessible_projects(current_user: User, db: Session) -> List[str]:
 @router.post("/create", response_model=Lvl3Out)
 def create_lvl3(
         payload: Lvl3Create,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -132,6 +174,20 @@ def create_lvl3(
         db.add(lvl3)
         db.commit()
         db.refresh(lvl3)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="Lvl3",
+            resource_id=str(lvl3.id),
+            resource_name=payload.item_name,
+            details=json.dumps({"project_id": payload.project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return lvl3
     except Exception as e:
         db.rollback()
@@ -209,6 +265,7 @@ def get_lvl3_by_id(
 def update_lvl3(
         lvl3_id: int,
         payload: Lvl3Update,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -237,6 +294,20 @@ def update_lvl3(
 
         db.commit()
         db.refresh(lvl3)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="Lvl3",
+            resource_id=str(lvl3_id),
+            resource_name=lvl3.item_name,
+            details=json.dumps({"project_id": lvl3.project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return lvl3
     except Exception as e:
         db.rollback()
@@ -250,6 +321,7 @@ def update_lvl3(
 @router.delete("/{lvl3_id}")
 def delete_lvl3(
         lvl3_id: int,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -269,9 +341,27 @@ def delete_lvl3(
             detail="You are not authorized to delete this Lvl3 record. Contact the Senior Admin."
         )
 
+    # Store for audit
+    item_name = lvl3.item_name
+    project_id = lvl3.project_id
+
     try:
         db.delete(lvl3)
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="Lvl3",
+            resource_id=str(lvl3_id),
+            resource_name=item_name,
+            details=json.dumps({"project_id": project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"detail": "Lvl3 deleted successfully"}
     except Exception as e:
         db.rollback()
@@ -288,6 +378,7 @@ def delete_lvl3(
 def add_item_to_lvl3(
         lvl3_id: int,
         payload: ItemsForLvl3Create,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -324,6 +415,20 @@ def add_item_to_lvl3(
         db.add(new_item)
         db.commit()
         db.refresh(new_item)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="ItemsForLvl3",
+            resource_id=str(new_item.id),
+            resource_name=payload.item_name,
+            details=json.dumps({"lvl3_id": lvl3_id, "project_id": lvl3.project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return new_item
     except Exception as e:
         db.rollback()
@@ -338,6 +443,7 @@ def add_item_to_lvl3(
 def bulk_add_items_to_lvl3(
         lvl3_id: int,
         items_payload: List[ItemsForLvl3Create],
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -391,6 +497,19 @@ def bulk_add_items_to_lvl3(
             db.refresh(item)
         db.refresh(lvl3)
 
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="bulk_create",
+            resource_type="ItemsForLvl3",
+            resource_id=str(lvl3_id),
+            resource_name=f"Bulk add {len(new_items)} items",
+            details=json.dumps({"lvl3_id": lvl3_id, "project_id": lvl3.project_id, "items_count": len(new_items)}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return new_items
     except Exception as e:
         db.rollback()
@@ -406,6 +525,7 @@ def update_item_for_lvl3(
         lvl3_id: int,
         item_id: int,
         payload: ItemsForLvl3Create,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -439,6 +559,20 @@ def update_item_for_lvl3(
 
         db.commit()
         db.refresh(item)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="ItemsForLvl3",
+            resource_id=str(item_id),
+            resource_name=item.item_name,
+            details=json.dumps({"lvl3_id": lvl3_id, "project_id": lvl3.project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return item
     except Exception as e:
         db.rollback()
@@ -453,6 +587,7 @@ def update_item_for_lvl3(
 def delete_item_for_lvl3(
         lvl3_id: int,
         item_id: int,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -478,9 +613,27 @@ def delete_item_for_lvl3(
             detail="You are not authorized to delete items from this Lvl3 record. Contact the Senior Admin."
         )
 
+    # Store for audit
+    item_name = item.item_name
+    project_id = lvl3.project_id
+
     try:
         db.delete(item)
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="ItemsForLvl3",
+            resource_id=str(item_id),
+            resource_name=item_name,
+            details=json.dumps({"lvl3_id": lvl3_id, "project_id": project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"detail": "Item deleted successfully"}
     except Exception as e:
         db.rollback()

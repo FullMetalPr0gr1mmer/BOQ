@@ -25,9 +25,7 @@ import RANInventory from './RanComponents/RanInventory';
 import RANAntennaSerials from './RanComponents/RANAntennaSerials';
 import RanProjects from './RanComponents/RanProjects';
 import DUProjects from './DUComponents/DUProjects';
-import RolloutSheet from './DUComponents/RolloutSheet';
 import ODBOQItems from './DUComponents/ODBOQItems';
-import CustomerPO from './DUComponents/CustomerPO';
 import DURPALogistics from './DUComponents/DURPALogistics';
 import NDPDData from './NDPDComponents/NDPDData';
 import Approvals from './Components/Approvals';
@@ -134,10 +132,7 @@ function AppContent() {
               <Route path="/ran-antenna-serials" element={<RANAntennaSerials />} />
               <Route path="/ran-projects" element={<RanProjects />} />
               <Route path="/du-projects" element={<DUProjects />} />
-              <Route path="/du-rollout-sheet" element={<RolloutSheet />} />
-              <Route path="/du-boq-generation" element={<RolloutSheet />} />
               <Route path="/du-boq-items" element={<ODBOQItems />} />
-              <Route path="/du-customer-po" element={<CustomerPO />} />
               <Route path="/projects" element={<DURPALogistics />} />
               <Route path="/invoices" element={<DURPALogistics />} />
               <Route path="/ndpd-data" element={<NDPDData />} />
