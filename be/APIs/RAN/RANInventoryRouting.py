@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import csv
 import io
+import json
+import logging
 
 from APIs.Core import safe_int, get_db, get_current_user
 from utils.file_validation import validate_csv_file  # SECURITY: File upload validation
 from Models.Admin.User import UserProjectAccess, User
+from Models.Admin.AuditLog import AuditLog
+
+logger = logging.getLogger(__name__)
 from Schemas.RAN.RANInventorySchema import (
     RANInventoryCreate,
     RANInventoryInDB,
@@ -19,6 +24,43 @@ RANInventoryRouter = APIRouter(
     prefix="/raninventory",
     tags=["RANInventory"]
 )
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 # --------------------------------------------------------------------------------
@@ -145,6 +187,7 @@ def delete_raninventory(db: Session, raninventory_id: int):
 @RANInventoryRouter.post("/", response_model=RANInventoryInDB, status_code=status.HTTP_201_CREATED)
 def create_ran_inventory(
         raninventory_data: RANInventoryCreate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -166,6 +209,20 @@ def create_ran_inventory(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Error creating RAN Inventory record"
             )
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="RANInventory",
+            resource_id=str(db_raninventory.id),
+            resource_name=db_raninventory.serial_number,
+            details=json.dumps({"pid_po": raninventory_data.pid_po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return db_raninventory
     except Exception as e:
         db.rollback()
@@ -276,6 +333,7 @@ def get_ran_inventory_by_id(
 def update_ran_inventory_record(
         raninventory_id: int,
         raninventory_data: RANInventoryUpdate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -298,6 +356,20 @@ def update_ran_inventory_record(
     try:
         db_raninventory = update_raninventory(db=db, raninventory_id=raninventory_id,
                                               raninventory_data=raninventory_data)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="RANInventory",
+            resource_id=str(raninventory_id),
+            resource_name=db_raninventory.serial_number,
+            details=json.dumps({"pid_po": db_raninventory.pid_po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return db_raninventory
     except Exception as e:
         db.rollback()
@@ -310,6 +382,7 @@ def update_ran_inventory_record(
 @RANInventoryRouter.delete("/{raninventory_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_ran_inventory_record(
         raninventory_id: int,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -329,10 +402,28 @@ def delete_ran_inventory_record(
                 detail="You are not authorized to delete this RAN Inventory record. Contact the Senior Admin."
             )
 
+    # Store for audit
+    serial_number = existing_record.serial_number
+    pid_po = existing_record.pid_po
+
     try:
         success = delete_raninventory(db=db, raninventory_id=raninventory_id)
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RAN Inventory record not found")
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="RANInventory",
+            resource_id=str(raninventory_id),
+            resource_name=serial_number,
+            details=json.dumps({"pid_po": pid_po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": "RAN Inventory record deleted successfully"}
     except Exception as e:
         db.rollback()
@@ -344,6 +435,7 @@ def delete_ran_inventory_record(
 
 @RANInventoryRouter.post("/upload-csv", response_model=dict)
 async def upload_ran_inventory_csv(
+        request: Request,
         file: UploadFile = File(...),
         pid_po: str = Form(...),
         db: Session = Depends(get_db),
@@ -398,6 +490,19 @@ async def upload_ran_inventory_csv(
             db.bulk_insert_mappings(RANInventory, bulk_data)
             db.commit()
 
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="upload_csv",
+            resource_type="RANInventory",
+            resource_id=pid_po,
+            resource_name=file.filename,
+            details=json.dumps({"pid_po": pid_po, "rows_inserted": len(bulk_data)}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": f"Successfully added {len(bulk_data)} records from CSV with pid_po: {pid_po}"}
 
     except Exception as e:
@@ -411,6 +516,7 @@ async def upload_ran_inventory_csv(
 @RANInventoryRouter.delete("/delete-all-inventory/{pid_po}")
 def delete_all_ran_inventory_for_project(
         pid_po: str,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -440,6 +546,19 @@ def delete_all_ran_inventory_for_project(
         inventory_deleted = db.query(RANInventory).filter(RANInventory.pid_po == pid_po).delete(synchronize_session=False)
 
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete_all",
+            resource_type="RANInventory",
+            resource_id=pid_po,
+            resource_name=f"All inventory for {pid_po}",
+            details=json.dumps({"pid_po": pid_po, "deleted_count": inventory_deleted}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return {
             "message": "All RAN inventory deleted successfully",

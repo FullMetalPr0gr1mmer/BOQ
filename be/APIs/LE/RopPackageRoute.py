@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import json
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import insert, delete, select, and_, update, func
 from typing import List, Optional
@@ -6,7 +8,10 @@ from typing import List, Optional
 # --- Core Imports for Security and DB ---
 from APIs.Core import get_db, get_current_user
 from Models.Admin.User import User, UserProjectAccess
+from Models.Admin.AuditLog import AuditLog
 from Models.LE.ROPProject import ROPProject
+
+logger = logging.getLogger(__name__)
 
 # --- Model and Schema Imports ---
 from Models.LE.RopPackages import RopPackage, rop_package_lvl1
@@ -20,6 +25,43 @@ from APIs.LE.SharedMethods import (
 )
 
 RopPackageRouter = APIRouter(prefix="/rop-package", tags=["Rop Packages"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 def check_rop_project_access(
@@ -134,6 +176,7 @@ def recompute_consumption_for_lvl1_ids(db: Session, lvl1_ids: list[str]):
 @RopPackageRouter.post("/create", response_model=RopPackageOut)
 def create_package(
         data: RopPackageCreate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -223,7 +266,20 @@ def create_package(
         # recompute consumption for affected lvl1 ids
         recompute_consumption_for_lvl1_ids(db, affected_lvl1_ids)
 
-    # 7. Build response
+    # 7. Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="create",
+        resource_type="RopPackage",
+        resource_id=str(new_pkg.id),
+        resource_name=new_pkg.package_name,
+        details=json.dumps({"project_id": data.project_id}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
+    # 8. Build response
     return build_package_response(new_pkg.id, db)
 
 
@@ -290,6 +346,7 @@ def get_package(
 def update_package(
         id: int,
         data: RopPackageUpdate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -364,6 +421,19 @@ def update_package(
     if data.lvl1_ids is not None:
         recompute_consumption_for_lvl1_ids(db, affected_lvl1_ids)
 
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="update",
+        resource_type="RopPackage",
+        resource_id=str(id),
+        resource_name=pkg.package_name,
+        details=json.dumps({"project_id": pkg.project_id}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
     return build_package_response(id, db)
 
 
@@ -371,6 +441,7 @@ def update_package(
 @RopPackageRouter.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_package(
         id: int,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -385,6 +456,10 @@ def delete_package(
             detail="You are not authorized to delete this package."
         )
 
+    # Store for audit
+    package_name = pkg.package_name
+    project_id = pkg.project_id
+
     # Capture affected lvl1 ids before deleting links via cascade
     affected_lvl1_ids = [
         r[0] for r in db.execute(
@@ -398,6 +473,19 @@ def delete_package(
     # Recompute consumption for affected lvl1s
     if affected_lvl1_ids:
         recompute_consumption_for_lvl1_ids(db, affected_lvl1_ids)
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="delete",
+        resource_type="RopPackage",
+        resource_id=str(id),
+        resource_name=package_name,
+        details=json.dumps({"project_id": project_id}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
 
 
 # UTILITY ENDPOINTS

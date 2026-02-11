@@ -1,11 +1,16 @@
 from typing import List
+import json
+import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from APIs.Core import get_db, get_current_user
 from Models.Admin.User import UserProjectAccess, User
+from Models.Admin.AuditLog import AuditLog
+
+logger = logging.getLogger(__name__)
 from Models.RAN import RANProject
 from Models.RAN.RANProject import RanProject
 from Schemas.RAN.RANProjectSchema import CreateRANProject, UpdateRANProject, RANProjectOUT, UpdatePOSchema, UpdatePOResponse
@@ -15,6 +20,43 @@ from Models.RAN.RANLvl3 import RANLvl3
 from Models.RAN.RAN_LLD import RAN_LLD
 
 RANProjectRoute = APIRouter(prefix="/ran-projects", tags=["RANProjects"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 def check_ran_project_access(current_user: User, project: RANProject, db: Session, required_permission: str = "view"):
@@ -91,6 +133,7 @@ def get_user_accessible_ran_projects(current_user: User, db: Session) -> List[RA
 @RANProjectRoute.post("", response_model=CreateRANProject)
 def add_ran_project(
         project_data: CreateRANProject,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -119,6 +162,20 @@ def add_ran_project(
         db.add(new_project_db)
         db.commit()
         db.refresh(new_project_db)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="RANProject",
+            resource_id=pid_po,
+            resource_name=project_data.project_name,
+            details=json.dumps({"pid": project_data.pid, "po": project_data.po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return new_project_db
     except Exception as e:
         db.rollback()
@@ -205,6 +262,7 @@ def get_ran_project(
 def update_ran_project(
         pid_po: str,
         update_data: UpdateRANProject,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -231,6 +289,20 @@ def update_ran_project(
 
         db.commit()
         db.refresh(project)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="RANProject",
+            resource_id=pid_po,
+            resource_name=project.project_name,
+            details=json.dumps({"project_name": update_data.project_name}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return project
     except Exception as e:
         db.rollback()
@@ -243,6 +315,7 @@ def update_ran_project(
 @RANProjectRoute.delete("/{pid_po}")
 def delete_ran_project(
         pid_po: str,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -262,10 +335,27 @@ def delete_ran_project(
             detail="You are not authorized to delete this RAN project. Contact the Senior Admin."
         )
 
+    # Store for audit
+    project_name = project.project_name
+
     # Delete the project
     try:
         db.delete(project)
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="RANProject",
+            resource_id=pid_po,
+            resource_name=project_name,
+            details=None,
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": f"RAN Project '{pid_po}' deleted successfully"}
     except Exception as e:
         db.rollback()
@@ -336,6 +426,7 @@ def check_user_ran_project_permission(
 def update_project_purchase_order(
         old_pid_po: str,
         update_data: UpdatePOSchema,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -447,6 +538,23 @@ def update_project_purchase_order(
 
         # Calculate total records updated
         total_records_updated = sum(affected_tables.values())
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update_po",
+            resource_type="RANProject",
+            resource_id=new_pid_po,
+            resource_name=new_project.project_name,
+            details=json.dumps({
+                "old_pid_po": old_pid_po,
+                "new_pid_po": new_pid_po,
+                "total_records_updated": total_records_updated
+            }),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return UpdatePOResponse(
             old_pid_po=old_pid_po,

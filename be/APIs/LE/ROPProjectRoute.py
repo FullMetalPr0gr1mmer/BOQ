@@ -1,9 +1,10 @@
 import csv
 import io
+import json
 import logging
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 from typing import List
 from sqlalchemy import and_
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 from APIs.Core import get_db, get_current_user
 from Models.Admin.User import UserProjectAccess, User
+from Models.Admin.AuditLog import AuditLog
 from APIs.LE.ROPLvl1Route import create_lvl1
 from APIs.LE.ROPLvl2Route import create_lvl2
 from Models.LE.ROPProject import ROPProject
@@ -25,6 +27,43 @@ from Schemas.LE.ROPLvl2Schema import ROPLvl2DistributionCreate, ROPLvl2Create
 from Schemas.LE.ROPProjectSchema import ROPProjectCreate, ROPProjectOut
 
 ROPProjectrouter = APIRouter(prefix="/rop-projects", tags=["ROP Projects"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 # --------------------------------------------------------------------------------
@@ -108,6 +147,7 @@ def get_user_accessible_rop_projects(current_user: User, db: Session) -> List[RO
 @ROPProjectrouter.post("/", response_model=ROPProjectOut)
 def create_project(
         project: ROPProjectCreate,
+        request: Request = None,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -143,6 +183,21 @@ def create_project(
             db.add(access)
         db.commit()
         db.refresh(new_project)
+
+        # Create audit log
+        if request:
+            create_audit_log_sync(
+                db=db,
+                user_id=current_user.id,
+                action="create",
+                resource_type="ROPProject",
+                resource_id=new_project.pid_po,
+                resource_name=new_project.project_name,
+                details=json.dumps({"pid": project.pid, "po": project.po}),
+                ip_address=get_client_ip(request),
+                user_agent=request.headers.get("User-Agent")
+            )
+
         return new_project
     except Exception as e:
         db.rollback()
@@ -201,6 +256,7 @@ def get_project(
 def update_project(
         pid_po: str,
         data: ROPProjectCreate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -228,6 +284,20 @@ def update_project(
             setattr(project, key, value)
         db.commit()
         db.refresh(project)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="ROPProject",
+            resource_id=pid_po,
+            resource_name=project.project_name,
+            details=json.dumps(data.dict(exclude={"pid", "po"})),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return project
     except Exception as e:
         db.rollback()
@@ -240,6 +310,7 @@ def update_project(
 @ROPProjectrouter.delete("/{pid_po}")
 def delete_project(
         pid_po: str,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -260,6 +331,9 @@ def delete_project(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to delete this ROP project. Contact the Senior Admin."
         )
+
+    # Store for audit
+    project_name = project.project_name
 
     try:
         # 1) Delete association table rows for packages of this project
@@ -297,6 +371,19 @@ def delete_project(
         # 8) Finally delete the project
         db.delete(project)
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="ROPProject",
+            resource_id=pid_po,
+            resource_name=project_name,
+            details=json.dumps({"cascade_deleted": True}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return {"detail": "Project and related data deleted successfully"}
 
@@ -413,6 +500,7 @@ def safe_int(value, default=0):
 
 @ROPProjectrouter.post("/upload-csv")
 async def upload_csv(
+        request: Request,
         file: UploadFile = File(...),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
@@ -516,6 +604,19 @@ async def upload_csv(
             else:
                 raise HTTPException(status_code=400, detail=f"Unknown level: {level}")
 
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="upload_csv",
+            resource_type="ROPProject",
+            resource_id=project_id,
+            resource_name=file.filename,
+            details=json.dumps({"project_name": project_name}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": "CSV processed successfully"}
 
     except Exception as e:
@@ -525,6 +626,7 @@ async def upload_csv(
 
 @ROPProjectrouter.post("/upload-csv-fix")
 async def upload_csv_fix(
+        request: Request,
         pid: str = Form(...),
         po: str = Form(...),
         project_name: str = Form(...),
@@ -616,6 +718,19 @@ async def upload_csv_fix(
 
             else:
                 raise HTTPException(status_code=400, detail=f"Unknown level: {level}")
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="upload_csv_fix",
+            resource_type="ROPProject",
+            resource_id=project_id,
+            resource_name=file.filename,
+            details=json.dumps({"project_name": project_name, "pid": pid, "po": po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return {"message": "CSV processed successfully"}
 

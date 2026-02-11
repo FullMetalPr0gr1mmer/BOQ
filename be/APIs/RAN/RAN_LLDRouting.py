@@ -4,13 +4,15 @@ import logging
 from io import StringIO
 from typing import List, Dict, Any
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status, Form, Body
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status, Form, Body, Request
 from sqlalchemy.orm import Session
 import io
+import json
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import joinedload
 
 logger = logging.getLogger(__name__)
+from Models.Admin.AuditLog import AuditLog
 
 # Import PAC generator utility
 from utils.pac_generator import create_boq_zip_package
@@ -24,6 +26,43 @@ from Models.RAN.RAN_LLD import RAN_LLD
 from Schemas.RAN.RAN_LLDSchema import RANSiteCreate, RANSiteOut, RANSiteUpdate, PaginatedRANSites
 
 ran_lld_router = APIRouter(prefix="/ran-sites", tags=["RAN Sites"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 # --------------------------------------------------------------------------------
@@ -86,6 +125,7 @@ def get_service_type_name(service_types):
 @ran_lld_router.post("/", response_model=RANSiteOut)
 def create_ran_site(
         site: RANSiteCreate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -105,6 +145,20 @@ def create_ran_site(
         db.add(db_site)
         db.commit()
         db.refresh(db_site)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="RAN_LLD",
+            resource_id=str(db_site.id),
+            resource_name=db_site.site_id,
+            details=json.dumps({"pid_po": site.pid_po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return db_site
     except Exception as e:
         db.rollback()
@@ -195,6 +249,7 @@ def get_ran_site(
 def update_ran_site(
         site_id: int,
         site: RANSiteUpdate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -220,6 +275,20 @@ def update_ran_site(
 
         db.commit()
         db.refresh(db_site)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="RAN_LLD",
+            resource_id=str(site_id),
+            resource_name=db_site.site_id,
+            details=json.dumps({"pid_po": db_site.pid_po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return db_site
     except Exception as e:
         db.rollback()
@@ -232,6 +301,7 @@ def update_ran_site(
 @ran_lld_router.delete("/{site_id}")
 def delete_ran_site(
         site_id: int,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -251,9 +321,27 @@ def delete_ran_site(
                 detail="You are not authorized to delete this RAN Site record. Contact the Senior Admin."
             )
 
+    # Store for audit
+    site_name = db_site.site_id
+    pid_po = db_site.pid_po
+
     try:
         db.delete(db_site)
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="RAN_LLD",
+            resource_id=str(site_id),
+            resource_name=site_name,
+            details=json.dumps({"pid_po": pid_po}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"detail": "RAN Site deleted successfully"}
     except Exception as e:
         db.rollback()
@@ -265,6 +353,7 @@ def delete_ran_site(
 
 @ran_lld_router.post("/upload-csv")
 def upload_csv(
+        request: Request,
         file: UploadFile = File(...),
         pid_po: str = Form(...),
         db: Session = Depends(get_db),
@@ -309,6 +398,20 @@ def upload_csv(
             inserted_count += 1
 
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="bulk_create",
+            resource_type="RAN_LLD",
+            resource_id=None,
+            resource_name=file.filename,
+            details=json.dumps({"pid_po": pid_po, "inserted_count": inserted_count}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"inserted": inserted_count, "message": f"Successfully added {inserted_count} RAN Sites with pid_po: {pid_po}"}
     except Exception as e:
         db.rollback()
@@ -669,6 +772,7 @@ def download_ran_boq_zip(
 @ran_lld_router.delete("/delete-all-sites/{pid_po}")
 def delete_all_ran_sites_for_project(
         pid_po: str,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -698,6 +802,19 @@ def delete_all_ran_sites_for_project(
         sites_deleted = db.query(RAN_LLD).filter(RAN_LLD.pid_po == pid_po).delete(synchronize_session=False)
 
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="bulk_delete",
+            resource_type="RAN_LLD",
+            resource_id=None,
+            resource_name=f"All sites for {pid_po}",
+            details=json.dumps({"pid_po": pid_po, "deleted_count": sites_deleted}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return {
             "message": "All RAN sites deleted successfully",

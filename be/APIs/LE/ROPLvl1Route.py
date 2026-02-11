@@ -1,14 +1,55 @@
 from typing import List
-from fastapi import Depends, HTTPException, APIRouter, status
+import json
+import logging
+from fastapi import Depends, HTTPException, APIRouter, status, Request
 from sqlalchemy.orm import Session
 
 from APIs.Core import get_db, get_current_user
 from Models.LE.ROPLvl1 import ROPLvl1
 from Models.LE.ROPLvl2 import ROPLvl2
 from Models.Admin.User import User, UserProjectAccess
+from Models.Admin.AuditLog import AuditLog
 from Schemas.LE.ROPLvl1Schema import ROPLvl1Out, ROPLvl1Create
 
+logger = logging.getLogger(__name__)
 ROPLvl1router = APIRouter(prefix="/rop-lvl1", tags=["ROP Lvl1"])
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 # ----------------------------
@@ -51,6 +92,7 @@ def update_lvl1_dates(lvl1_id: str, db: Session):
 @ROPLvl1router.post("/create", response_model=ROPLvl1Out)
 def create_lvl1(
     data: ROPLvl1Create,
+    request: Request = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -61,6 +103,21 @@ def create_lvl1(
     db.add(new_lvl1)
     db.commit()
     db.refresh(new_lvl1)
+
+    # Create audit log
+    if request:
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="ROPLvl1",
+            resource_id=new_lvl1.id,
+            resource_name=new_lvl1.item_name,
+            details=json.dumps({"project_id": data.project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
     return new_lvl1
 
 
@@ -122,7 +179,7 @@ def get_lvl1_by_id(id: str, db: Session = Depends(get_db), current_user: User = 
 
 
 @ROPLvl1router.put("/update/{id}", response_model=ROPLvl1Out)
-def update_lvl1(id: str, data: ROPLvl1Create, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_lvl1(id: str, data: ROPLvl1Create, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     lvl1 = db.query(ROPLvl1).filter(ROPLvl1.id == id).first()
     if not lvl1:
         raise HTTPException(status_code=404, detail="Lvl1 entry not found")
@@ -134,11 +191,25 @@ def update_lvl1(id: str, data: ROPLvl1Create, db: Session = Depends(get_db), cur
         setattr(lvl1, field, value)
     db.commit()
     db.refresh(lvl1)
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="update",
+        resource_type="ROPLvl1",
+        resource_id=id,
+        resource_name=lvl1.item_name,
+        details=json.dumps({"project_id": lvl1.project_id}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )
+
     return lvl1
 
 
 @ROPLvl1router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_lvl1(id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def delete_lvl1(id: str, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     lvl1 = db.query(ROPLvl1).filter(ROPLvl1.id == id).first()
     if not lvl1:
         raise HTTPException(status_code=404, detail="Lvl1 entry not found")
@@ -146,5 +217,22 @@ def delete_lvl1(id: str, db: Session = Depends(get_db), current_user: User = Dep
     if not check_project_access(current_user, lvl1.project_id, db, "all"):
         raise HTTPException(status_code=403, detail="Not authorized to delete this Lvl1")
 
+    # Store for audit
+    item_name = lvl1.item_name
+    project_id = lvl1.project_id
+
     db.delete(lvl1)
     db.commit()
+
+    # Create audit log
+    create_audit_log_sync(
+        db=db,
+        user_id=current_user.id,
+        action="delete",
+        resource_type="ROPLvl1",
+        resource_id=id,
+        resource_name=item_name,
+        details=json.dumps({"project_id": project_id}),
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("User-Agent")
+    )

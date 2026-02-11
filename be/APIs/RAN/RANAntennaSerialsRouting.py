@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import csv
 import io
+import json
+import logging
 
 from APIs.Core import get_db, get_current_user
 from Models.Admin.User import UserProjectAccess, User
+from Models.Admin.AuditLog import AuditLog
+
+logger = logging.getLogger(__name__)
 from Schemas.RAN.RANAntennaSerialsSchema import (
     RANAntennaSerialsCreate,
     RANAntennaSerialsOut,
@@ -18,6 +23,43 @@ RANAntennaSerialsRouter = APIRouter(
     prefix="/ran-antenna-serials",
     tags=["RAN Antenna Serials"]
 )
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 # --------------------------------------------------------------------------------
@@ -142,6 +184,7 @@ def delete_antenna_serial(db: Session, antenna_serial_id: int):
 @RANAntennaSerialsRouter.post("/", response_model=RANAntennaSerialsOut, status_code=status.HTTP_201_CREATED)
 def create_ran_antenna_serial(
         antenna_serial_data: RANAntennaSerialsCreate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -163,6 +206,20 @@ def create_ran_antenna_serial(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Error creating antenna serial record"
             )
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="RANAntennaSerials",
+            resource_id=str(db_antenna_serial.id),
+            resource_name=db_antenna_serial.serial_number,
+            details=json.dumps({"project_id": antenna_serial_data.project_id, "mrbts": antenna_serial_data.mrbts}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return db_antenna_serial
     except Exception as e:
         db.rollback()
@@ -273,6 +330,7 @@ def get_ran_antenna_serial_by_id(
 def update_ran_antenna_serial(
         antenna_serial_id: int,
         antenna_serial_data: RANAntennaSerialsUpdate,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -295,6 +353,20 @@ def update_ran_antenna_serial(
     try:
         db_antenna_serial = update_antenna_serial(db=db, antenna_serial_id=antenna_serial_id,
                                                   antenna_serial_data=antenna_serial_data)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="RANAntennaSerials",
+            resource_id=str(antenna_serial_id),
+            resource_name=db_antenna_serial.serial_number,
+            details=json.dumps({"project_id": db_antenna_serial.project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return db_antenna_serial
     except Exception as e:
         db.rollback()
@@ -307,6 +379,7 @@ def update_ran_antenna_serial(
 @RANAntennaSerialsRouter.delete("/{antenna_serial_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_ran_antenna_serial(
         antenna_serial_id: int,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -326,10 +399,28 @@ def delete_ran_antenna_serial(
                 detail="You are not authorized to delete this antenna serial record. Contact the Senior Admin."
             )
 
+    # Store for audit
+    serial_number = existing_record.serial_number
+    project_id = existing_record.project_id
+
     try:
         success = delete_antenna_serial(db=db, antenna_serial_id=antenna_serial_id)
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Antenna serial record not found")
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="RANAntennaSerials",
+            resource_id=str(antenna_serial_id),
+            resource_name=serial_number,
+            details=json.dumps({"project_id": project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": "Antenna serial record deleted successfully"}
     except Exception as e:
         db.rollback()
@@ -341,6 +432,7 @@ def delete_ran_antenna_serial(
 
 @RANAntennaSerialsRouter.post("/upload-csv", response_model=dict)
 def upload_antenna_serials_csv(
+        request: Request,
         file: UploadFile = File(...),
         project_id: str = Form(...),
         db: Session = Depends(get_db),
@@ -384,6 +476,19 @@ def upload_antenna_serials_csv(
             db.add_all(new_records)
             db.commit()
 
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="bulk_create",
+            resource_type="RANAntennaSerials",
+            resource_id=None,
+            resource_name=file.filename,
+            details=json.dumps({"project_id": project_id, "inserted_count": len(new_records)}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": f"Successfully added {len(new_records)} antenna serial records from CSV with project_id: {project_id}"}
 
     except Exception as e:
@@ -397,6 +502,7 @@ def upload_antenna_serials_csv(
 @RANAntennaSerialsRouter.delete("/delete-all-antenna-serials/{project_id}")
 def delete_all_ran_antenna_serials_for_project(
         project_id: str,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -426,6 +532,19 @@ def delete_all_ran_antenna_serials_for_project(
         antenna_serials_deleted = db.query(RANAntennaSerials).filter(RANAntennaSerials.project_id == project_id).delete(synchronize_session=False)
 
         db.commit()
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="bulk_delete",
+            resource_type="RANAntennaSerials",
+            resource_id=None,
+            resource_name=f"All antenna serials for {project_id}",
+            details=json.dumps({"project_id": project_id, "deleted_count": antenna_serials_deleted}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
 
         return {
             "message": "All RAN antenna serials deleted successfully",

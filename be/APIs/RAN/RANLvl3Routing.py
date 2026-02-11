@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import csv
 import io
+import json
+import logging
 
 from APIs.Core import safe_int, get_db, get_current_user
 from Models.Admin.User import UserProjectAccess, User
+from Models.Admin.AuditLog import AuditLog
+
+logger = logging.getLogger(__name__)
 from Schemas.RAN.RANLvl3Schema import (
     RANLvl3Create,
     RANLvl3InDB,
@@ -20,6 +25,43 @@ RANLvl3Router = APIRouter(
     prefix="/ranlvl3",
     tags=["RANLvl3"]
 )
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def create_audit_log_sync(
+    db: Session,
+    user_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: str = None,
+    resource_name: str = None,
+    details: str = None,
+    ip_address: str = None,
+    user_agent: str = None
+):
+    """Create an audit log entry (synchronous version)."""
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create audit log: {e}")
 
 
 # --------------------------------------------------------------------------------
@@ -322,6 +364,7 @@ def delete_ran_lvl3_item(
 @RANLvl3Router.post("/", response_model=RANLvl3InDB, status_code=status.HTTP_201_CREATED)
 def create_ran_lvl3(
         ranlvl3_data: RANLvl3Create,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -342,6 +385,20 @@ def create_ran_lvl3(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Error creating RAN Level 3 record"
             )
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            resource_type="RANLvl3",
+            resource_id=str(db_ranlvl3.id),
+            resource_name=db_ranlvl3.item_name,
+            details=json.dumps({"project_id": ranlvl3_data.project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return db_ranlvl3
     except Exception as e:
         db.rollback()
@@ -409,6 +466,7 @@ def get_ran_lvl3_by_id(
 def update_ran_lvl3(
         ranlvl3_id: int,
         ranlvl3_data: RANLvl3Update,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -437,6 +495,20 @@ def update_ran_lvl3(
 
     try:
         db_ranlvl3 = update_ranlvl3(db=db, ranlvl3_id=ranlvl3_id, ranlvl3_data=ranlvl3_data)
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            resource_type="RANLvl3",
+            resource_id=str(ranlvl3_id),
+            resource_name=db_ranlvl3.item_name,
+            details=json.dumps({"project_id": db_ranlvl3.project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return db_ranlvl3
     except Exception as e:
         db.rollback()
@@ -449,6 +521,7 @@ def update_ran_lvl3(
 @RANLvl3Router.delete("/{ranlvl3_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_ran_lvl3(
         ranlvl3_id: int,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -467,10 +540,28 @@ def delete_ran_lvl3(
             detail="You are not authorized to delete this RAN Level 3 record. Contact the Senior Admin."
         )
 
+    # Store for audit
+    item_name = existing_record.item_name
+    project_id = existing_record.project_id
+
     try:
         success = delete_ranlvl3(db=db, ranlvl3_id=ranlvl3_id)
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RAN Level 3 record not found")
+
+        # Create audit log
+        create_audit_log_sync(
+            db=db,
+            user_id=current_user.id,
+            action="delete",
+            resource_type="RANLvl3",
+            resource_id=str(ranlvl3_id),
+            resource_name=item_name,
+            details=json.dumps({"project_id": project_id}),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent")
+        )
+
         return {"message": "RAN Level 3 record deleted successfully"}
     except Exception as e:
         db.rollback()
@@ -484,6 +575,7 @@ def delete_ran_lvl3(
 def upload_items_csv_to_ranlvl3(
         ranlvl3_id: int,
         file: UploadFile,
+        request: Request,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
