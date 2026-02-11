@@ -13,7 +13,7 @@ export default function AuthForm({ onLogin }) {
   const [error, setError] = useState('');
   const [regError, setRegError] = useState('');
   const [regSuccess, setRegSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [passwordValidation, setPasswordValidation] = useState({
     minLength: false,
     hasUppercase: false,
@@ -58,7 +58,10 @@ export default function AuthForm({ onLogin }) {
         if (data.refresh_token) {
           localStorage.setItem('refreshToken', data.refresh_token);
         }
-        onLogin({ token: data.access_token, user: { role: data.role, username } });
+        // SECURITY: Clear sensitive data from component state after login
+        const usernameCopy = username;
+        setPassword('');
+        onLogin({ token: data.access_token, user: { role: data.role, username: usernameCopy } });
         navigate('/*');
       } else {
         setTransient(setError, data.detail || 'Login failed');

@@ -5,12 +5,17 @@ Centralized access control and permission checking functions.
 Eliminates duplication across route files.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Set, Dict, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Request, status
 
 from Models.Admin.User import User, UserProjectAccess
 from Models.BOQ.Project import Project
+from Models.RAN.RANProject import RanProject
+from Models.LE.ROPProject import ROPProject
+import importlib
+du_project_module = importlib.import_module("Models.DU.DU_Project")
+DUProject = du_project_module.DUProject
 
 
 def check_project_access(
@@ -158,3 +163,167 @@ def require_project_access(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=error_message or f"You are not authorized to {required_permission} this project."
         )
+
+
+def get_all_user_accessible_project_ids(current_user: User, db: Session) -> Dict[str, Set[str]]:
+    """
+    Get all project IDs the user has access to across all project types.
+
+    Args:
+        current_user: The current user
+        db: Database session
+
+    Returns:
+        Dict with keys 'boq', 'ran', 'rop', 'du' containing sets of project IDs
+    """
+    result = {
+        "boq": set(),
+        "ran": set(),
+        "rop": set(),
+        "du": set()
+    }
+
+    # Senior admin has access to all projects
+    if current_user.role.name == "senior_admin":
+        result["boq"] = {p.pid_po for p in db.query(Project.pid_po).all()}
+        result["ran"] = {p.pid_po for p in db.query(RanProject.pid_po).all()}
+        result["rop"] = {p.pid_po for p in db.query(ROPProject.pid_po).all()}
+        result["du"] = {p.pid_po for p in db.query(DUProject.pid_po).all()}
+        return result
+
+    # Get user's project access records
+    user_accesses = db.query(UserProjectAccess).filter(
+        UserProjectAccess.user_id == current_user.id
+    ).all()
+
+    for access in user_accesses:
+        if access.project_id:
+            result["boq"].add(access.project_id)
+        if access.Ranproject_id:
+            result["ran"].add(access.Ranproject_id)
+        if access.Ropproject_id:
+            result["rop"].add(access.Ropproject_id)
+        if access.DUproject_id:
+            result["du"].add(access.DUproject_id)
+
+    return result
+
+
+def get_all_accessible_project_ids_flat(current_user: User, db: Session) -> Set[str]:
+    """
+    Get a flat set of all project IDs the user has access to (all types combined).
+
+    Args:
+        current_user: The current user
+        db: Database session
+
+    Returns:
+        Set[str]: Combined set of all accessible project IDs
+    """
+    projects_by_type = get_all_user_accessible_project_ids(current_user, db)
+    return projects_by_type["boq"] | projects_by_type["ran"] | projects_by_type["rop"] | projects_by_type["du"]
+
+
+def get_users_sharing_projects(current_user: User, db: Session) -> Set[int]:
+    """
+    Get all user IDs that share at least one project with the current user.
+
+    OPTIMIZED: Uses database-level filtering instead of loading all records into memory.
+
+    Args:
+        current_user: The current user
+        db: Database session
+
+    Returns:
+        Set[int]: User IDs that share projects with current user
+    """
+    from sqlalchemy import or_
+
+    if current_user.role.name == "senior_admin":
+        return {u.id for u in db.query(User.id).all()}
+
+    # Get current user's accessible project IDs
+    accessible_projects = get_all_user_accessible_project_ids(current_user, db)
+
+    # Build filter conditions for each project type
+    conditions = []
+
+    if accessible_projects["boq"]:
+        conditions.append(UserProjectAccess.project_id.in_(accessible_projects["boq"]))
+    if accessible_projects["ran"]:
+        conditions.append(UserProjectAccess.Ranproject_id.in_(accessible_projects["ran"]))
+    if accessible_projects["rop"]:
+        conditions.append(UserProjectAccess.Ropproject_id.in_(accessible_projects["rop"]))
+    if accessible_projects["du"]:
+        conditions.append(UserProjectAccess.DUproject_id.in_(accessible_projects["du"]))
+
+    # If user has no project access, return only their own ID
+    if not conditions:
+        return {current_user.id}
+
+    # OPTIMIZED: Query only user_ids matching the project filters at database level
+    shared_user_ids = {
+        access.user_id for access in db.query(UserProjectAccess.user_id).filter(
+            or_(*conditions)
+        ).distinct().all()
+    }
+
+    # Always include self
+    shared_user_ids.add(current_user.id)
+
+    return shared_user_ids
+
+
+def can_admin_manage_project(current_user: User, project_id: str, section: int, db: Session) -> bool:
+    """
+    Check if an admin can manage (grant/revoke access) for a specific project.
+
+    Args:
+        current_user: The current user
+        project_id: The project ID (pid_po)
+        section: Project section (1=BOQ, 2=RAN, 3=ROP, 4=DU)
+        db: Database session
+
+    Returns:
+        bool: True if user can manage this project
+    """
+    if current_user.role.name == "senior_admin":
+        return True
+
+    if current_user.role.name != "admin":
+        return False
+
+    # Check if admin has "all" permission on this project
+    accessible_projects = get_all_user_accessible_project_ids(current_user, db)
+
+    section_map = {1: "boq", 2: "ran", 3: "rop", 4: "du"}
+    project_type = section_map.get(section)
+
+    if not project_type or project_id not in accessible_projects[project_type]:
+        return False
+
+    # Check permission level - admin needs "all" permission to manage
+    if section == 1:
+        access = db.query(UserProjectAccess).filter(
+            UserProjectAccess.user_id == current_user.id,
+            UserProjectAccess.project_id == project_id
+        ).first()
+    elif section == 2:
+        access = db.query(UserProjectAccess).filter(
+            UserProjectAccess.user_id == current_user.id,
+            UserProjectAccess.Ranproject_id == project_id
+        ).first()
+    elif section == 3:
+        access = db.query(UserProjectAccess).filter(
+            UserProjectAccess.user_id == current_user.id,
+            UserProjectAccess.Ropproject_id == project_id
+        ).first()
+    elif section == 4:
+        access = db.query(UserProjectAccess).filter(
+            UserProjectAccess.user_id == current_user.id,
+            UserProjectAccess.DUproject_id == project_id
+        ).first()
+    else:
+        return False
+
+    return access and access.permission_level == "all"

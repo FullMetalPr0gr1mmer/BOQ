@@ -21,7 +21,7 @@ Last Modified: [Date]
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
 from Database.session import Base
 from .AuditLog import AuditLog  # Import AuditLog model for relationship
@@ -104,7 +104,7 @@ class User(Base):
     username = Column(String(100), unique=True, index=True)
     email = Column(String(100), unique=True, index=True)
     hashed_password = Column(String)  # Always store hashed passwords
-    registered_at = Column(DateTime, default=datetime.now())
+    registered_at = Column(DateTime, default=datetime.now)  # Use callable, not evaluated value
 
     # Foreign key to Role model
     role_id = Column(Integer, ForeignKey('roles.id'))
@@ -162,13 +162,21 @@ class UserProjectAccess(Base):
     __tablename__ = 'user_project_access'
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
 
-    # Project access for different project types
-    project_id = Column(String(200), ForeignKey('projects.pid_po'), nullable=True)        # BOQ projects
-    Ranproject_id = Column(String(200), ForeignKey('ran_projects.pid_po'), nullable=True) # RAN projects
-    Ropproject_id = Column(String(200), ForeignKey('rop_projects.pid_po'), nullable=True) # ROP projects
-    DUproject_id = Column(String(200), ForeignKey('du_project.pid_po'), nullable=True)    # DU projects
+    # Project access for different project types (indexed for fast lookups)
+    project_id = Column(String(200), ForeignKey('projects.pid_po'), nullable=True, index=True)        # BOQ projects
+    Ranproject_id = Column(String(200), ForeignKey('ran_projects.pid_po'), nullable=True, index=True) # RAN projects
+    Ropproject_id = Column(String(200), ForeignKey('rop_projects.pid_po'), nullable=True, index=True) # ROP projects
+    DUproject_id = Column(String(200), ForeignKey('du_project.pid_po'), nullable=True, index=True)    # DU projects
 
     # Permission level for the project access
     permission_level = Column(String(50), nullable=False, default="view")
+
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        Index('ix_user_project_access_user_project', 'user_id', 'project_id'),
+        Index('ix_user_project_access_user_ran', 'user_id', 'Ranproject_id'),
+        Index('ix_user_project_access_user_rop', 'user_id', 'Ropproject_id'),
+        Index('ix_user_project_access_user_du', 'user_id', 'DUproject_id'),
+    )

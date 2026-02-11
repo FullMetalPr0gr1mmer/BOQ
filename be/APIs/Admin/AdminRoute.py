@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, and_
 from sqlalchemy.orm import Session
 from APIs.Core import get_current_user, get_db
 
@@ -26,8 +26,17 @@ from Schemas.Admin.AccessSchema import (
 )
 from Schemas.Admin.LogSchema import AuditLogResponse, PaginatedAuditLogResponse
 from Schemas.Admin.UserSchema import UserRoleUpdateResponse, UserRoleUpdateRequest
+from utils.access_control import (
+    get_all_user_accessible_project_ids,
+    get_all_accessible_project_ids_flat,
+    get_users_sharing_projects,
+    can_admin_manage_project
+)
 
 adminRoute = APIRouter(prefix="/audit-logs",tags=["Admin"])
+
+# Allowed roles for admin operations (senior_admin has full access, admin has project-scoped access)
+ADMIN_ROLES = ["senior_admin", "admin"]
 
 # ===========================
 # HELPER FUNCTIONS
@@ -42,9 +51,11 @@ async def create_audit_log(
     resource_name: Optional[str] = None,
     details: Optional[str] = None,
     ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None
+    user_agent: Optional[str] = None,
+    project_id: Optional[str] = None,
+    section: Optional[int] = None
 ):
-    """Create an audit log entry."""
+    """Create an audit log entry with optional project tracking for access control."""
     audit_log = AuditLog(
         user_id=user_id,
         action=action,
@@ -53,7 +64,9 @@ async def create_audit_log(
         resource_name=resource_name,
         details=details,
         ip_address=ip_address,
-        user_agent=user_agent
+        user_agent=user_agent,
+        project_id=project_id,
+        section=section
     )
     db.add(audit_log)
     db.commit()
@@ -79,14 +92,26 @@ async def grant_project_access(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Grant project access to a user. Only senior_admin can do this."""
+    """
+    Grant project access to a user.
+    - senior_admin: Can grant access to any project
+    - admin: Can grant access only to projects they have 'all' permission on
+    """
 
-    # 1. Check if the current user has the 'senior_admin' role
-    if current_user.role.name != "senior_admin":
+    # Check if the current user has admin privileges
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to perform this action"
         )
+
+    # For non-senior admins, verify they can manage this specific project
+    if current_user.role.name != "senior_admin":
+        if not can_admin_manage_project(current_user, access_data.project_id, access_data.section, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only grant access to projects you have 'all' permission on"
+            )
 
     # 2. Verify that the target user and project exist
     target_user = db.query(User).filter(User.id == access_data.user_id).first()
@@ -255,7 +280,9 @@ async def grant_project_access(
                 "permission_level": access_data.permission_level
             }),
             ip_address=get_client_ip(request),
-            user_agent=request.headers.get("User-Agent")
+            user_agent=request.headers.get("User-Agent"),
+            project_id=access_data.project_id,
+            section=access_data.section
         )
     except Exception as e:
         logger.error(f"Failed to create audit log: {e}")
@@ -272,9 +299,13 @@ async def update_project_access(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update project access permissions. Only senior_admin can do this."""
+    """
+    Update project access permissions.
+    - senior_admin: Can update any project access
+    - admin: Can update only for projects they have 'all' permission on
+    """
 
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to perform this action"
@@ -287,6 +318,26 @@ async def update_project_access(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Access record not found"
         )
+
+    # For non-senior admins, verify they can manage this project
+    if current_user.role.name != "senior_admin":
+        # Determine section and project_id from the access record
+        if access_record.project_id:
+            section, project_id = 1, access_record.project_id
+        elif access_record.Ranproject_id:
+            section, project_id = 2, access_record.Ranproject_id
+        elif access_record.Ropproject_id:
+            section, project_id = 3, access_record.Ropproject_id
+        elif access_record.DUproject_id:
+            section, project_id = 4, access_record.DUproject_id
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid access record")
+
+        if not can_admin_manage_project(current_user, project_id, section, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only update access for projects you have 'all' permission on"
+            )
 
     # Validate permission level
     valid_permissions = ["view", "edit", "all"]
@@ -321,6 +372,18 @@ async def update_project_access(
     db.commit()
     db.refresh(access_record)
 
+    # Determine section and project_id for audit log
+    if access_record.project_id:
+        log_section, log_project_id = 1, access_record.project_id
+    elif access_record.Ranproject_id:
+        log_section, log_project_id = 2, access_record.Ranproject_id
+    elif access_record.Ropproject_id:
+        log_section, log_project_id = 3, access_record.Ropproject_id
+    elif access_record.DUproject_id:
+        log_section, log_project_id = 4, access_record.DUproject_id
+    else:
+        log_section, log_project_id = None, None
+
     # Create audit log
     try:
         await create_audit_log(
@@ -328,7 +391,7 @@ async def update_project_access(
             user_id=current_user.id,
             action="update_access",
             resource_type="project_access",
-            resource_id=access_record.project_id,
+            resource_id=log_project_id,
             resource_name=project.project_name if project else ran_project.project_name if ran_project else rop_project.project_name if rop_project else du_project.project_name if du_project else "Unknown",
             details=json.dumps({
                 "target_user": user.username if user else "Unknown",
@@ -336,7 +399,9 @@ async def update_project_access(
                 "new_permission": update_data.permission_level
             }),
             ip_address=get_client_ip(request),
-            user_agent=request.headers.get("User-Agent")
+            user_agent=request.headers.get("User-Agent"),
+            project_id=log_project_id,
+            section=log_section
         )
     except Exception as e:
         logger.error(f"Failed to create audit log: {e}")
@@ -351,9 +416,13 @@ async def revoke_project_access(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Revoke project access from a user. Only senior_admin can do this."""
+    """
+    Revoke project access from a user.
+    - senior_admin: Can revoke any project access
+    - admin: Can revoke only for projects they have 'all' permission on
+    """
 
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to perform this action"
@@ -367,6 +436,26 @@ async def revoke_project_access(
             detail="Access record not found"
         )
 
+    # Determine section and project_id from the access record
+    if access_record.project_id:
+        section, project_id = 1, access_record.project_id
+    elif access_record.Ranproject_id:
+        section, project_id = 2, access_record.Ranproject_id
+    elif access_record.Ropproject_id:
+        section, project_id = 3, access_record.Ropproject_id
+    elif access_record.DUproject_id:
+        section, project_id = 4, access_record.DUproject_id
+    else:
+        section, project_id = None, None
+
+    # For non-senior admins, verify they can manage this project
+    if current_user.role.name != "senior_admin":
+        if not project_id or not can_admin_manage_project(current_user, project_id, section, db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only revoke access for projects you have 'all' permission on"
+            )
+
     # Get related data for audit log before deletion
     user = db.query(User).filter(User.id == access_record.user_id).first()
     project = db.query(Project).filter(Project.pid_po == access_record.project_id).first()
@@ -375,7 +464,6 @@ async def revoke_project_access(
     du_project = db.query(DUProject).filter(DUProject.pid_po == access_record.DUproject_id).first()
 
     # Store data before deletion
-    deleted_project_id = access_record.project_id
     deleted_permission = access_record.permission_level
 
     db.delete(access_record)
@@ -388,14 +476,16 @@ async def revoke_project_access(
             user_id=current_user.id,
             action="revoke_access",
             resource_type="project_access",
-            resource_id=deleted_project_id,
+            resource_id=project_id,
             resource_name=project.project_name if project else ran_project.project_name if ran_project else rop_project.project_name if rop_project else du_project.project_name if du_project else "Unknown",
             details=json.dumps({
                 "target_user": user.username if user else "Unknown",
                 "permission_level": deleted_permission
             }),
             ip_address=get_client_ip(request),
-            user_agent=request.headers.get("User-Agent")
+            user_agent=request.headers.get("User-Agent"),
+            project_id=project_id,
+            section=section
         )
     except Exception as e:
         logger.error(f"Failed to create audit log: {e}")
@@ -412,16 +502,30 @@ async def get_all_users_with_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all users with their project access. Only senior_admin can access this."""
+    """
+    Get users with their project access.
+    - senior_admin: Can see all users
+    - admin: Can see only users who share at least one project with them
+    """
 
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this information"
         )
 
-    # OPTIMIZED: Get all users with their roles
-    users = db.query(User).join(Role).all()
+    # For non-senior admins, filter to users who share projects
+    if current_user.role.name != "senior_admin":
+        shared_user_ids = get_users_sharing_projects(current_user, db)
+        users = db.query(User).join(Role).filter(User.id.in_(shared_user_ids)).all()
+    else:
+        # OPTIMIZED: Get all users with their roles
+        users = db.query(User).join(Role).all()
+
+    # For non-senior admins, get their accessible project IDs for filtering
+    admin_accessible_projects = None
+    if current_user.role.name != "senior_admin":
+        admin_accessible_projects = get_all_user_accessible_project_ids(current_user, db)
 
     # OPTIMIZED: Fetch ALL UserProjectAccess records in one query
     all_accesses = db.query(UserProjectAccess).all()
@@ -458,34 +562,39 @@ async def get_all_users_with_projects(
             rop_project = rop_projects_map.get(access.Ropproject_id)
             du_project = du_projects_map.get(access.DUproject_id)
 
+            # For non-senior admins, only show projects they have access to
             if project:
-                projects.append({
-                    "project_id": project.pid_po,
-                    "project_name": project.project_name,
-                    "permission_level": access.permission_level,
-                    "access_id": access.id
-                })
+                if admin_accessible_projects is None or access.project_id in admin_accessible_projects["boq"]:
+                    projects.append({
+                        "project_id": project.pid_po,
+                        "project_name": project.project_name,
+                        "permission_level": access.permission_level,
+                        "access_id": access.id
+                    })
             if ran_project:
-                projects.append({
-                    "project_id": ran_project.pid_po,
-                    "project_name": ran_project.project_name,
-                    "permission_level": access.permission_level,
-                    "access_id": access.id
-                })
+                if admin_accessible_projects is None or access.Ranproject_id in admin_accessible_projects["ran"]:
+                    projects.append({
+                        "project_id": ran_project.pid_po,
+                        "project_name": ran_project.project_name,
+                        "permission_level": access.permission_level,
+                        "access_id": access.id
+                    })
             if rop_project:
-                projects.append({
-                    "project_id": rop_project.pid_po,
-                    "project_name": rop_project.project_name,
-                    "permission_level": access.permission_level,
-                    "access_id": access.id
-                })
+                if admin_accessible_projects is None or access.Ropproject_id in admin_accessible_projects["rop"]:
+                    projects.append({
+                        "project_id": rop_project.pid_po,
+                        "project_name": rop_project.project_name,
+                        "permission_level": access.permission_level,
+                        "access_id": access.id
+                    })
             if du_project:
-                projects.append({
-                    "project_id": du_project.pid_po,
-                    "project_name": du_project.project_name,
-                    "permission_level": access.permission_level,
-                    "access_id": access.id
-                })
+                if admin_accessible_projects is None or access.DUproject_id in admin_accessible_projects["du"]:
+                    projects.append({
+                        "project_id": du_project.pid_po,
+                        "project_name": du_project.project_name,
+                        "permission_level": access.permission_level,
+                        "access_id": access.id
+                    })
         result.append({
             "id": user.id,
             "username": user.username,
@@ -506,9 +615,13 @@ async def get_user_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get a specific user's project access. Only senior_admin can access this."""
+    """
+    Get a specific user's project access.
+    - senior_admin: Can see all projects for any user
+    - admin: Can only see projects they share with the user
+    """
 
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this information"
@@ -521,6 +634,17 @@ async def get_user_projects(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+
+    # For non-senior admins, verify they share at least one project with this user
+    admin_accessible_projects = None
+    if current_user.role.name != "senior_admin":
+        shared_user_ids = get_users_sharing_projects(current_user, db)
+        if user_id not in shared_user_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only view users who share projects with you"
+            )
+        admin_accessible_projects = get_all_user_accessible_project_ids(current_user, db)
 
     # OPTIMIZED: Get user's project access
     user_accesses = db.query(UserProjectAccess).filter(
@@ -547,34 +671,39 @@ async def get_user_projects(
         rop_project = rop_projects_map.get(access.Ropproject_id)
         du_project = du_projects_map.get(access.DUproject_id)
 
+        # For non-senior admins, only show projects they have access to
         if project:
-            projects.append({
-                "project_id": project.pid_po,
-                "project_name": project.project_name,
-                "permission_level": access.permission_level,
-                "access_id": access.id
-            })
+            if admin_accessible_projects is None or access.project_id in admin_accessible_projects["boq"]:
+                projects.append({
+                    "project_id": project.pid_po,
+                    "project_name": project.project_name,
+                    "permission_level": access.permission_level,
+                    "access_id": access.id
+                })
         if ran_project:
-            projects.append({
-                "project_id": ran_project.pid_po,
-                "project_name": ran_project.project_name,
-                "permission_level": access.permission_level,
-                "access_id": access.id
-            })
+            if admin_accessible_projects is None or access.Ranproject_id in admin_accessible_projects["ran"]:
+                projects.append({
+                    "project_id": ran_project.pid_po,
+                    "project_name": ran_project.project_name,
+                    "permission_level": access.permission_level,
+                    "access_id": access.id
+                })
         if rop_project:
-            projects.append({
-                "project_id": rop_project.pid_po,
-                "project_name": rop_project.project_name,
-                "permission_level": access.permission_level,
-                "access_id": access.id
-            })
+            if admin_accessible_projects is None or access.Ropproject_id in admin_accessible_projects["rop"]:
+                projects.append({
+                    "project_id": rop_project.pid_po,
+                    "project_name": rop_project.project_name,
+                    "permission_level": access.permission_level,
+                    "access_id": access.id
+                })
         if du_project:
-            projects.append({
-                "project_id": du_project.pid_po,
-                "project_name": du_project.project_name,
-                "permission_level": access.permission_level,
-                "access_id": access.id
-            })
+            if admin_accessible_projects is None or access.DUproject_id in admin_accessible_projects["du"]:
+                projects.append({
+                    "project_id": du_project.pid_po,
+                    "project_name": du_project.project_name,
+                    "permission_level": access.permission_level,
+                    "access_id": access.id
+                })
 
     return {
         "id": user.id,
@@ -604,12 +733,14 @@ async def get_audit_logs(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get audit logs with pagination. Only senior_admin can access this.
+    Get audit logs with pagination.
+    - senior_admin: Can see all logs
+    - admin: Can see logs related to projects they have access to, plus their own actions
 
     OPTIMIZED: Returns total count for proper pagination + server-side search filtering.
     """
 
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view audit logs"
@@ -619,7 +750,28 @@ async def get_audit_logs(
         # Build query with eager loading to prevent N+1
         query = db.query(AuditLog).join(User).join(Role)
 
-        # Apply filters
+        # For non-senior admins, filter to show only:
+        # 1. Logs for projects they have access to
+        # 2. Their own actions (login, logout, etc.)
+        # 3. Actions by users who share projects with them
+        if current_user.role.name != "senior_admin":
+            accessible_projects = get_all_accessible_project_ids_flat(current_user, db)
+            shared_user_ids = get_users_sharing_projects(current_user, db)
+
+            # Build filter: logs with matching project_id OR logs from shared users OR own logs
+            project_filter = []
+            if accessible_projects:
+                project_filter.append(AuditLog.project_id.in_(accessible_projects))
+
+            query = query.filter(
+                or_(
+                    AuditLog.user_id == current_user.id,  # Own actions
+                    AuditLog.user_id.in_(shared_user_ids),  # Actions by users sharing projects
+                    *project_filter  # Project-specific logs
+                )
+            )
+
+        # Apply additional filters
         if user_id:
             query = query.filter(AuditLog.user_id == user_id)
         if action:
@@ -691,9 +843,9 @@ async def get_available_actions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all available actions for filtering. Only senior_admin can access this."""
+    """Get all available actions for filtering. Admins can access this."""
 
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this information"
@@ -713,9 +865,9 @@ async def get_available_resource_types(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all available resource types for filtering. Only senior_admin can access this."""
+    """Get all available resource types for filtering. Admins can access this."""
 
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this information"
@@ -735,9 +887,9 @@ async def get_all_roles(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Get all available roles. Only senior_admin can access this."""
+    """Get all available roles. Admins can access this."""
 
-    if current_user.role.name != "senior_admin":
+    if current_user.role.name not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this information"

@@ -40,7 +40,7 @@ Author: Security Hardening Initiative
 Created: 2025-12-17
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from Database.session import Base
@@ -59,7 +59,7 @@ class RefreshToken(Base):
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     token = Column(String(500), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     revoked = Column(Boolean, default=False, nullable=False)
 
     # Relationship to User model
@@ -77,7 +77,7 @@ class RefreshToken(Base):
         Returns:
             bool: True if token is not revoked and not expired, False otherwise
         """
-        return not self.revoked and self.expires_at > datetime.utcnow()
+        return not self.revoked and self.expires_at > datetime.now(timezone.utc)
 
     def revoke(self) -> None:
         """Mark this refresh token as revoked."""

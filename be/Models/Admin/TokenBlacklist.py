@@ -41,7 +41,7 @@ Author: Security Hardening Initiative
 Created: 2025-12-17
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Index
 from Database.session import Base
 
@@ -57,7 +57,7 @@ class TokenBlacklist(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     token = Column(String(500), unique=True, nullable=False, index=True)
-    blacklisted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    blacklisted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     expires_at = Column(DateTime, nullable=False, index=True)
 
     # Index for cleanup queries

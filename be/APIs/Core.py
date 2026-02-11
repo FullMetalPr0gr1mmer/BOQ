@@ -37,8 +37,7 @@ Last Modified: [Date]
 import ipaddress
 import os
 import re
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 from typing import Optional
 
@@ -139,7 +138,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         str: Encoded JWT token
     """
     to_encode = data.copy()
-    expire = datetime.now() + (expires_delta or timedelta(minutes=15))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -164,7 +163,7 @@ def create_refresh_token(data: dict, user_id: int, db: Session) -> str:
 
     # Calculate expiration
     expires_delta = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    expire = datetime.utcnow() + expires_delta
+    expire = datetime.now(timezone.utc) + expires_delta
 
     # Create token payload
     to_encode = data.copy()

@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from email_validator import EmailNotValidError
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
@@ -13,6 +13,7 @@ from Models.Admin.RefreshToken import RefreshToken
 from Models.Admin.TokenBlacklist import TokenBlacklist
 from Models.Admin.AuditLog import AuditLog
 from utils.password_validator import validate_password_strength
+from utils.rate_limiter import check_auth_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,10 @@ class RefreshTokenRequest(BaseModel):
 # --- Registration Endpoint ---
 @userRoute.post("/register")
 async def register(user: CreateUser, request: Request, db: Session = Depends(get_db)):
+    # SECURITY: Rate limit registration attempts to prevent abuse
+    client_ip = get_client_ip(request)
+    check_auth_rate_limit(client_ip, "register")
+
     # Validate email format
     try:
         validate_email(user.email)
@@ -114,6 +119,10 @@ async def register(user: CreateUser, request: Request, db: Session = Depends(get
 # --- Login Endpoint ---
 @userRoute.post("/login")
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # SECURITY: Rate limit login attempts to prevent brute force attacks
+    client_ip = get_client_ip(request)
+    check_auth_rate_limit(client_ip, "login")
+
     user = authenticate_user(form_data.username, form_data.password, db=db)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
@@ -154,7 +163,11 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
 # --- Refresh Token Endpoint ---
 @userRoute.post("/auth/refresh")
-async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+async def refresh_access_token(
+    token_request: RefreshTokenRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
     Refresh an access token using a valid refresh token.
 
@@ -162,7 +175,8 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
     providing a seamless user experience while maintaining security.
 
     Args:
-        request: Contains the refresh token
+        token_request: Contains the refresh token
+        request: FastAPI Request object for IP extraction
         db: Database session
 
     Returns:
@@ -171,9 +185,13 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
     Raises:
         HTTPException: If refresh token is invalid, expired, or revoked
     """
+    # SECURITY: Rate limit refresh attempts
+    client_ip = get_client_ip(request)
+    check_auth_rate_limit(client_ip, "login")  # Use same limit as login
+
     try:
         # Decode and validate refresh token
-        payload = jwt.decode(request.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token_request.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         token_type: str = payload.get("type")
 
@@ -182,9 +200,9 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
 
         # Check if token exists in database and is valid
         token_record = db.query(RefreshToken).filter(
-            RefreshToken.token == request.refresh_token,
+            RefreshToken.token == token_request.refresh_token,
             RefreshToken.revoked == False,
-            RefreshToken.expires_at > datetime.utcnow()
+            RefreshToken.expires_at > datetime.now(timezone.utc)
         ).first()
 
         if not token_record:
@@ -203,7 +221,7 @@ async def refresh_access_token(request: RefreshTokenRequest, db: Session = Depen
 
         return {
             "access_token": access_token,
-            "refresh_token": request.refresh_token,  # Return same refresh token
+            "refresh_token": token_request.refresh_token,  # Return same refresh token
             "token_type": "bearer",
             "role": user.role.name
         }

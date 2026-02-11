@@ -37,10 +37,9 @@ os.environ['no_proxy'] = 'localhost,127.0.0.1'
 os.environ['HF_HUB_OFFLINE'] = '1'
 os.environ['TRANSFORMERS_OFFLINE'] = '1'
 os.environ['HF_DATASETS_OFFLINE'] = '1'
-# Disable SSL cert verification for local operations
-os.environ['CURL_CA_BUNDLE'] = ''
-os.environ['REQUESTS_CA_BUNDLE'] = ''
-os.environ['SSL_CERT_FILE'] = ''
+# NOTE: SSL verification is now handled properly - removed global SSL bypass
+# which was a security vulnerability. If you need to disable SSL for specific
+# local services, configure it at the client level instead.
 
 # Configure logging to show INFO level messages
 logging.basicConfig(
