@@ -438,6 +438,48 @@ export default function DURPALogistics() {
     }
   };
 
+  const handleInvoiceDownload = async (invoice) => {
+    try {
+      // Get the API base URL from environment
+      const token = localStorage.getItem('token');
+      const baseUrl = import.meta.env.VITE_API_URL;
+
+      const response = await fetch(`${baseUrl}/du-rpa/invoices/${invoice.id}/download-excel`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to download invoice');
+      }
+
+      // Get filename from Content-Disposition header or generate one
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `Invoice_${invoice.customer_invoice_number || invoice.ppo_number || invoice.id}.xlsx`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename=(.+)/);
+        if (match) filename = match[1];
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setTransient(setSuccess, 'Invoice downloaded successfully!');
+    } catch (err) {
+      setTransient(setError, err.message || 'Failed to download invoice');
+    }
+  };
+
   const handleCustomerInvoiceUpdate = async (invoiceId, newValue) => {
     try {
       const params = new URLSearchParams({ customer_invoice: newValue });
@@ -1007,6 +1049,13 @@ PO-123456,NEW-PO-002,PR-002,PPO-INV-002,SITE002,Model-B,LI-001,STM-1 card with a
                     <td>{invoice.items?.length || 0}</td>
                     <td>
                       <div className="action-buttons">
+                        <button
+                          className="btn-action btn-download"
+                          onClick={() => handleInvoiceDownload(invoice)}
+                          title="Download Invoice Excel"
+                        >
+                          📥
+                        </button>
                         <button
                           className="btn-action btn-delete"
                           onClick={() => handleInvoiceDelete(invoice)}

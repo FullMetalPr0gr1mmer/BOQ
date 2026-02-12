@@ -11,10 +11,13 @@ Features:
 import json
 import logging
 import pandas as pd
-from io import StringIO
-from datetime import datetime
+import openpyxl
+from io import StringIO, BytesIO
+from datetime import datetime, timedelta
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, Request, Form
-from sqlalchemy.orm import Session
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func
 from typing import Optional, List
 
@@ -1486,4 +1489,132 @@ async def delete_all_invoices(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting invoices: {str(e)}"
+        )
+
+
+@duRPALogisticsRoute.get("/du-rpa/invoices/{invoice_id}/download-excel")
+def download_invoice_excel(
+        invoice_id: int,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Download an invoice as an Excel file based on the DU Invoice Template.
+
+    Mappings:
+    - Number (E3) = Customer Invoice Number
+    - Cust. Order No. (E4) = PPO#
+    - Date of Delivery (O7) = PAC Date (from first item)
+    - Billing Date (G4) = Invoice Date
+    - Due Date (G7) = Invoice Date + 30 days (formula)
+    - VAT % (O5) = VAT Rate from invoice
+
+    Line items (starting row 13):
+    - Site ID, Description, PO Item #, Category, Quantity, Unit Price,
+    - Amount (Qty * Unit Price), VAT %, VAT Amount, Gross Amount
+    """
+    # Fetch invoice with items and descriptions
+    invoice = db.query(DURPAInvoice).filter(DURPAInvoice.id == invoice_id).options(
+        joinedload(DURPAInvoice.items).joinedload(DURPAInvoiceItem.description)
+    ).first()
+
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Get template path
+    template_path = Path(__file__).parent.parent.parent / "templates" / "DU Invoice Template.xlsx"
+    if not template_path.exists():
+        raise HTTPException(status_code=500, detail="Invoice template not found")
+
+    try:
+        # Load the template
+        wb = openpyxl.load_workbook(template_path)
+        ws = wb['Invoice']
+
+        # Fill header fields
+        # E3: Number = Customer Invoice Number
+        ws['E3'] = invoice.customer_invoice_number or ''
+
+        # E4: Cust. Order No. = PPO#
+        ws['E4'] = invoice.ppo_number or ''
+
+        # G4: Billing Date = Invoice Date
+        if invoice.invoice_date:
+            ws['G4'] = invoice.invoice_date
+
+        # O7: Date of Delivery = PAC Date (from first item that has it)
+        pac_date = None
+        for item in invoice.items:
+            if item.pac_date:
+                pac_date = item.pac_date
+                break
+        if pac_date:
+            ws['O7'] = pac_date
+
+        # O5: VAT % = VAT Rate from invoice (as decimal, e.g., 0.05 for 5%)
+        vat_rate = (invoice.vat_rate or 5) / 100  # Default to 5% if not set
+        ws['O5'] = vat_rate
+
+        # Fill line items starting at row 13
+        start_row = 13
+        for idx, item in enumerate(invoice.items):
+            row = start_row + idx
+
+            # A: Site ID
+            ws.cell(row=row, column=1, value=invoice.site_id or '')
+
+            # B: PO Item Description
+            description_text = item.description.description if item.description else ''
+            ws.cell(row=row, column=2, value=description_text)
+
+            # C: PO Item # (LI#)
+            ws.cell(row=row, column=3, value=item.li_number or '')
+
+            # D: Category - formula references the template
+            ws.cell(row=row, column=4, value=f'=IF(ISBLANK(C{row}),"",IF($O$2="FIDX","Services","Equipment"))')
+
+            # E: Quantity
+            qty = item.quantity or 0
+            ws.cell(row=row, column=5, value=qty)
+
+            # F: Unit Price
+            unit_price = item.unit_price or (item.description.price_per_unit if item.description else 0) or 0
+            ws.cell(row=row, column=6, value=unit_price)
+
+            # G: Amount = Qty * Unit Price
+            amount = qty * unit_price
+            ws.cell(row=row, column=7, value=amount)
+
+            # H: VAT %
+            ws.cell(row=row, column=8, value=vat_rate)
+
+            # I: VAT Amount = VAT % * Amount
+            vat_amount = vat_rate * amount
+            ws.cell(row=row, column=9, value=vat_amount)
+
+            # J: Gross Amount = Amount + VAT Amount
+            gross_amount = amount + vat_amount
+            ws.cell(row=row, column=10, value=gross_amount)
+
+        # Save to BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        # Generate filename
+        filename = f"Invoice_{invoice.customer_invoice_number or invoice.ppo_number or invoice.id}.xlsx"
+
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating invoice Excel: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating invoice Excel: {str(e)}"
         )

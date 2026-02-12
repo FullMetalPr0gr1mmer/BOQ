@@ -1,10 +1,10 @@
 """Add project_id and section to audit_logs for project-scoped access control
 
 Revision ID: a5b6c7d8e9f0
-Revises: f7a8b9c0d1e2, c3a0ac1538bb
+Revises: f7a8b9c0d1e2
 Create Date: 2026-02-11 10:00:00.000000
 
-This migration merges the two existing heads and adds project tracking columns.
+This migration adds project tracking columns to audit_logs.
 """
 from typing import Sequence, Union
 
@@ -14,8 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'a5b6c7d8e9f0'
-# Merge both existing heads into a single migration
-down_revision: Union[str, Sequence[str], None] = ('f7a8b9c0d1e2', 'c3a0ac1538bb')
+down_revision: Union[str, Sequence[str], None] = 'f7a8b9c0d1e2'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -455,7 +455,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         get_service_type_name(parent.service_type),
                         "MW",
                         "Link",
-                        "NA",  # UPL Line - not applicable for parent rows
+                        parent.upl_line or "NA",
                         "1",
                         parent.total_price or "",
                         "-----------------",  # SN
@@ -510,8 +510,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                     site_display,
                     item_name_with_type,  # Item Name column
                     item_desc,  # Item Description
-                    # lvl3.sequence or
-                     " ",  # Sequence from parent lvl3
+                    lvl3.sequence or " ",
                     "MW links (HW,SW,Services,Passive)",
                     vendor_part,
                     get_service_type_name(item.service_type),
@@ -594,8 +593,7 @@ def _generate_site_csv_content(site_ip: str, lvl3_rows: List, outdoor_inventory:
                         site_display,
                         item_name_with_type,  # Item Name column
                         item_desc,  # Item Description
-                                            # lvl3.sequence or
-                        " ",  # Sequence from parent lvl3
+                        lvl3.sequence or " ",
                         "MW links (HW,SW,Services,Passive)",
                         vendor_part,
                         get_service_type_name(item.service_type),

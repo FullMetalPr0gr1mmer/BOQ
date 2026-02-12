@@ -279,6 +279,11 @@
   transform: scale(1.1);
 }
 
+.inventory-container .btn-action.btn-download:hover {
+  background: #dcfce7;
+  transform: scale(1.1);
+}
+
 .inventory-container .btn-action.btn-delete:hover {
   background: #fee2e2;
   transform: scale(1.1);

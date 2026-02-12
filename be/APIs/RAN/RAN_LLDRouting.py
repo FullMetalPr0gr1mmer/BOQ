@@ -583,8 +583,7 @@ def generate_ran_boq(site_id: int, db: Session = Depends(get_db), current_user: 
                     child.upl_line or "NA",
                     child_merge_line,
                     child.vendor_part_number,
-                    # parent.sequence or
-                    " ",  # Sequence from parent
+                    parent.sequence or " ",
                     child.category or "NA",
                     parent.ran_category or "NA",  # RAN Category - child takes parent's value
                     get_service_type_name(parent.service_type),
