@@ -20,6 +20,7 @@ class DURPAProject(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     po_number = Column(String(100), unique=True, nullable=False, index=True)
+    category = Column(String(50), nullable=False, default='ppo_based')  # 'ppo_based' or 'non_ppo'
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -90,7 +91,7 @@ class DURPAInvoice(Base):
     ppo_number = Column(String(100), unique=True, nullable=False, index=True)  # PPO# - unique identifier
     new_po_number = Column(String(100), nullable=True, index=True)  # New PO number
     pr_number = Column(String(100), nullable=True, index=True)  # PR #
-    site_id = Column(String(100), nullable=True, index=True)
+    site_id = Column(String(500), nullable=True, index=True)
     model = Column(String(200), nullable=True)  # Model
     sap_invoice_number = Column(String(100), nullable=True, index=True)
     invoice_date = Column(Date, nullable=True)

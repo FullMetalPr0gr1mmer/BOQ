@@ -49,7 +49,7 @@ DATE_FORMAT_ISO = '%Y-%m-%d'  # e.g., "2026-02-09"
 
 # Excel template path
 BOQ_TEMPLATE_FILENAME = 'BOQ Formate.xlsx'
-BOQ_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', '..', BOQ_TEMPLATE_FILENAME)
+BOQ_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'templates', BOQ_TEMPLATE_FILENAME)
 
 # Excel column mapping for BOQ data
 BOQ_EXCEL_COLUMNS = [
@@ -64,7 +64,7 @@ BOQ_EXCEL_COLUMNS = [
     (9, 'total_usd'),  # Total USD
     (10, 'total_aed'), # Total AED
     (11, 'site_id_list'), # Site ID
-    (12, 'smp')        # SMP
+    (12, 'po_model')   # Model Name towards dU
 ]
 
 from APIs.Core import get_db, get_current_user
@@ -197,6 +197,23 @@ def safe_extract_float(value) -> Optional[float]:
     if pd.isna(value):
         return None
     val_str = str(value).strip()
+    if not val_str:
+        return None
+    try:
+        return float(val_str)
+    except ValueError:
+        return None
+
+
+def parse_currency_value(value) -> Optional[float]:
+    """Parse a currency string like ' $1,126.28 ' to float."""
+    if pd.isna(value):
+        return None
+    val_str = str(value).strip()
+    if not val_str:
+        return None
+    # Remove $, commas, and whitespace
+    val_str = val_str.replace('$', '').replace(',', '').strip()
     if not val_str:
         return None
     try:
@@ -427,6 +444,7 @@ def get_site_with_products(
             "line_number": product.line_number,
             "code": product.code,
             "category": product.category,
+            "unit_price": product.unit_price,
             "total_po_qty": product.total_po_qty,
             "consumed_in_year": product.consumed_in_year,
             "consumed_year": product.consumed_year,
@@ -857,15 +875,17 @@ async def upload_csv(
         # Read CSV
         df = pd.read_csv(StringIO(csv_content), header=None)
 
-        # Extract product headers (rows 1-5, starting from column 7)
-        # Row 6 (consumed_in_year) is SKIPPED - will be auto-calculated
+        # Extract product headers (rows 1-6, starting from column 7)
+        # Row 0: Description, Row 1: #Line, Row 2: Unit Price ($), Row 3: #Code,
+        # Row 4: Category, Row 5: Total PO QTY, Row 6: Consumed (SKIP), Row 7: Remaining/Headers (SKIP)
         descriptions = df.iloc[0, 7:].tolist()
         line_numbers = df.iloc[1, 7:].tolist()
-        codes = df.iloc[2, 7:].tolist()
-        categories = df.iloc[3, 7:].tolist()
-        total_pos = df.iloc[4, 7:].tolist()
-        # Row 5 (index 5) is consumed in year - SKIP
-        # Row 6 (index 6) is remaining in PO - SKIP
+        unit_prices = df.iloc[2, 7:].tolist()
+        codes = df.iloc[3, 7:].tolist()
+        categories = df.iloc[4, 7:].tolist()
+        total_pos = df.iloc[5, 7:].tolist()
+        # Row 6 (index 6) is consumed in year - SKIP
+        # Row 7 (index 7) is remaining in PO / column headers - SKIP
 
         # Helper function to safely extract and clean string values from lists
         def clean_value(lst, idx):
@@ -891,6 +911,7 @@ async def upload_csv(
             # Extract other product fields
             code = clean_value(codes, idx)
             category = clean_value(categories, idx)
+            unit_price = parse_currency_value(unit_prices[idx]) if idx < len(unit_prices) else None
             total_po_qty = float(total_pos[idx]) if not pd.isna(total_pos[idx]) and str(total_pos[idx]).strip() else None
 
             # Check if product exists by code (upsert logic)
@@ -901,6 +922,7 @@ async def upload_csv(
                 existing_product.description = description
                 existing_product.line_number = line_number
                 existing_product.category = category
+                existing_product.unit_price = unit_price
                 existing_product.total_po_qty = total_po_qty
                 existing_product.consumed_year = consumed_year
                 # consumed_in_year and remaining_in_po will be calculated later
@@ -913,6 +935,7 @@ async def upload_csv(
                     line_number=line_number,
                     code=code,
                     category=category,
+                    unit_price=unit_price,
                     total_po_qty=total_po_qty,
                     consumed_year=consumed_year,
                     consumed_in_year=0,  # Will be calculated later
@@ -945,7 +968,7 @@ async def upload_csv(
                 return val if val else None
             return None
 
-        for row_idx in range(7, len(df)):
+        for row_idx in range(8, len(df)):
             row = df.iloc[row_idx]
 
             # Extract site basic data (columns 0-5)
@@ -1142,7 +1165,8 @@ import zipfile
 from datetime import datetime
 import os
 from openpyxl import load_workbook
-from openpyxl.styles import Border, Side
+from openpyxl.styles import Border, Side, Font, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
 
 
 def generate_boq_csv_for_site(site: ODBOQSite, db: Session) -> str:
@@ -1180,12 +1204,24 @@ def generate_boq_csv_for_site(site: ODBOQSite, db: Session) -> str:
         if isinstance(final_qty, float) and final_qty == int(final_qty):
             final_qty = int(final_qty)
 
+        up = product.unit_price
+        total_usd = ''
+        total_aed = ''
+        if up is not None and final_qty is not None:
+            total_usd_val = up * (final_qty if isinstance(final_qty, (int, float)) else 0)
+            total_aed_val = total_usd_val * 3.6725
+            total_usd = round(total_usd_val, 2)
+            total_aed = round(total_aed_val, 2)
+
         result_data.append({
             'Description': product.description or ' ',
             'Category': product.category or ' ',
             'BU': product.bu or ' ',
             'UOM': product.code or ' ',
             'BOQ Qty': final_qty,
+            'Unit Price': up if up is not None else ' ',
+            'Total USD': total_usd if total_usd != '' else ' ',
+            'Total AED': total_aed if total_aed != '' else ' ',
             'Line Number': product.line_number or ' ',
             'Code': product.code or ' '
         })
@@ -1209,7 +1245,7 @@ def generate_boq_csv_for_site(site: ODBOQSite, db: Session) -> str:
     csv_lines.append(f'" "," "," "," "," "," "," "')  # Empty row separator
 
     # Add data table headers
-    csv_headers = ['Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'Line Number', 'Code']
+    csv_headers = ['Description', 'Category', 'BU', 'UOM', 'BOQ Qty', 'Unit Price', 'Total USD', 'Total AED', 'Line Number', 'Code']
     csv_lines.append(','.join(csv_headers))
 
     # Add data rows
@@ -1421,6 +1457,16 @@ def generate_boq_data_for_site(site: ODBOQSite, db: Session) -> dict:
         if isinstance(final_qty, float) and final_qty == int(final_qty):
             final_qty = int(final_qty)
 
+        # Calculate totals from unit_price if available
+        up = product.unit_price
+        total_usd = ''
+        total_aed = ''
+        if up is not None and final_qty is not None:
+            total_usd_val = up * (final_qty if isinstance(final_qty, (int, float)) else 0)
+            total_aed_val = total_usd_val * 3.6725  # USD to AED conversion
+            total_usd = round(total_usd_val, 2)
+            total_aed = round(total_aed_val, 2)
+
         result_data.append({
             'line': product.line_number,
             'bu': product.bu,
@@ -1428,11 +1474,11 @@ def generate_boq_data_for_site(site: ODBOQSite, db: Session) -> dict:
             'description': product.description,
             'budget_line': product.category,
             'qty': final_qty,
-            'unit_price': '',  # No CustomerPO, leave blank
-            'total_usd': '',
-            'total_aed': '',
+            'unit_price': up if up is not None else '',
+            'total_usd': total_usd,
+            'total_aed': total_aed,
             'site_id_list': site.site_id,
-            'smp': site.smp or ''
+            'po_model': site.po_model or ''
         })
 
     # Get project details for header
@@ -1446,7 +1492,7 @@ def generate_boq_data_for_site(site: ODBOQSite, db: Session) -> dict:
         'subscope': site.subscope,
         'project_po': project_po,
         'sps_category': site.subscope or 'N/A',
-        'smp': site.smp or '',
+        'po_model': site.po_model or '',
         'data': result_data
     }
 
@@ -1558,26 +1604,39 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             ws.cell(row=row_num, column=10).border = template_border
             ws.cell(row=row_num, column=11).value = item.get('site_id_list')
             ws.cell(row=row_num, column=11).border = template_border
-            ws.cell(row=row_num, column=12).value = item.get('smp')
+            ws.cell(row=row_num, column=12).value = item.get('po_model')
             ws.cell(row=row_num, column=12).border = template_border
 
-        # Apply bottom border to the last data row
+        # Add totals row after data
         if len(sorted_data) > 0:
-            last_row = start_row + len(sorted_data) - 1
+            last_data_row = start_row + len(sorted_data) - 1
+            totals_row = last_data_row + 1
+
             thin_side = Side(style='thin', color='000000')
-            last_row_border = Border(
-                left=thin_side,
-                right=thin_side,
-                top=thin_side,
-                bottom=thin_side
-            )
+            totals_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+            bold_font = Font(bold=True)
+
+            # Empty bordered cells for non-total columns
             for col in range(1, 13):
-                cell = ws.cell(row=last_row, column=col)
-                cell.border = last_row_border
+                cell = ws.cell(row=totals_row, column=col)
+                cell.border = totals_border
+
+            # "Total" label in description column
+            ws.cell(row=totals_row, column=5).value = "Total"
+            ws.cell(row=totals_row, column=5).font = bold_font
+
+            # SUM formulas for Total USD (col 9) and Total AED (col 10)
+            ws.cell(row=totals_row, column=9).value = f"=SUM(I{start_row}:I{last_data_row})"
+            ws.cell(row=totals_row, column=9).font = bold_font
+            ws.cell(row=totals_row, column=9).number_format = '#,##0.00'
+
+            ws.cell(row=totals_row, column=10).value = f"=SUM(J{start_row}:J{last_data_row})"
+            ws.cell(row=totals_row, column=10).font = bold_font
+            ws.cell(row=totals_row, column=10).number_format = '#,##0.00'
 
         # Restore footer
         if footer_rows and len(sorted_data) > 0:
-            footer_start_row = start_row + len(sorted_data) + 1
+            footer_start_row = start_row + len(sorted_data) + 2  # +2 to account for totals row
             for footer_idx, footer_row_data in enumerate(footer_rows):
                 row_num = footer_start_row + footer_idx
                 for col_idx, cell_data in enumerate(footer_row_data):
@@ -1606,7 +1665,7 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             for item in entry.get('data', []):
                 item_with_site = item.copy()
                 item_with_site['site_id_list'] = entry['site_id']
-                item_with_site['smp'] = entry.get('smp', '')
+                item_with_site['po_model'] = entry.get('po_model', '')
                 all_data.append(item_with_site)
 
         # Sort by line number numerically (convert string to int for proper sorting)
@@ -1646,26 +1705,39 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             ws.cell(row=row_num, column=10).border = template_border
             ws.cell(row=row_num, column=11).value = item.get('site_id_list')
             ws.cell(row=row_num, column=11).border = template_border
-            ws.cell(row=row_num, column=12).value = item.get('smp')
+            ws.cell(row=row_num, column=12).value = item.get('po_model')
             ws.cell(row=row_num, column=12).border = template_border
 
-        # Apply bottom border to the last data row
+        # Add totals row after data
         if len(sorted_data) > 0:
-            last_row = start_row + len(sorted_data) - 1
+            last_data_row = start_row + len(sorted_data) - 1
+            totals_row = last_data_row + 1
+
             thin_side = Side(style='thin', color='000000')
-            last_row_border = Border(
-                left=thin_side,
-                right=thin_side,
-                top=thin_side,
-                bottom=thin_side
-            )
+            totals_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+            bold_font = Font(bold=True)
+
+            # Empty bordered cells for non-total columns
             for col in range(1, 13):
-                cell = ws.cell(row=last_row, column=col)
-                cell.border = last_row_border
+                cell = ws.cell(row=totals_row, column=col)
+                cell.border = totals_border
+
+            # "Total" label in description column
+            ws.cell(row=totals_row, column=5).value = "Total"
+            ws.cell(row=totals_row, column=5).font = bold_font
+
+            # SUM formulas for Total USD (col 9) and Total AED (col 10)
+            ws.cell(row=totals_row, column=9).value = f"=SUM(I{start_row}:I{last_data_row})"
+            ws.cell(row=totals_row, column=9).font = bold_font
+            ws.cell(row=totals_row, column=9).number_format = '#,##0.00'
+
+            ws.cell(row=totals_row, column=10).value = f"=SUM(J{start_row}:J{last_data_row})"
+            ws.cell(row=totals_row, column=10).font = bold_font
+            ws.cell(row=totals_row, column=10).number_format = '#,##0.00'
 
         # Restore footer
         if footer_rows and len(sorted_data) > 0:
-            footer_start_row = start_row + len(sorted_data) + 1
+            footer_start_row = start_row + len(sorted_data) + 2  # +2 to account for totals row
             for footer_idx, footer_row_data in enumerate(footer_rows):
                 row_num = footer_start_row + footer_idx
                 for col_idx, cell_data in enumerate(footer_row_data):
@@ -1679,6 +1751,47 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
                         cell.border = cell_data['border']
                     if cell_data['alignment']:
                         cell.alignment = cell_data['alignment']
+
+    # --- Column widths and formatting ---
+    # Set column widths so data is visible without manual resizing
+    column_widths = {
+        'A': 4,    # Empty/index
+        'B': 12,   # BPO Line No
+        'C': 14,   # BU
+        'D': 18,   # ERP Item Code
+        'E': 45,   # Description (widest)
+        'F': 14,   # Budget Line
+        'G': 10,   # QTY
+        'H': 14,   # Unit Price
+        'I': 16,   # Total USD
+        'J': 16,   # Total AED
+        'K': 16,   # Site ID
+        'L': 30,   # Model Name towards dU
+    }
+    for col_letter, width in column_widths.items():
+        ws.column_dimensions[col_letter].width = width
+
+    # Apply text wrapping to all data cells so content is visible
+    wrap_alignment = Alignment(wrap_text=True, vertical='center')
+    data_start = 10
+    data_end = ws.max_row
+    for row_idx in range(data_start, data_end + 1):
+        for col_idx in range(1, 13):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            # Preserve existing alignment properties but add wrap_text
+            existing = cell.alignment
+            cell.alignment = Alignment(
+                horizontal=existing.horizontal if existing.horizontal else None,
+                vertical='center',
+                wrap_text=True
+            )
+
+    # Number formatting for currency columns in data rows
+    for row_idx in range(data_start, data_end + 1):
+        for col_idx in [8, 9, 10]:  # Unit Price, Total USD, Total AED
+            cell = ws.cell(row=row_idx, column=col_idx)
+            if cell.value and isinstance(cell.value, (int, float)):
+                cell.number_format = '#,##0.00'
 
     # Save to BytesIO
     output = BytesIO()
@@ -1722,7 +1835,7 @@ async def download_boq_excel(
         raise HTTPException(status_code=404, detail=boq_data['error'])
 
     # Get template path
-    template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'BOQ Formate.xlsx')
+    template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'templates', 'BOQ Formate.xlsx')
 
     if not os.path.exists(template_path):
         raise HTTPException(
@@ -1822,7 +1935,7 @@ async def bulk_download_boq_excel(
     - Returns: Single Excel file as StreamingResponse
     """
     # Get template path
-    template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'BOQ Formate.xlsx')
+    template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'templates', 'BOQ Formate.xlsx')
 
     if not os.path.exists(template_path):
         raise HTTPException(
@@ -1915,7 +2028,7 @@ async def bulk_download_boq_excel_from_edited(
     """
     try:
         # Get template path
-        template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'BOQ Formate.xlsx')
+        template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'templates', 'BOQ Formate.xlsx')
 
         if not os.path.exists(template_path):
             raise HTTPException(
@@ -1950,14 +2063,17 @@ async def bulk_download_boq_excel_from_edited(
             boq_items = []
             for row in csv_data[data_start_idx:]:
                 if row and len(row) >= 1:
-                    # CSV format: Description, Category, BU, UOM, BOQ Qty, Line Number, Code
+                    # CSV format: Description, Category, BU, UOM, BOQ Qty, Unit Price, Total USD, Total AED, Line Number, Code
                     description = str(row[0]).strip() if len(row) > 0 else ''
                     category = str(row[1]).strip() if len(row) > 1 else ''
                     bu = str(row[2]).strip() if len(row) > 2 else ''
                     uom = str(row[3]).strip() if len(row) > 3 else ''
                     qty_str = str(row[4]).strip() if len(row) > 4 else ''
-                    line_number = str(row[5]).strip() if len(row) > 5 else ''
-                    code = str(row[6]).strip() if len(row) > 6 else ''
+                    unit_price_str = str(row[5]).strip() if len(row) > 5 else ''
+                    total_usd_str = str(row[6]).strip() if len(row) > 6 else ''
+                    total_aed_str = str(row[7]).strip() if len(row) > 7 else ''
+                    line_number = str(row[8]).strip() if len(row) > 8 else ''
+                    code = str(row[9]).strip() if len(row) > 9 else ''
 
                     # Skip empty rows
                     if not description and not code:
@@ -1969,22 +2085,39 @@ async def bulk_download_boq_excel_from_edited(
                     except (ValueError, TypeError):
                         qty = 0
 
+                    # Parse unit price
+                    try:
+                        unit_price = float(unit_price_str) if unit_price_str else ''
+                    except (ValueError, TypeError):
+                        unit_price = ''
+
+                    # Parse totals
+                    try:
+                        total_usd = float(total_usd_str) if total_usd_str else ''
+                    except (ValueError, TypeError):
+                        total_usd = ''
+
+                    try:
+                        total_aed = float(total_aed_str) if total_aed_str else ''
+                    except (ValueError, TypeError):
+                        total_aed = ''
+
                     boq_items.append({
                         'line': line_number,
                         'bu': bu,
                         'item_job': code,
                         'description': description,
                         'qty': qty,
-                        'unit_price': '',
-                        'total_usd': '',
-                        'total_aed': ''
+                        'unit_price': unit_price,
+                        'total_usd': total_usd,
+                        'total_aed': total_aed
                     })
 
             if boq_items:
                 all_boq_entries.append({
                     'site_id': site_data.site_id,
                     'subscope': site_data.subscope,
-                    'smp': site_data.smp or '',
+                    'po_model': '',  # Not available in edited data
                     'project_po': 'N/A',  # Required by create_excel_from_boq_data
                     'scope': site_data.subscope or 'N/A',
                     'sps_category': site_data.subscope or 'N/A',

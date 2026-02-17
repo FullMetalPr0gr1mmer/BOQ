@@ -106,6 +106,7 @@ class ODBOQProductCreate(BaseModel):
     code: Optional[str] = Field(None, description="#Code from CSV")
     category: Optional[str] = Field(None, description="Hardware/SW/Service")
     bu: Optional[str] = Field(None, description="Business Unit (Product, Services, etc.)")
+    unit_price: Optional[float] = Field(None, description="Unit price in USD")
     total_po_qty: Optional[float] = Field(None, description="Total PO quantity")
     consumed_in_year: Optional[float] = Field(None, description="Consumed quantity")
     consumed_year: Optional[int] = Field(None, description="Year of consumption")
@@ -119,6 +120,7 @@ class ODBOQProductUpdate(BaseModel):
     code: Optional[str] = None
     category: Optional[str] = None
     bu: Optional[str] = None
+    unit_price: Optional[float] = None
     total_po_qty: Optional[float] = None
     consumed_in_year: Optional[float] = None
     consumed_year: Optional[int] = None
@@ -133,6 +135,7 @@ class ODBOQProductOut(BaseModel):
     code: Optional[str] = None
     category: Optional[str] = None
     bu: Optional[str] = None
+    unit_price: Optional[float] = None
     total_po_qty: Optional[float] = None
     consumed_in_year: Optional[float] = None
     consumed_year: Optional[int] = None

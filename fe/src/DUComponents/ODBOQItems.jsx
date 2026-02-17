@@ -44,6 +44,7 @@ export default function ODBOQItems() {
     line_number: '',
     code: '',
     category: '',
+    unit_price: '',
     total_po_qty: '',
     consumed_in_year: '',
     remaining_in_po: ''
@@ -421,6 +422,7 @@ export default function ODBOQItems() {
       line_number: '',
       code: '',
       category: '',
+      unit_price: '',
       total_po_qty: '',
       consumed_in_year: '',
       remaining_in_po: ''
@@ -435,6 +437,7 @@ export default function ODBOQItems() {
       line_number: product.line_number || '',
       code: product.code || '',
       category: product.category || '',
+      unit_price: product.unit_price || '',
       total_po_qty: product.total_po_qty || '',
       consumed_in_year: product.consumed_in_year || '',
       remaining_in_po: product.remaining_in_po || ''
@@ -455,6 +458,7 @@ export default function ODBOQItems() {
 
     const payload = {
       ...productFormData,
+      unit_price: productFormData.unit_price !== '' ? parseFloat(productFormData.unit_price) : null,
       total_po_qty: parseFloat(productFormData.total_po_qty) || 0,
       consumed_in_year: parseFloat(productFormData.consumed_in_year) || 0,
       remaining_in_po: parseFloat(productFormData.remaining_in_po) || 0,
@@ -1252,6 +1256,7 @@ export default function ODBOQItems() {
                                       <th>Line #</th>
                                       <th>Code</th>
                                       <th>Category</th>
+                                      <th>Unit Price ($)</th>
                                       <th>Total PO QTY</th>
                                       <th>Consumed</th>
                                       <th>Remaining</th>
@@ -1266,6 +1271,7 @@ export default function ODBOQItems() {
                                         <td title={product.line_number}>{product.line_number || 'N/A'}</td>
                                         <td title={product.code}>{product.code || 'N/A'}</td>
                                         <td title={product.category}>{product.category || 'N/A'}</td>
+                                        <td title={product.unit_price}>{product.unit_price != null ? `$${product.unit_price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'N/A'}</td>
                                         <td title={product.total_po_qty}>{product.total_po_qty != null ? product.total_po_qty : 'N/A'}</td>
                                         <td title={product.consumed_in_year}>{product.consumed_in_year != null ? product.consumed_in_year : 'N/A'}</td>
                                         <td title={product.remaining_in_po}>{product.remaining_in_po != null ? product.remaining_in_po : 'N/A'}</td>
@@ -1476,6 +1482,16 @@ export default function ODBOQItems() {
                       name="category"
                       value={productFormData.category}
                       onChange={handleProductFormChange}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>Unit Price ($)</label>
+                    <input
+                      type="number"
+                      name="unit_price"
+                      value={productFormData.unit_price}
+                      onChange={handleProductFormChange}
+                      step="0.01"
                     />
                   </div>
                   <div className="form-field">

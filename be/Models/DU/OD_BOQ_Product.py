@@ -23,6 +23,9 @@ class ODBOQProduct(Base):
     category = Column(String(100), nullable=True, index=True)  # Row 4: Hardware/SW/Service
     bu = Column(String(100), nullable=True, index=True)  # Business Unit (e.g., "Product", "Services")
 
+    # Pricing
+    unit_price = Column(Float, nullable=True)  # Unit Price ($) from CSV
+
     # Inventory tracking
     total_po_qty = Column(Float, nullable=True)  # Row 5: Total PO QTY
     consumed_in_year = Column(Float, nullable=True)  # Row 6: Consumed quantity

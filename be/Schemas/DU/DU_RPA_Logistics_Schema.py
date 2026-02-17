@@ -21,17 +21,20 @@ from datetime import datetime, date
 class CreateDURPAProject(BaseModel):
     """Schema for creating a new DU RPA Project."""
     po_number: str = Field(..., min_length=1, description="Unique PO#")
+    category: str = Field('ppo_based', description="Project category: 'ppo_based' or 'non_ppo'")
 
 
 class UpdateDURPAProject(BaseModel):
     """Schema for updating an existing DU RPA Project."""
     po_number: Optional[str] = Field(None, min_length=1)
+    category: Optional[str] = None
 
 
 class DURPAProjectOut(BaseModel):
     """Schema for returning a DU RPA Project."""
     id: int
     po_number: str
+    category: str = 'ppo_based'
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -43,6 +46,7 @@ class DURPAProjectWithStats(BaseModel):
     """Schema for returning a DU RPA Project with summary stats."""
     id: int
     po_number: str
+    category: str = 'ppo_based'
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     description_count: int = 0

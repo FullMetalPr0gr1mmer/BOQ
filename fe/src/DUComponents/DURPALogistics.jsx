@@ -56,7 +56,7 @@ export default function DURPALogistics() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Form state
-  const [projectForm, setProjectForm] = useState({ po_number: '' });
+  const [projectForm, setProjectForm] = useState({ po_number: '', category: 'ppo_based' });
   const [descForm, setDescForm] = useState({
     description: '',
     po_line_item: '',
@@ -221,11 +221,11 @@ export default function DURPALogistics() {
     if (project) {
       setIsEditing(true);
       setEditingId(project.id);
-      setProjectForm({ po_number: project.po_number });
+      setProjectForm({ po_number: project.po_number, category: project.category || 'ppo_based' });
     } else {
       setIsEditing(false);
       setEditingId(null);
-      setProjectForm({ po_number: '' });
+      setProjectForm({ po_number: '', category: 'ppo_based' });
     }
     setShowProjectModal(true);
   };
@@ -420,6 +420,38 @@ export default function DURPALogistics() {
     }
   };
 
+  const handleImportTracker = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const result = await apiCall('/du-rpa/import-consolidated-tracker', {
+        method: 'POST',
+        body: formData
+      });
+      let msg = result.message || 'Import complete.';
+      if (result.errors?.length > 0) {
+        msg += ` ${result.errors.length} warnings.`;
+      }
+      setTransient(setSuccess, msg);
+      // Invalidate all caches after bulk import
+      projectsCache.current = { data: null, timestamp: 0 };
+      invoicesCache.current = { data: null, timestamp: 0, search: '', poFilter: '' };
+      descriptionsCache.current = {};
+      fetchProjects(1, searchTerm);
+      fetchInvoices(1, searchTerm, invoicePoFilter);
+    } catch (err) {
+      setTransient(setError, err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
   const handleInvoiceDelete = async (invoice) => {
     if (!window.confirm(`Are you sure you want to delete invoice ${invoice.sap_invoice_number || invoice.customer_invoice_number}?`)) return;
     try {
@@ -440,30 +472,30 @@ export default function DURPALogistics() {
 
   const handleInvoiceDownload = async (invoice) => {
     try {
-      // Get the API base URL from environment
-      const token = localStorage.getItem('token');
       const baseUrl = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem('token');
 
       const response = await fetch(`${baseUrl}/du-rpa/invoices/${invoice.id}/download-excel`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to download invoice');
+        let message = 'Failed to download invoice';
+        try {
+          const errorData = await response.json();
+          message = errorData.detail || message;
+        } catch { /* response wasn't JSON */ }
+        throw new Error(message);
       }
 
       // Get filename from Content-Disposition header or generate one
       const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `Invoice_${invoice.customer_invoice_number || invoice.ppo_number || invoice.id}.xlsx`;
+      let filename = `Invoice_${invoice.customer_invoice_number || invoice.ppo_number || invoice.id}.zip`;
       if (contentDisposition) {
         const match = contentDisposition.match(/filename=(.+)/);
         if (match) filename = match[1];
       }
 
-      // Download the file
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -731,9 +763,21 @@ PO-123456,NEW-PO-002,PR-002,PPO-INV-002,SITE002,Model-B,LI-001,STM-1 card with a
         />
         <div className="header-actions">
           {activeView === 'projects' && (
-            <button className="btn-primary" onClick={() => openProjectModal()}>
-              <span className="btn-icon">+</span> New Project
-            </button>
+            <>
+              <label className={`btn-secondary ${uploading ? 'disabled' : ''}`}>
+                Import Tracker
+                <input
+                  type="file"
+                  accept=".xlsb,.xlsx,.xls"
+                  hidden
+                  disabled={uploading}
+                  onChange={handleImportTracker}
+                />
+              </label>
+              <button className="btn-primary" onClick={() => openProjectModal()}>
+                <span className="btn-icon">+</span> New Project
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -788,6 +832,7 @@ PO-123456,NEW-PO-002,PR-002,PPO-INV-002,SITE002,Model-B,LI-001,STM-1 card with a
             <tr>
               <th style={{ width: '50px' }}></th>
               <th>PO#</th>
+              <th>Category</th>
               <th>Descriptions</th>
               <th>Invoices</th>
               <th>Total PO Value</th>
@@ -798,7 +843,7 @@ PO-123456,NEW-PO-002,PR-002,PPO-INV-002,SITE002,Model-B,LI-001,STM-1 card with a
           <tbody>
             {projects.length === 0 && !projectsLoading ? (
               <tr>
-                <td colSpan={7} className="no-data">No projects found. Create your first project!</td>
+                <td colSpan={8} className="no-data">No projects found. Create your first project!</td>
               </tr>
             ) : (
               projects.map((project) => (
@@ -815,6 +860,7 @@ PO-123456,NEW-PO-002,PR-002,PPO-INV-002,SITE002,Model-B,LI-001,STM-1 card with a
                       </button>
                     </td>
                     <td><strong>{project.po_number}</strong></td>
+                    <td>{project.category === 'non_ppo' ? 'Standard Order' : 'Release Order (PPO)'}</td>
                     <td>{project.description_count || 0}</td>
                     <td>{project.invoice_count || 0}</td>
                     <td>{formatCurrency(project.total_po_value)}</td>
@@ -1145,10 +1191,21 @@ PO-123456,NEW-PO-002,PR-002,PPO-INV-002,SITE002,Model-B,LI-001,STM-1 card with a
                   <input
                     type="text"
                     value={projectForm.po_number}
-                    onChange={(e) => setProjectForm({ po_number: e.target.value })}
+                    onChange={(e) => setProjectForm({ ...projectForm, po_number: e.target.value })}
                     required
                     placeholder="Enter unique PO number"
                   />
+                </div>
+                <div className="form-field">
+                  <label>Category *</label>
+                  <select
+                    value={projectForm.category}
+                    onChange={(e) => setProjectForm({ ...projectForm, category: e.target.value })}
+                    required
+                  >
+                    <option value="ppo_based">Release Order (PPO)</option>
+                    <option value="non_ppo">Standard Order</option>
+                  </select>
                 </div>
               </div>
               <div className="form-actions">
