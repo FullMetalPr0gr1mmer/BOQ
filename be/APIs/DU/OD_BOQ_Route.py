@@ -1221,7 +1221,7 @@ def generate_boq_csv_for_site(site: ODBOQSite, db: Session) -> str:
             'BOQ Qty': final_qty,
             'Unit Price': up if up is not None else ' ',
             'Total USD': total_usd if total_usd != '' else ' ',
-            'Total AED': total_aed if total_aed != '' else ' ',
+            'Total AED': ' ',
             'Line Number': product.line_number or ' ',
             'Code': product.code or ' '
         })
@@ -1600,7 +1600,7 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             ws.cell(row=row_num, column=8).border = template_border
             ws.cell(row=row_num, column=9).value = item.get('total_usd')
             ws.cell(row=row_num, column=9).border = template_border
-            ws.cell(row=row_num, column=10).value = item.get('total_aed')
+            ws.cell(row=row_num, column=10).value = ''
             ws.cell(row=row_num, column=10).border = template_border
             ws.cell(row=row_num, column=11).value = item.get('site_id_list')
             ws.cell(row=row_num, column=11).border = template_border
@@ -1625,14 +1625,10 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             ws.cell(row=totals_row, column=5).value = "Total"
             ws.cell(row=totals_row, column=5).font = bold_font
 
-            # SUM formulas for Total USD (col 9) and Total AED (col 10)
+            # SUM formula for Total USD (col 9)
             ws.cell(row=totals_row, column=9).value = f"=SUM(I{start_row}:I{last_data_row})"
             ws.cell(row=totals_row, column=9).font = bold_font
             ws.cell(row=totals_row, column=9).number_format = '#,##0.00'
-
-            ws.cell(row=totals_row, column=10).value = f"=SUM(J{start_row}:J{last_data_row})"
-            ws.cell(row=totals_row, column=10).font = bold_font
-            ws.cell(row=totals_row, column=10).number_format = '#,##0.00'
 
         # Restore footer
         if footer_rows and len(sorted_data) > 0:
@@ -1701,7 +1697,7 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             ws.cell(row=row_num, column=8).border = template_border
             ws.cell(row=row_num, column=9).value = item.get('total_usd')
             ws.cell(row=row_num, column=9).border = template_border
-            ws.cell(row=row_num, column=10).value = item.get('total_aed')
+            ws.cell(row=row_num, column=10).value = ''
             ws.cell(row=row_num, column=10).border = template_border
             ws.cell(row=row_num, column=11).value = item.get('site_id_list')
             ws.cell(row=row_num, column=11).border = template_border
@@ -1726,14 +1722,10 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             ws.cell(row=totals_row, column=5).value = "Total"
             ws.cell(row=totals_row, column=5).font = bold_font
 
-            # SUM formulas for Total USD (col 9) and Total AED (col 10)
+            # SUM formula for Total USD (col 9)
             ws.cell(row=totals_row, column=9).value = f"=SUM(I{start_row}:I{last_data_row})"
             ws.cell(row=totals_row, column=9).font = bold_font
             ws.cell(row=totals_row, column=9).number_format = '#,##0.00'
-
-            ws.cell(row=totals_row, column=10).value = f"=SUM(J{start_row}:J{last_data_row})"
-            ws.cell(row=totals_row, column=10).font = bold_font
-            ws.cell(row=totals_row, column=10).number_format = '#,##0.00'
 
         # Restore footer
         if footer_rows and len(sorted_data) > 0:
