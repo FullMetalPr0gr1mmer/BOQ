@@ -158,8 +158,12 @@ Base.metadata.create_all(bind=engine)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",     # Local development frontend
-        "http://10.183.72.80:5173"   # Production/staging frontend
+        "http://localhost:5173",      # Local dev frontend (HTTP)
+        "https://localhost:5173",     # Local dev frontend (HTTPS)
+        "http://10.183.72.80:5173",   # Old server (HTTP)
+        "https://10.183.72.80:5173",  # Old server (HTTPS)
+        "http://10.183.50.15:5173",   # New server (HTTP)
+        "https://10.183.50.15:5173",  # New server (HTTPS)
     ],
     allow_credentials=True,          # Allow cookies and authentication headers
     allow_methods=["*"],             # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
@@ -219,13 +223,19 @@ app.include_router(exchangeRateRoute)   # USD/AED live exchange rate
 
 # Application entry point
 if __name__ == "__main__":
-    # Start the development server
-    # Host: 127.0.0.1 (localhost only)
+    # SSL certificate paths
+    ssl_certfile = os.path.join(os.path.dirname(__file__), "certs", "cert.pem")
+    ssl_keyfile = os.path.join(os.path.dirname(__file__), "certs", "key.pem")
+
+    # Start the HTTPS server
+    # Host: 0.0.0.0 (all interfaces)
     # Port: 8003
     # Timeout: 600 seconds (10 minutes) for large file uploads
     uvicorn.run(
         app,
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=8003,
-        timeout_keep_alive=600
+        timeout_keep_alive=600,
+        ssl_certfile=ssl_certfile,
+        ssl_keyfile=ssl_keyfile
     )
