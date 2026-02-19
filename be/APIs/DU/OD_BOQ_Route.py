@@ -442,6 +442,7 @@ def get_site_with_products(
             "product_id": product.id,
             "description": product.description,
             "line_number": product.line_number,
+            "bu": product.bu,
             "code": product.code,
             "category": product.category,
             "unit_price": product.unit_price,
@@ -875,17 +876,19 @@ async def upload_csv(
         # Read CSV
         df = pd.read_csv(StringIO(csv_content), header=None)
 
-        # Extract product headers (rows 1-6, starting from column 7)
-        # Row 0: Description, Row 1: #Line, Row 2: Unit Price ($), Row 3: #Code,
-        # Row 4: Category, Row 5: Total PO QTY, Row 6: Consumed (SKIP), Row 7: Remaining/Headers (SKIP)
+        # Extract product headers (rows 0-6, starting from column 7)
+        # Row 0: Description, Row 1: #Line, Row 2: BU, Row 3: Unit Price ($),
+        # Row 4: #Code, Row 5: Category, Row 6: Total PO QTY,
+        # Row 7: Consumed (SKIP), Row 8: Remaining/Headers (SKIP)
         descriptions = df.iloc[0, 7:].tolist()
         line_numbers = df.iloc[1, 7:].tolist()
-        unit_prices = df.iloc[2, 7:].tolist()
-        codes = df.iloc[3, 7:].tolist()
-        categories = df.iloc[4, 7:].tolist()
-        total_pos = df.iloc[5, 7:].tolist()
-        # Row 6 (index 6) is consumed in year - SKIP
-        # Row 7 (index 7) is remaining in PO / column headers - SKIP
+        bus = df.iloc[2, 7:].tolist()
+        unit_prices = df.iloc[3, 7:].tolist()
+        codes = df.iloc[4, 7:].tolist()
+        categories = df.iloc[5, 7:].tolist()
+        total_pos = df.iloc[6, 7:].tolist()
+        # Row 7 (index 7) is consumed in year - SKIP
+        # Row 8 (index 8) is remaining in PO / column headers - SKIP
 
         # Helper function to safely extract and clean string values from lists
         def clean_value(lst, idx):
@@ -909,6 +912,7 @@ async def upload_csv(
                 continue
 
             # Extract other product fields
+            bu = clean_value(bus, idx)
             code = clean_value(codes, idx)
             category = clean_value(categories, idx)
             unit_price = parse_currency_value(unit_prices[idx]) if idx < len(unit_prices) else None
@@ -921,6 +925,7 @@ async def upload_csv(
                 # Update existing product (WITHOUT consumed_in_year and remaining_in_po)
                 existing_product.description = description
                 existing_product.line_number = line_number
+                existing_product.bu = bu
                 existing_product.category = category
                 existing_product.unit_price = unit_price
                 existing_product.total_po_qty = total_po_qty
@@ -933,6 +938,7 @@ async def upload_csv(
                 new_product = ODBOQProduct(
                     description=description,
                     line_number=line_number,
+                    bu=bu,
                     code=code,
                     category=category,
                     unit_price=unit_price,
@@ -953,7 +959,7 @@ async def upload_csv(
         # Structure: [Region, Distance, Scope, Subscope, Site ID, Model] + [Products...] + [Sum] + [Metadata...]
         metadata_start_col = 7 + num_product_cols + 1  # +1 for Sum column
 
-        # Process site rows (row 8 onwards, which is index 7)
+        # Process site rows (row 9 onwards, which is index 9)
         sites_inserted = 0
         sites_updated = 0
         site_products_inserted = 0
@@ -968,7 +974,7 @@ async def upload_csv(
                 return val if val else None
             return None
 
-        for row_idx in range(8, len(df)):
+        for row_idx in range(9, len(df)):
             row = df.iloc[row_idx]
 
             # Extract site basic data (columns 0-5)
@@ -1209,7 +1215,7 @@ def generate_boq_csv_for_site(site: ODBOQSite, db: Session) -> str:
         total_aed = ''
         if up is not None and final_qty is not None:
             total_usd_val = up * (final_qty if isinstance(final_qty, (int, float)) else 0)
-            total_aed_val = total_usd_val * 3.6725
+            total_aed_val = total_usd_val * 3.6735
             total_usd = round(total_usd_val, 2)
             total_aed = round(total_aed_val, 2)
 
@@ -1221,7 +1227,7 @@ def generate_boq_csv_for_site(site: ODBOQSite, db: Session) -> str:
             'BOQ Qty': final_qty,
             'Unit Price': up if up is not None else ' ',
             'Total USD': total_usd if total_usd != '' else ' ',
-            'Total AED': ' ',
+            'Total AED': total_aed if total_aed != '' else ' ',
             'Line Number': product.line_number or ' ',
             'Code': product.code or ' '
         })
@@ -1463,7 +1469,7 @@ def generate_boq_data_for_site(site: ODBOQSite, db: Session) -> dict:
         total_aed = ''
         if up is not None and final_qty is not None:
             total_usd_val = up * (final_qty if isinstance(final_qty, (int, float)) else 0)
-            total_aed_val = total_usd_val * 3.6725  # USD to AED conversion
+            total_aed_val = total_usd_val * 3.6735  # USD to AED conversion
             total_usd = round(total_usd_val, 2)
             total_aed = round(total_aed_val, 2)
 
@@ -1600,7 +1606,7 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             ws.cell(row=row_num, column=8).border = template_border
             ws.cell(row=row_num, column=9).value = item.get('total_usd')
             ws.cell(row=row_num, column=9).border = template_border
-            ws.cell(row=row_num, column=10).value = ''
+            ws.cell(row=row_num, column=10).value = item.get('total_aed')
             ws.cell(row=row_num, column=10).border = template_border
             ws.cell(row=row_num, column=11).value = item.get('site_id_list')
             ws.cell(row=row_num, column=11).border = template_border
@@ -1697,7 +1703,7 @@ def create_excel_from_boq_data(boq_entries: list, template_path: str, is_bulk: b
             ws.cell(row=row_num, column=8).border = template_border
             ws.cell(row=row_num, column=9).value = item.get('total_usd')
             ws.cell(row=row_num, column=9).border = template_border
-            ws.cell(row=row_num, column=10).value = ''
+            ws.cell(row=row_num, column=10).value = item.get('total_aed')
             ws.cell(row=row_num, column=10).border = template_border
             ws.cell(row=row_num, column=11).value = item.get('site_id_list')
             ws.cell(row=row_num, column=11).border = template_border

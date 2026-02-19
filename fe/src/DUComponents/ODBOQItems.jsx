@@ -42,6 +42,7 @@ export default function ODBOQItems() {
   const [productFormData, setProductFormData] = useState({
     description: '',
     line_number: '',
+    bu: '',
     code: '',
     category: '',
     unit_price: '',
@@ -420,6 +421,7 @@ export default function ODBOQItems() {
     setProductFormData({
       description: '',
       line_number: '',
+      bu: '',
       code: '',
       category: '',
       unit_price: '',
@@ -435,6 +437,7 @@ export default function ODBOQItems() {
     setProductFormData({
       description: product.description || '',
       line_number: product.line_number || '',
+      bu: product.bu || '',
       code: product.code || '',
       category: product.category || '',
       unit_price: product.unit_price || '',
@@ -1254,6 +1257,7 @@ export default function ODBOQItems() {
                                     <tr>
                                       <th>Description</th>
                                       <th>Line #</th>
+                                      <th>BU</th>
                                       <th>Code</th>
                                       <th>Category</th>
                                       <th>Unit Price ($)</th>
@@ -1269,6 +1273,7 @@ export default function ODBOQItems() {
                                       <tr key={`${site.id}-product-${idx}`}>
                                         <td title={product.description}>{product.description || 'N/A'}</td>
                                         <td title={product.line_number}>{product.line_number || 'N/A'}</td>
+                                        <td title={product.bu}>{product.bu || 'N/A'}</td>
                                         <td title={product.code}>{product.code || 'N/A'}</td>
                                         <td title={product.category}>{product.category || 'N/A'}</td>
                                         <td title={product.unit_price}>{product.unit_price != null ? `$${product.unit_price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'N/A'}</td>
@@ -1463,6 +1468,15 @@ export default function ODBOQItems() {
                       type="text"
                       name="line_number"
                       value={productFormData.line_number}
+                      onChange={handleProductFormChange}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>BU</label>
+                    <input
+                      type="text"
+                      name="bu"
+                      value={productFormData.bu}
                       onChange={handleProductFormChange}
                     />
                   </div>

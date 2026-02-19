@@ -1,0 +1,254 @@
+﻿,,,,,,Description,AMIX AirScale Ultra High Capacity - 50G Backplane - Subrack,Ultra-High Capacity Outdoor BBU-ASIM,"Airscale, SRAN, Outdoor, BBU Extension",Ultra-High Capacity Outdoor BBU Extension-ABIP,AYGE GPS OD New Sites upto 30m,ARMA AirScale RFM 6T6R B20 360W,ARDA AirScale RFM 6T6R B8 480W,"RRH, ARGA, Airscale, 6T6R, RFM, B1, 480W","AirScale, AREA, RFM, 6T6R, B3, 480W",AHPMDI AirScale RRH 2T2R B8/20/28 240W,AHEGx AirScale Dual RRH 4T4R B1/3 480W,AVQD AirScale MAA 32T32R 192AE n41 320W,AVQL Habrok 64T64R MAA 192AE n78 320W,AQHC AirScale MAA 32T32R 192AE n41 320W,AVHA Habrok 64T64R MAA 192AE n41 400W,AVHQA Habrok Dubal Band 2x32T32R MAA n78+n41 400W,ACOx Outdoor Cabinet,LTE Application SW Features package per Cell,"License, Carrier Aggregation, 2CC, LK per cell",L2100 - F2 Soft Expansion (LTE-2100 F2 expansion from 10MHz to 20MHz),Carrier Aggregation LK per cell,3G Application SW Features package per Cell,5G eMBB Software Package per cell - 100 MHz (3 years SW RTU License),"Software, Activation with ASW, Upgrade to 200 MHz per sector, 5G, n78, additional 100 MHz, CA package, eMBB",5G eMBB ASW Package per cell - NR FDD upto 10MHz Carrier BW- (3 years SW RTU License),5G eMBB FDD+TD CA ASW Package per Cell,5G eMBB 3CC TDD DL CA activation 2xn78 + 1xn41 - 3x100MHz (3 years SW RTU License),5G eMBB 2CC (FDD+TDD) UL CA ASW Package per Cell,5G 16 DL Layer Activation per sector (3 years SW RTU License),5G 4 UL Layer Activation per sector (3 years SW RTU License),5G 8 UL Layer Activation from 4UL Layer per sector (3 years SW RTU License),5G_mMIMO_320W_Upgrade per Sector,LTE NetAct LK per Cell,3G NetAct LK per Cell,5G NetAct LKs per Cell,5G RAN -  Voice Over NR feature Package - per sector,"Power Distributor, FPFH",IPAA+ Platform Antenna 2.1m 2L6H (PFAA) - Passive Antenna,PFAx M DT/UT kit 76-140mm,Airscale IPAA+ AxQx Slide-in Frame C,New Rollout - Implementation SRAN 3G/LTE - 3 sector (incl. PM & Acceptance),New Rollout - Implementation 5G -3 sector (incl. PM & Acceptance),Implementation Expansion HW Max - SRAN 3G/LTE  (incl. PM & Acceptance),New Rollout - Implementation 5G FDD -3 sector (incl. PM & Acceptance),Implementation of Sector addition on existing site,Inst Material SRAN 3G/LTE upto 50m,Inst Material SRAN 3G/LTE from 50 to 100m,Inst Material 5G mMIMO 3-sector upto 50m,Inst Material 5G mMIMO 3-sector 50 to 100m,Jumper - 5m,Jumper - 10M,TI Survey of new or existing site,Logistics and transportation Services per site,Installation & commissioning of Outdoor Power Solution,"Service, Supply And Installation DC Breaker",Remote Sites - Implementation SRAN 3G/LTE or 5G  (incl. PM & Acceptance),Special Access Military- CICPA Sites - Implementation SRAN 3G/LTE or 5G  (incl. PM & Acceptance),"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only","Service, Crane usage, upto 100 Ton",BTS re-installation,"Service, Installation, IPAA Antenna","Dismantling, Packaging & Removal of 5G MAA",Swap Service Of Old Antennas By Hex Band,NR FDD - CPRI Fiber Link Ancillaries incl 2xSFP+ upto 50m,NR FDD - CPRI Fiber Link Ancillaries incl 2xSFP+ 50-100m,NR FDD - CPRI Fiber Link Ancillaries incl 2xSFP+ above 100m,"Service, Adding And Configure Extra Power Module Per Site",Implementation - NR FDD - Fiber Addition Service on Existing Site,Hafedh Verification,,,,,,,,,,,,,,
+,,,,,,#Line,1,2,3,4,6,9,10,11,12,13,14,18,17,21,22,23,26,27,28,31,33,34,35,36,37,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,62,63,66,67,68,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,90,91,92,93,94,95,118,156,,,,,,,,,,,,,,,
+,,,,,,BU,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,MN,NSW,NSW,NSW,MN,NI,MN,MN,MN,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,NI,MN,MN,MN,NI,NI,,,,,,,,,,,,,,,
+,,,,,,Unit Price ($), $538.84 ," $1,126.28 ", $793.25 ," $2,859.75 ", $186.56 ," $2,294.86 "," $2,395.98 "," $2,193.11 "," $2,088.68 "," $2,006.96 "," $3,271.09 "," $5,190.21 "," $7,984.54 "," $4,884.36 "," $10,455.95 "," $13,494.55 ", $423.76 , $941.08 , $329.38 , $516.42 , $329.38 , $64.68 ," $4,735.73 "," $3,409.73 "," $2,329.17 "," $1,053.21 "," $1,595.78 ", $478.73 , $226.49 , $39.55 , $42.60 , $236.66 , $180.88 , $13.44 , $458.92 , $151.07 , $393.47 ," $4,705.76 ", $396.73 , $869.03 ," $4,209.96 "," $4,113.31 "," $3,625.23 "," $3,920.27 ", $840.65 ," $1,452.31 "," $2,653.53 "," $1,452.31 "," $2,653.53 ", $16.22 , $35.38 , $275.40 , $483.96 , $958.28 , $50.86 ," $7,647.17 "," $8,411.89 ", $850.00 ," $1,237.50 "," $1,650.00 "," $1,048.00 "," $1,898.00 "," $1,048.00 ", $129.50 , $162.30 , $231.00 , $401.19 , $704.00 ,,,,,,,,,,,,,,,
+,,,,,,#Code,3036542312,3036542313,3028812899,3036542315,3036542317,3036542323,3036542324,3040432028,3089443593,3036542325,3036542326,3036542334,3036542329,3016948126,3036542333,3036542339,3015737098,3099358456,3094537448,3075395159,3037815194,3036542345,3036542346,3030631799,3036542348,3016948132,3036542347,3036542349,3016948133,3016948134,3016948135,3014313726,3036542350,3036542351,3036542352,3036542413,3099018936,3016948128,3016948129,3036542470,3036542353,3036542354,3036542359,3036542357,3036542358,3036542378,3036542392,3036542379,3036542393,3036542380,3036542391,3040347406,3036542365,3036542389,3086144987,3036542394,3036542395,3077554604,3016532073,3046826895,3080473321,3016948151,3054883004,3091203535,3091203536,3091203537,3033455133,3013320641,,,,,,,,,,,,,,,
+,,,,,,Category,HW,HW,HW,HW,HW,HW,HW,HW,HW,HW,HW,HW,HW,HW,HW,HW,HW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,HW,HW,HW,HW,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,Serv.,HW,HW,HW,Serv.,Serv.,Verify,,,,,,,,,,,,,,
+,,,,,,Total PO QTY ,130,538,134,2044,469,129,134,104,222,10,469,0,945,0,0,0,199,2159,785,0,806,830,945,945,4032,4032,288,4032,945,945,945,945,2159,830,4977,4977,618,45,45,45,96,160,95,1078,10,148,72,180,246,4272,1178,819,2079,0,810,374,56,42,35,50,16,105,150,2914,1,2,229,213,,,,,,,,,,,,,,,
+,,,,98,,Consumed in 2026,11,40,11,48,37,11,11,1,9,2,12,0,78,0,0,3,30,105,48,0,24,70,84,81,0,0,27,0,81,84,81,78,105,70,84,84,46,18,18,18,2,25,0,0,0,2,11,26,10,0,28,28,45,1,37,18,1,19,3,2,6,2,1,0,48,16,0,0,,11,8,1,8,98,98,98,98,95,98,63,63,92,92
+Region,Distance,Scope,Subscope,Site ID,Model Name towards dU,Remaining in PO,119,498,123,1996,432,118,123,103,213,8,457,0,867,0,0,-3,169,2054,737,0,782,760,861,864,4032,4032,261,4032,864,861,864,867,2054,760,4893,4893,572,27,27,27,94,135,95,1078,10,146,61,154,236,4272,1150,791,2034,-1,773,356,55,23,32,48,10,103,149,2914,-47,-14,229,213,Sum,AC ARMOD Cable,Additional Cost - 4x4,CICPA/Military Factor,Any Remark,Partner,Request Status,Requested Date,Du PO#,SMP,Year Scope,Integration Status,Integration Date,Du PO Convention name,PO Year Issuance
+AUH,,5G,5G Expansion-3CC,AUH2007,5g_3cc_Exp_reuse_n41_HW_Existing_HW_n78,,,1,,1,,,,,,,,,,,,,,,,,,,,,,,3,,,,,,,,,,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,11,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311401,2026,Completed,3 January 2026,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH3848,5g_new_colocation_3cc_n78_n41_HW_reuse,,,1,,2,1,,,,,,,,3,,,,,,,,,,3,3,,,3,,3,3,3,3,,,3,3,2,,,,,2,,,,,,2,,,,,1,,2,,,,,,,,,,,,,,43,,,,,Covenant,Requested by Islam,4 February 2026,106745,SMP-WO-1311398,2026,Completed,28 January 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH3848,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,,,,3,,,,,Covenant,Requested by Islam,4 February 2026,106745,SMP-WO-1311400,2026,Completed,28 January 2026,PO10_2025 (106745),2025
+AUH,,5G,IPAA   ,AUH3051,5G Antenna SWAP_IPAA+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,3,3,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,10,,,,,XAD,Requested by Islam,4 February 2026,TBD,SMP-WO-1311396,2025,Completed,29 January 2026,,
+AUH,,5G,IPAA   ,AUH3587,5G Antenna SWAP_IPAA+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,3,3,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,10,,,,,XAD,Requested by Islam,4 February 2026,TBD,SMP-WO-1311397,2025,Completed,29 January 2026,,
+AUH,,5G,NEW 5G Colocation,AUH3580,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,,XAD,Requested by Islam,4 February 2026,88436,SMP-WO-1311362,2026,Completed,4 February 2026,PO9_2024 (88436),2024
+AUH,,5G,NR-FDD Connectivity,AUH3580,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311371,2026,Completed,4 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NEW 5G Colocation,AUH1846,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,,,,,,,,1,,,,1,,1,1,,,,,,,,,,,,,35,,,,,Covenant,Requested by Islam,4 February 2026,106745,SMP-WO-1311402,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NR-FDD Connectivity,AUH1846,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,Covenant,Requested by Islam,4 February 2026,106745,SMP-WO-1311403,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NEW 5G Colocation,AUH1806,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,,,,,,,,1,,,,1,,1,1,,,,,,,,,,,,,35,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311409,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NR-FDD Connectivity,AUH1806,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311410,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NEW 5G Colocation,AUH1790,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,,,,,,,,1,,,,1,,1,1,,,,,,,,,,,,,35,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311414,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NR-FDD Connectivity,AUH1790,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311415,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,220kM,New SRAN,New SRAN,AUH1790,new 3g/lte 3xSectors lte/3g colocation 2cc,,1,1,1,1,1,1,1,,1,,,,,,,,1,6,3,,,6,,,,,,,,,,,6,6,,,1,,,,,,,,,,1,,,,,1,1,,,1,,,,,,,,,,,,,41,1,,,,XAD,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311686,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,292KM,New SRAN,New SRAN,AUH1806,new 3g/lte 3xSectors lte/3g colocation 2cc,,1,1,1,1,1,1,1,,1,,,,,,,,1,6,3,,,6,,,,,,,,,,,6,6,,,1,,,,,,,,,,1,,,,,1,1,,,1,,,,,,,,,,,,,41,1,1,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311687,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,330KM,New SRAN,New SRAN,AUH1846,new 3g/lte 3xSectors lte/3g colocation 2cc,,1,1,1,1,1,1,1,,1,,,,,,,,1,6,3,,,6,,,,,,,,,,,6,6,,,1,,,,,,,,,,1,,,,,1,1,,,1,,,,,,,,,,,,,41,1,1,,,Covenant,Requested by Safiullah,6 February 2026,106745,SMP-WO-1312332,2026,Completed,10 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NEW 5G Colocation,AUH1809,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,,,,,,,,1,,,,1,,1,1,,,,,,,,,,,,,35,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311407,2026,Completed,11 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NR-FDD Connectivity,AUH1809,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311408,2026,Completed,11 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NEW 5G Colocation,AUH1804,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,,,,,,,,1,,,,1,,1,1,,,,,,,,,,,,,35,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311411,2026,Completed,11 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NR-FDD Connectivity,AUH1804,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311412,2026,Completed,11 February 2026,PO10_2025 (106745),2025
+WR,314 KM,New SRAN,New SRAN,AUH1809,new 3g/lte 3xSectors lte/3g colocation 2cc,,1,1,1,1,1,1,1,,1,,,,,,,,1,6,3,,,6,,,,,,,,,,,6,6,,,1,,,,,,,,,,1,,,,,1,1,,,1,,,,,,,,,,,,,41,1,1,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311688,2026,Completed,11 February 2026,PO10_2025 (106745),2025
+WR,410KM,New SRAN,New SRAN,AUH1804,new 3g/lte 3xSectors lte/3g colocation 2cc,,1,1,1,1,1,1,1,,1,,,,,,,,1,6,3,,,6,,,,,,,,,,,6,6,,,1,,,,,,,,,,1,,,,,1,1,,,1,,,,,,,,,,,,,41,1,1,,,Covenant,Requested by Safiullah,6 February 2026,106745,SMP-WO-1312333,2026,Completed,11 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH1155,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,AQQL installed (IPAA+)-Paid,Covenant,Requested by Islam,4 February 2026,88436,SMP-WO-1311364,2026,Completed,16 February 2026,PO9_2024 (88436),2024
+AUH,,5G,NR-FDD Connectivity,AUH1155,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,Covenant,Requested by Islam,4 February 2026,106745,SMP-WO-1311373,2026,Completed,16 February 2026,PO10_2025 (106745),2025
+AUH,,5G,5G Expansion-3CC,AUH2733,5g_3cc_Exp_reuse_n41_HW_Existing_HW_n78,,,1,,1,,,,,,,,,,,,,,,,,,,,,,,3,,,,,,,,,,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,11,,,,,Covenant,Requested by Islam,10 February 2026,FOC-98238,SMP-WO-1313802,2026,Completed,13 February 2026,FOC-98238,2025
+AUH,,5G,NR-FDD Connectivity,AUH1196,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,Covenant,Requested by Islam,4 February 2026,106745,SMP-WO-1311375,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,IPAA   ,AUH3259,5G Antenna SWAP_IPAA+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,3,3,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,10,,,,,Covenant,Requested by Islam,10 February 2026,TBD,SMP-WO-1313782,2026,Completed,13 February 2026,,
+WR,220kM,5G,NR-FDD Connectivity,AUH1813,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,1,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311418,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+WR,300km,5G,NEW 5G Colocation,AUH6578,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,,,,,,,1,,,,1,1,,1,1,,,,,,,,,,,,,36,,,,AQQL installed (IPAA+)-Paid,HAYAT,Requested by Islam,4 February 2026,106745,SMP-WO-1311379,2026,,,PO10_2025 (106745),2025
+WR,300km,5G,NR-FDD Connectivity,AUH6578,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,HAYAT,Requested by Islam,4 February 2026,106745,SMP-WO-1311380,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH1196,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,AQQL installed (IPAA+)-Paid,Covenant,Requested by Islam,4 February 2026,88436,SMP-WO-1311365,2026,Completed,13 February 2026,PO9_2024 (88436),2024
+WR,220kM,5G,NEW 5G Colocation,AUH1813,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,,,,,,,,1,,,,1,,1,1,,,,,,,,,,,,,35,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311417,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+WR,231km,5G,NEW 5G Colocation,AUH1066,5g_new_colocation_3cc_n78_n41_HW_reuse,,,1,,2,1,,,,,,,,3,,,,,,,,,,3,3,,,3,,3,3,3,3,,,3,3,2,,,,,,,,,,,2,,,,1,1,,2,2,,,,,,,,,,,,,44,,,,,HAYAT,Requested by Islam,4 February 2026,106745,SMP-WO-1311383,2026,Completed,16 February 2026,PO10_2025 (106745),2025
+WR,231km,5G,NR-FDD Connectivity,AUH1066,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,HAYAT,Requested by Islam,4 February 2026,106745,SMP-WO-1311384,2026,Completed,16 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NR-FDD Connectivity,AUH1848,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311406,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+WR,220kM,5G,NEW 5G Colocation,AUH1848,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,,,,,,,,1,,,,1,,1,1,,,,,,,,,,,,,35,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311405,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH4549,5g_new_colocation_3cc_n78_n41_HW_reuse,,,1,,2,1,,,,,,,,3,,,,,,,,,,3,3,,,3,,3,3,3,3,,,3,3,2,,,,,2,,,,,,2,,,,,1,,2,,,,,,,,,,,,,,43,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311387,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH4549,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,,,,3,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311388,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH4646,5g_new_colocation_3cc_n78_n41_HW_reuse,,,1,,2,1,,,,,,,,3,,,,,,,,,,3,3,,,3,,3,3,3,3,,,3,3,2,,,,,2,,,,,,2,,,,,1,,2,,,,,,,,,,,,,,43,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311389,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH4646,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,,,,3,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311391,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH1939,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,AQQL installed (IPAA+)-Paid,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311392,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH1939,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,,,,3,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311393,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH3259,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,,Covenant,Requested by Islam,10 February 2026,88436,SMP-WO-1313804,2026,Completed,13 February 2026,PO9_2024 (88436),2024
+AUH,,5G,NR-FDD Connectivity,AUH2733,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,Covenant,Requested by Islam,10 February 2026,106745,SMP-WO-1313780,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,Antenna Swap_5G,AUH2733,5G Antenna SWAP_HEXABAND,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,1,,,,,Covenant,Requested by Islam,13 February 2026,106745,SMP-WO-1315565,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH3724,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,AQQL installed (IPAA+)-Paid,HAYAT,Requested by Islam,4 February 2026,88436,SMP-WO-1311366,2026,Completed,13 February 2026,PO9_2024 (88436),2024
+AUH,,5G,NR-FDD Connectivity,AUH3259,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,Covenant,Requested by Islam,10 February 2026,106745,SMP-WO-1313781,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH3725,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,AQQL installed (IPAA+)-Paid,HAYAT,Requested by Islam,4 February 2026,106745,SMP-WO-1311381,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,New SRAN,New SRAN,AUH4549,new 3g/lte 3xSectors lte/3g colocation 3cc,,1,1,1,1,1,1,1,,,,3,,,,,,1,9,3,,3,6,,,,,,,,,,,9,6,,,1,,,,1,,,,,1,,,,,,1,1,,,,,,1,,,,,,,,,,53,1,,,,XAD,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311684,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH3875,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,AQQL installed (IPAA+)-Paid,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311394,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH3724,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,,,,3,,,,,HAYAT,Requested by Islam,4 February 2026,106745,SMP-WO-1311376,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH2155,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311690,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH2810,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311691,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH3343,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311692,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH3492,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311693,2026,,,PO10_2025 (106745),2025
+WR,231km,SRAN Expansion,AMOD to ACOC,AUH3616,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311694,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH3240 ,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311695,2026,,,PO10_2025 (106745),2025
+WR,220kM,SRAN Expansion,AMOD to ACOC,AUH6464,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311696,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH2053,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311697,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH2308,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311698,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH2525,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311699,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH2609,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311700,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH3107,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311701,2026,,,PO10_2025 (106745),2025
+AUH,,SRAN Expansion,AMOD to ACOC,AUH6552 ,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311703,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH6463,5g_new_colocation_3cc_n78_n41_HW_reuse,,,1,,2,1,,,,,,,,3,,,,,,,,,,3,3,,,3,,3,3,3,3,,,3,3,2,,,,,2,,,,,,2,,,,1,1,,2,,,,,,,,,,,,,,44,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311385,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH3725,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,HAYAT,Requested by Islam,4 February 2026,106745,SMP-WO-1311382,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+WR,220kM,New SRAN,New SRAN,AUH1813,new 3g/lte 3xSectors lte/3g colocation 2cc,,1,1,1,1,1,1,1,,1,,,,,,,,1,6,3,,,6,,,,,,,,,,,6,6,,,1,,,,,,,,,,1,,,,,1,1,,,1,,,,,,,,,,,,,41,1,1,,,XAD,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311685,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH3875,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,Netkom,Requested by Islam,4 February 2026,106745,SMP-WO-1311395,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+WR,102KM,New SRAN,New SRAN,AUH1848,new 3g/lte 4xSectors lte/3g colocation 2cc,,1,1,1,1,1,1,1,,1,1,,,,,,,1,6,3,,,8,,,,,,,,,,,6,8,,,1,,,,,,,,,,1,,,,12,1,1,,,1,,,,,,,,,,,,,58,1,1,,,Netkom,Requested by Safiullah,4 February 2026,106745,SMP-WO-1311689,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH4507,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,,2,,,,1,,2,,,,,,,,,,,,,,37,,,,,Covenant,Requested by Islam,10 February 2026,106745,SMP-WO-1313783,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH4507,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,9,,,9,,,,,Covenant,Requested by Islam,10 February 2026,106745,SMP-WO-1313784,2026,,,PO10_2025 (106745),2025
+WR,210KM,New SRAN,New SRAN,AUH4186,new 3g/lte 3xSectors lte/3g colocation 3cc,,1,1,1,1,1,1,1,1,1,,,,,,,,1,9,3,,3,6,,,,,,,,,,,9,6,,,1,,,,,,,,,,1,,,,16,1,1,1,,1,,,1,,,,,,,,,,69,1,,,,Covenant,Requested by Safiullah,13 February 2026,106745,SMP-WO-1316915,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH6463,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,,,,3,,,,,XAD,Requested by Islam,4 February 2026,106745,SMP-WO-1311386,2026,Completed,13 February 2026,PO10_2025 (106745),2025
+AUH,,5G,Full Site_Dismantling,AUG4289,RDV Integration Services,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,1,,,,,XAD,Requested by Islam,13 February 2026,106745,SMP-WO-1315584,2026,Completed,10 January 2026,PO10_2025 (106745),2025
+AUH,,5G,Full Site_Dismantling,AUG4355,RDV Integration Services,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,1,,,,,XAD,Requested by Islam,13 February 2026,106745,SMP-WO-1315567,2026,Completed,10 January 2026,PO10_2025 (106745),2025
+AUH,,5G,5G Expansion-3CC,AUH3615,5g_3cc_Exp_n78_n41_new_dualBand_HW_Dism_Existing_HW,,,,,1,,,,,,,,,,,,3,,,,,,,6,3,,,3,,3,6,3,,,,6,6,,,,,,1,,,,,,,1,,,1,1,,,,,,,,,1,,,,,,,45,,,,,HAYAT,Requested by Islam,13 February 2026,106745,SMP-WO-1315568,2026,Completed,17 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH3615,5g_Exp_nr_fdd_n3_Connectivity,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,6,,,7,,,,,HAYAT,Requested by Islam,13 February 2026,106745,SMP-WO-1315570,2026,Completed,17 February 2026,PO10_2025 (106745),2025
+AUH,,5G,5G Expansion-3CC,AUH2578,5g_3cc_Exp_reuse_n41_HW_Existing_HW_n78,,,1,,1,,,,,,,,,,,,,,,,,,,,,,,3,,,,,,,,,,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,1,,,,,,,12,,,,Existing AQQL replaced with IPAA+_AVQL,Netkom,Requested by Islam,13 February 2026,106745,SMP-WO-1315571,2026,Completed,17 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH2578,5g_Exp_nr_fdd_n3_Connectivity,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,3,,,,,Netkom,Requested by Islam,13 February 2026,106745,SMP-WO-1315572,2026,Completed,17 February 2026,PO10_2025 (106745),2025
+AUH,,5G,IPAA   ,AUH2578,5G Antenna SWAP_IPAA+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,3,3,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,10,,,,,Netkom,Requested by Islam,13 February 2026,TBD,,2026,Completed,17 February 2026,,
+AUH,,5G,NEW 5G Colocation,AUH3333,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,,,,,,,,,,,36,,,,,XAD,Requested by Islam,17 February 2026,106745,SMP-WO-1317447,2026,Completed,19 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH3333,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,XAD,Requested by Islam,17 February 2026,106745,SMP-WO-1317448,2026,Completed,19 February 2026,PO10_2025 (106745),2025
+AUH,,5G,IPAA   ,AUH3333,5G Antenna SWAP_IPAA+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,3,3,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,10,,,,,XAD,Requested by Islam,17 February 2026,TBD,,2026,Completed,19 February 2026,,
+AUH,,5G,NEW 5G Colocation,AUH2806,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,1,1,,1,,,,1,,,,,,,,,,37,,,,,Covenant,Requested by Islam,17 February 2026,106745,SMP-WO-1317449,2026,Completed,18 February 2026,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH2806,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,,,2,,,,,Covenant,Requested by Islam,17 February 2026,106745,SMP-WO-1317450,2026,Completed,18 February 2026,PO10_2025 (106745),2025
+AUH,,5G,IPAA   ,AUH2806,5G Antenna SWAP_IPAA+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,3,3,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,10,,,,,Covenant,Requested by Islam,17 February 2026,TBD,,2026,Completed,18 February 2026,,
+AUH,,5G,NEW 5G Colocation,AUH1960,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,,1,,1,,,,,,,,,,,,,,35,,,,,Covenant,Requested by Islam,17 February 2026,106745,SMP-WO-1317451,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH1960,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,Covenant,Requested by Islam,17 February 2026,106745,SMP-WO-1317452,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NEW 5G Colocation,AUH1821,5g_new_colocation_2cc_n78,,,1,,1,1,,,,,,,,3,,,,,,,,,,3,3,,,,,3,3,3,3,,,3,3,1,,,,,1,,,,,,1,,,,,1,,1,,,,,,,,,,,,,,35,,,,,Netkom,Requested by Islam,17 February 2026,106745,SMP-WO-1317453,2026,,,PO10_2025 (106745),2025
+AUH,,5G,NR-FDD Connectivity,AUH1821,5g_Exp_nr_fdd_n3_Connectivity,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,,,Netkom,Requested by Islam,17 February 2026,106745,SMP-WO-1317454,2026,,,PO10_2025 (106745),2025
+AUH,,New SRAN,New SRAN,AUH4507,new 3g/lte 3x Hexabem Sectors lte/3g colocation 3cc,,1,1,1,1,1,1,1,,,,9,,,,,,1,39,18,,18,6,,,,,,,,,,,39,6,,,2,,,,1,,,,,1,2,,,,,1,5,,2,,,,,,,,,,,,,,157,1,Cherry picker - AED7200,,,Covenant,Requested by Safiullah,13 February 2026,106745,SMP-WO-1316916,2026,,,PO10_2025 (106745),2025
+WR,250KM,New SRAN,New SRAN,AUH2988,new 3g/lte 4xSectors lte/3g colocation 2cc,,1,1,1,1,1,1,1,,1,1,,,,,,,1,6,3,,,8,,,,,,,,,,,6,8,,,1,,,,,,,,,,1,,,,,1,1,,,,1,,,,,,,,,,,,46,1,1,CICPA,,HOI,Requested by Safiullah,13 February 2026,106745,SMP-WO-1316917,2026,,,PO10_2025 (106745),2025
+WR,308kM,SRAN Expansion,AMOD to ACOC,AUH3651,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,16 February 2026,106745,SMP-WO-1316980,2026,,,PO10_2025 (106745),2025
+WR,324kM,SRAN Expansion,AMOD to ACOC,AUH3593,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,16 February 2026,106745,SMP-WO-1316982,2026,,,PO10_2025 (106745),2025
+WR,316kM,SRAN Expansion,AMOD to ACOC,AUH3599,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,16 February 2026,106745,SMP-WO-1316983,2026,,,PO10_2025 (106745),2025
+WR,272kM,SRAN Expansion,AMOD to ACOC,AUH2938,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,16 February 2026,106745,SMP-WO-1316984,2026,,,PO10_2025 (106745),2025
+WR,302kM,SRAN Expansion,AMOD to ACOC,AUH2844,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,16 February 2026,106745,SMP-WO-1316985,2026,,,PO10_2025 (106745),2025
+WR,305kM,SRAN Expansion,AMOD to ACOC,AUH2898,"Services, Dismantling, Packaging, Removal , BTS Cabinets, 3G 4G only",,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,2,,,,,Covenant,Requested by Safiullah,16 February 2026,106745,SMP-WO-1316987,2026,,,PO10_2025 (106745),2025
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
