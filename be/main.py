@@ -223,19 +223,16 @@ app.include_router(exchangeRateRoute)   # USD/AED live exchange rate
 
 # Application entry point
 if __name__ == "__main__":
-    # SSL certificate paths
-    ssl_certfile = os.path.join(os.path.dirname(__file__), "certs", "cert.pem")
-    ssl_keyfile = os.path.join(os.path.dirname(__file__), "certs", "key.pem")
+    # # SSL certificate paths (uncomment for HTTPS)
+    # ssl_certfile = os.path.join(os.path.dirname(__file__), "certs", "cert.pem")
+    # ssl_keyfile = os.path.join(os.path.dirname(__file__), "certs", "key.pem")
 
-    # Start the HTTPS server
-    # Host: 0.0.0.0 (all interfaces)
-    # Port: 8003
-    # Timeout: 600 seconds (10 minutes) for large file uploads
+    # Start the HTTP server
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=8003,
         timeout_keep_alive=600,
-        ssl_certfile=ssl_certfile,
-        ssl_keyfile=ssl_keyfile
+        # ssl_certfile=ssl_certfile,
+        # ssl_keyfile=ssl_keyfile
     )
